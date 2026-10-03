@@ -18,6 +18,7 @@ import { Brand } from "@/components/brand"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { roleHome } from "@/hooks/use-user"
 import { ApiError, login, register, saveUser } from "@/lib/api"
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
@@ -45,7 +46,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           })
         : await login(email, password)
       saveUser(user)
-      router.push("/dashboard")
+      router.push(roleHome(user.role))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong")
       setLoading(false)
