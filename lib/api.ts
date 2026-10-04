@@ -16,6 +16,8 @@ export type CourseStatus = "draft" | "published" | "archived"
 export type EnrollmentStatus = "active" | "completed" | "expired" | "cancelled"
 export type QuizStatus = "draft" | "published"
 
+export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" | "role">
+
 export type Exam = { id: string; code: string; name: string; description: string }
 
 export type Course = {
@@ -182,15 +184,35 @@ async function send(method: string, path: string, { body, form, query }: Options
   }
 }
 
-// One refresh at a time, even if several requests hit an expired access token together.
+const NO_RENEW = new Set(["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"])
+
+let lastRefreshedAt = 0
 let refreshing: Promise<boolean> | null = null
-function refreshOnce() {
-  refreshing ??= send("POST", "/auth/refresh", {})
-    .then((r) => r.ok)
+
+/**
+ * Renews the access_token using the refresh_token cookie.
+ * Deduplicates in-flight refresh requests and prevents rapid redundant refreshes.
+ */
+export function refreshOnce(): Promise<boolean> {
+  if (Date.now() - lastRefreshedAt < 5_000) {
+    return Promise.resolve(true)
+  }
+  if (refreshing) return refreshing
+
+  refreshing = send("POST", "/auth/refresh", {})
+    .then((r) => {
+      if (r.ok) {
+        lastRefreshedAt = Date.now()
+        markSessionVerified()
+        return true
+      }
+      return false
+    })
     .catch(() => false)
     .finally(() => {
       refreshing = null
     })
+
   return refreshing
 }
 
@@ -198,11 +220,15 @@ function refreshOnce() {
 // If that fails the session is gone, so the local user is cleared and the UI returns to /login.
 async function call(method: string, path: string, opts: Options = {}) {
   let res = await send(method, path, opts)
-  if (res.status === 401 && !path.startsWith("/auth/")) {
-    if (await refreshOnce()) {
+  // Login/register/refresh/logout handle their own 401s; everything else (incl. /auth/me) may renew the session.
+  if (res.status === 401 && !NO_RENEW.has(path)) {
+    const refreshed = await refreshOnce()
+    if (refreshed) {
       res = await send(method, path, opts)
     }
-    if (res.status === 401) clearUser()
+    if (res.status === 401) {
+      clearUser()
+    }
   }
   return res
 }
@@ -235,7 +261,23 @@ export const register = (input: {
   password: string
 }) => json<User>("POST", "/auth/register", { body: input })
 
-export const refreshSession = () => json<string>("POST", "/auth/refresh")
+export const refreshSession = () => refreshOnce()
+
+/** The server's view of the signed-in user (current role included). */
+export const getMe = () => json<User>("GET", "/auth/me")
+
+/** Clears the HttpOnly auth cookies on the server, then the local copy. */
+export async function logout() {
+  try {
+    await json<string>("POST", "/auth/logout")
+  } finally {
+    clearUser()
+  }
+}
+
+// ── users (admin) ───────────────────────────────────────────────────────────
+export const listUsers = async (role?: Role, limit = 200, offset = 0) =>
+  (await json<UserSummary[]>("GET", "/users", { query: { role, limit, offset } })) ?? []
 
 // ── exams ───────────────────────────────────────────────────────────────────
 export const listExams = async () => (await json<Exam[]>("GET", "/exams")) ?? []
@@ -244,9 +286,15 @@ export const listExams = async () => (await json<Exam[]>("GET", "/exams")) ?? []
 export const listCourses = async (limit = 50, offset = 0) =>
   (await json<Course[]>("GET", "/courses", { query: { limit, offset } })) ?? []
 
+export const listMyCourses = async (limit = 100, offset = 0) =>
+  (await json<Course[]>("GET", "/me/courses", { query: { limit, offset } })) ?? []
+
+export const getCourse = (courseId: string) => json<Course>("GET", `/courses/${id(courseId)}`)
+
 export const createCourse = (input: {
   examId: string
-  instructorId: string
+  /** Optional: the server defaults to the logged-in admin. */
+  instructorId?: string
   title: string
   slug: string
   shortDescription?: string
@@ -254,6 +302,21 @@ export const createCourse = (input: {
   status?: CourseStatus
   isFree?: boolean
 }) => json<Course>("POST", "/courses", { body: input })
+
+export const updateCourse = (
+  courseId: string,
+  input: Partial<{
+    title: string
+    slug: string
+    shortDescription: string
+    description: string
+    examId: string
+    isFree: boolean
+  }>
+) => json<Course>("PATCH", `/courses/${id(courseId)}`, { body: input })
+
+export const deleteCourse = (courseId: string) =>
+  json<string>("DELETE", `/courses/${id(courseId)}`)
 
 export const updateCourseStatus = (courseId: string, status: CourseStatus) =>
   json<Course>("PATCH", `/courses/${id(courseId)}/status`, { body: { status } })
@@ -266,6 +329,14 @@ export const createLesson = (
   courseId: string,
   input: { title: string; content?: string; isFree?: boolean; isPublished?: boolean }
 ) => json<Lesson>("POST", `/courses/${id(courseId)}/lessons`, { body: input })
+
+export const updateLesson = (
+  lessonId: string,
+  input: Partial<{ title: string; content: string; isFree: boolean; isPublished: boolean }>
+) => json<Lesson>("PATCH", `/lessons/${id(lessonId)}`, { body: input })
+
+export const deleteLesson = (lessonId: string) =>
+  json<string>("DELETE", `/lessons/${id(lessonId)}`)
 
 export const uploadNote = (
   lessonId: string,
@@ -328,6 +399,22 @@ export const createQuiz = (
   }
 ) => json<Quiz>("POST", `/lessons/${id(lessonId)}/quizzes`, { body: input })
 
+export const updateQuiz = (
+  quizId: string,
+  input: Partial<{
+    title: string
+    description: string
+    isFree: boolean
+    passPercent: number
+    /** 0 makes the quiz untimed. */
+    timeLimitSec: number
+    status: QuizStatus
+    questions: NewQuestion[]
+  }>
+) => json<Quiz>("PATCH", `/quizzes/${id(quizId)}`, { body: input })
+
+export const deleteQuiz = (quizId: string) => json<string>("DELETE", `/quizzes/${id(quizId)}`)
+
 export const getQuiz = (quizId: string) => json<Quiz>("GET", `/quizzes/${id(quizId)}`)
 
 export const updateQuizStatus = (quizId: string, status: QuizStatus) =>
@@ -341,9 +428,19 @@ export const submitAttempt = (
 export const listAttempts = async (quizId: string) =>
   (await json<QuizAttempt[]>("GET", `/quizzes/${id(quizId)}/attempts`)) ?? []
 
-// ── local session (profile only; tokens live in HttpOnly cookies) ───────────
+// ── local session cache (profile only; tokens live in HttpOnly cookies) ─────
 export const USER_KEY = "lms_user"
-const COURSES_KEY = "lms_courses"
+
+let lastVerified = 0
+export const VERIFY_EVERY_MS = 60_000
+
+export function markSessionVerified() {
+  lastVerified = Date.now()
+}
+
+export function isSessionFresh() {
+  return Date.now() - lastVerified < VERIFY_EVERY_MS
+}
 
 const listeners = new Set<() => void>()
 const notify = () => listeners.forEach((l) => l())
@@ -376,6 +473,7 @@ export function parseUser(raw: string | null): User | null {
 }
 
 export function saveUser(user: User) {
+  markSessionVerified()
   try {
     localStorage.setItem(USER_KEY, JSON.stringify(user))
   } catch {}
@@ -383,34 +481,12 @@ export function saveUser(user: User) {
 }
 
 export function clearUser() {
+  lastVerified = 0
   try {
     localStorage.removeItem(USER_KEY)
-    localStorage.removeItem(COURSES_KEY)
   } catch {}
   notify()
 }
 
-// The API has no "my courses" endpoint for instructors/students, so courses they have
-// seen (via the feed, or opened by id) are remembered here for quick access.
-export type KnownCourse = { id: string; title: string }
-
-export function loadKnownCourses(): KnownCourse[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(COURSES_KEY) ?? "[]")
-    return Array.isArray(raw)
-      ? raw.filter((c) => c && typeof c.id === "string" && typeof c.title === "string")
-      : []
-  } catch {
-    return []
-  }
-}
-
-export function rememberCourses(courses: KnownCourse[]) {
-  const byId = new Map(loadKnownCourses().map((c) => [c.id, c]))
-  for (const c of courses) byId.set(c.id, { id: c.id, title: c.title || byId.get(c.id)?.title || c.id })
-  try {
-    localStorage.setItem(COURSES_KEY, JSON.stringify([...byId.values()].slice(-50)))
-  } catch {}
-}
-
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+

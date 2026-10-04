@@ -1,17 +1,20 @@
 "use client"
 
-import { CheckCircle2, Loader2, XCircle } from "lucide-react"
-import { useParams } from "next/navigation"
+import { CheckCircle2, Loader2, Pencil, Trash2, XCircle } from "lucide-react"
+import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { QuizBuilder } from "@/components/quiz-builder"
 import { Select } from "@/components/ui/select"
 import { useUser } from "@/hooks/use-user"
 import {
   UUID_RE,
+  deleteQuiz,
+  getCourse,
   getQuiz,
   listAttempts,
   submitAttempt,
@@ -23,7 +26,7 @@ import {
 
 export default function QuizPage() {
   return (
-    <AppShell roles={["instructor", "student"]}>
+    <AppShell>
       <QuizView />
     </AppShell>
   )
@@ -31,7 +34,7 @@ export default function QuizPage() {
 
 function QuizView() {
   const user = useUser()!
-  const isInstructor = user.role === "instructor"
+  const router = useRouter()
   const { id } = useParams<{ id: string }>()
   const valid = UUID_RE.test(id)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
@@ -39,12 +42,35 @@ function QuizView() {
   const [result, setResult] = useState<QuizAttempt | null>(null)
   const [error, setError] = useState<string | null>(valid ? null : "That is not a valid quiz ID.")
   const [taking, setTaking] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [owner, setOwner] = useState(false)
+  const isStudent = user.role === "student"
 
   useEffect(() => {
     if (!valid) return
-    getQuiz(id).then(setQuiz).catch((e) => setError(errMsg(e)))
-    if (!isInstructor) listAttempts(id).then(setAttempts).catch((e) => setError(errMsg(e)))
-  }, [id, valid, isInstructor])
+    getQuiz(id)
+      .then(async (q) => {
+        setQuiz(q)
+        // Owner = instructor/admin whose id is the course's instructor id.
+        if (!isStudent) {
+          const c = await getCourse(q.courseId).catch(() => null)
+          setOwner(!!c && c.instructorId === user.id)
+        }
+      })
+      .catch((e) => setError(errMsg(e)))
+    if (isStudent) listAttempts(id).then(setAttempts).catch((e) => setError(errMsg(e)))
+  }, [id, valid, isStudent, user.id])
+
+  async function onDelete() {
+    if (!quiz || !confirm(`Delete "${quiz.title}"? Students' past attempts are kept.`)) return
+    setError(null)
+    try {
+      await deleteQuiz(id)
+      router.replace(`/courses/${quiz.courseId}`)
+    } catch (e) {
+      setError(errMsg(e))
+    }
+  }
 
   async function onStatus(s: QuizStatus) {
     setError(null)
@@ -64,11 +90,19 @@ function QuizView() {
         title={quiz?.title ?? "Quiz"}
         subtitle={quiz?.description}
         actions={
-          isInstructor && quiz && (
-            <Select aria-label="Quiz status" className="h-9 w-40" value={quiz.status} onChange={(e) => onStatus(e.target.value as QuizStatus)}>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-            </Select>
+          owner && quiz && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Select aria-label="Quiz status" className="h-9 w-36" value={quiz.status} onChange={(e) => onStatus(e.target.value as QuizStatus)}>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </Select>
+              <Button variant="outline" onClick={() => setEditing((v) => !v)}>
+                <Pencil /> Edit
+              </Button>
+              <Button variant="destructive" onClick={onDelete}>
+                <Trash2 /> Delete
+              </Button>
+            </div>
           )
         }
       />
@@ -87,15 +121,26 @@ function QuizView() {
         </div>
       )}
 
-      {isInstructor && quiz && <Answers questions={questions} />}
+      {owner && quiz && editing && (
+        <QuizBuilder
+          key={quiz.id}
+          quiz={quiz}
+          onSaved={(q) => {
+            setQuiz(q)
+            setEditing(false)
+          }}
+        />
+      )}
 
-      {!isInstructor && quiz && !result && !taking && (
+      {!isStudent && quiz && !editing && <Answers questions={questions} />}
+
+      {isStudent && quiz && !result && !taking && (
         <Button onClick={() => setTaking(true)} disabled={questions.length === 0}>
           Start quiz
         </Button>
       )}
 
-      {!isInstructor && quiz && taking && !result && (
+      {isStudent && quiz && taking && !result && (
         <Take
           quiz={quiz}
           onDone={(a) => {
@@ -108,7 +153,7 @@ function QuizView() {
 
       {result && quiz && <Result quiz={quiz} attempt={result} />}
 
-      {!isInstructor && attempts.length > 0 && (
+      {isStudent && attempts.length > 0 && (
         <Card className="bg-white shadow-xs">
           <CardHeader>
             <CardTitle>My attempts</CardTitle>

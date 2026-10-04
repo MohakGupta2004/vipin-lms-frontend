@@ -2,31 +2,28 @@
 
 import { ArrowRight, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useUser } from "@/hooks/use-user"
 import {
-  UUID_RE,
   createPost,
   deletePost,
+  listMyCourses,
   listPosts,
-  loadKnownCourses,
-  rememberCourses,
-  type KnownCourse,
+  type Course,
   type Post,
 } from "@/lib/api"
 
 export default function FeedPage() {
   return (
-    <AppShell roles={["instructor", "student"]}>
+    <AppShell>
       <Feed />
     </AppShell>
   )
@@ -34,24 +31,22 @@ export default function FeedPage() {
 
 function Feed() {
   const user = useUser()!
-  const isInstructor = user.role === "instructor"
-  const router = useRouter()
+  // Instructors and admins own courses; students only take them.
+  const canTeach = user.role !== "student"
   const [posts, setPosts] = useState<Post[]>([])
-  const [courses, setCourses] = useState<KnownCourse[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [courseId, setCourseId] = useState("")
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      const rows = await listPosts(50, 0)
-      setPosts(rows)
-      rememberCourses(rows.map((p) => ({ id: p.courseId, title: p.courseTitle })))
+      const [c, p] = await Promise.all([listMyCourses(100, 0), listPosts(50, 0)])
+      setCourses(c)
+      setPosts(p)
     } catch (e) {
       setError(errMsg(e))
     } finally {
-      setCourses(loadKnownCourses())
       setLoading(false)
     }
   }, [])
@@ -61,67 +56,56 @@ function Feed() {
     load()
   }, [load])
 
-  function openCourse(e: React.FormEvent) {
-    e.preventDefault()
-    const id = courseId.trim()
-    if (!UUID_RE.test(id)) return setError("Course ID must be a valid ID.")
-    rememberCourses([{ id, title: "" }])
-    router.push(`/courses/${id}`)
-  }
+  const owned = new Set(courses.filter((c) => c.instructorId === user.id).map((c) => c.id))
 
   return (
     <>
       <PageTitle
-        title={isInstructor ? "My classroom" : "My learning"}
+        title={canTeach ? "My courses" : "My learning"}
         subtitle={
-          isInstructor
-            ? "Courses you teach and the announcements you have shared."
-            : "Your courses and the latest updates from your instructors."
+          canTeach
+            ? "Courses you own and the updates you have shared."
+            : "Your enrolled courses and the latest updates from your instructors."
         }
       />
 
       <ErrorNote error={error} />
 
-      <Card className="bg-white shadow-xs">
-        <CardHeader>
-          <CardTitle>Courses</CardTitle>
-          <CardDescription>
-            Courses appear here once they show up in your feed. You can also open one with its course ID
-            (ask your administrator).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {courses.length > 0 && (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {courses.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/courses/${c.id}`}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50"
-                  >
-                    <span className="truncate">{c.title || c.id}</span>
-                    <ArrowRight className="size-4 shrink-0 text-gray-400" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <form onSubmit={openCourse} className="flex gap-2">
-            <Input
-              aria-label="Course ID"
-              placeholder="Paste a course ID"
-              value={courseId}
-              className="h-10 bg-white font-mono"
-              onChange={(e) => setCourseId(e.target.value)}
-            />
-            <Button type="submit" variant="outline" className="h-10">
-              Open
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Courses</h2>
+        {loading && (
+          <p className="flex items-center gap-2 text-sm text-gray-500">
+            <Loader2 className="size-4 animate-spin" /> Loading…
+          </p>
+        )}
+        {!loading && courses.length === 0 && !error && (
+          <Card className="bg-white">
+            <CardContent className="py-8 text-center text-sm text-gray-500">
+              {canTeach ? "You don't own any courses yet." : "You are not enrolled in any course yet."}
+            </CardContent>
+          </Card>
+        )}
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {courses.map((c) => (
+            <li key={c.id}>
+              <Link href={`/courses/${c.id}`} className="block h-full rounded-xl border border-gray-200 bg-white p-4 shadow-xs hover:bg-gray-50">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-gray-900">{c.title}</span>
+                  <ArrowRight className="mt-1 size-4 shrink-0 text-gray-400" />
+                </div>
+                {c.shortDescription && <p className="mt-1 line-clamp-2 text-sm text-gray-600">{c.shortDescription}</p>}
+                {canTeach && (
+                  <Badge variant={c.status === "published" ? "default" : "secondary"} className="mt-3 capitalize">
+                    {c.status}
+                  </Badge>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      {isInstructor && <NewPost courses={courses} onPosted={load} />}
+      {canTeach && owned.size > 0 && <NewPost courses={courses} onPosted={load} />}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">Feed</h2>
@@ -142,7 +126,7 @@ function Feed() {
                   </Link>{" "}
                   · {new Date(p.createdAt).toLocaleString()}
                 </div>
-                {isInstructor && p.authorId === user.id && (
+                {canTeach && owned.has(p.courseId) && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -187,7 +171,8 @@ function Feed() {
   )
 }
 
-function NewPost({ courses, onPosted }: { courses: KnownCourse[]; onPosted: () => void }) {
+function NewPost({ courses, onPosted }: { courses: Course[]; onPosted: () => void }) {
+  const me = useUser()!
   const [courseId, setCourseId] = useState("")
   const [content, setContent] = useState("")
   const [links, setLinks] = useState("")
@@ -226,9 +211,9 @@ function NewPost({ courses, onPosted }: { courses: KnownCourse[]; onPosted: () =
             <FieldLabel htmlFor="pcourse">Course</FieldLabel>
             <Select id="pcourse" required value={courseId} onChange={(e) => setCourseId(e.target.value)}>
               <option value="">Select a course…</option>
-              {courses.map((c) => (
+              {courses.filter((c) => c.instructorId === me.id).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.title || c.id}
+                  {c.title}
                 </option>
               ))}
             </Select>

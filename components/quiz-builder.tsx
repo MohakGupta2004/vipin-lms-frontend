@@ -9,19 +9,44 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { createQuiz, type Quiz, type QuizStatus } from "@/lib/api"
+import { createQuiz, updateQuiz, type Quiz, type QuizStatus } from "@/lib/api"
 
 type Draft = { text: string; explanation: string; options: string[]; correct: number }
 
 const blank = (): Draft => ({ text: "", explanation: "", options: ["", ""], correct: 0 })
 
-export function QuizBuilder({ lessonId, onCreated }: { lessonId: string; onCreated: (q: Quiz) => void }) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [passPercent, setPass] = useState(70)
-  const [minutes, setMinutes] = useState("")
-  const [status, setStatus] = useState<QuizStatus>("published")
-  const [questions, setQuestions] = useState<Draft[]>([blank()])
+const fromQuiz = (q: Quiz): Draft[] =>
+  (q.questions ?? []).map((x) => ({
+    text: x.questionText,
+    explanation: x.explanation ?? "",
+    options: x.options.map((o) => o.optionText),
+    correct: Math.max(0, x.options.findIndex((o) => o.isCorrect)),
+  }))
+
+/** Creates a quiz on `lessonId`, or edits `quiz` when given (the owner sees the answers). */
+export function QuizBuilder({
+  lessonId,
+  quiz,
+  onSaved,
+}: {
+  lessonId?: string
+  quiz?: Quiz
+  onSaved: (q: Quiz) => void
+}) {
+  const editing = !!quiz
+  const key = quiz?.id ?? lessonId
+  const [title, setTitle] = useState(quiz?.title ?? "")
+  const [description, setDescription] = useState(quiz?.description ?? "")
+  const [passPercent, setPass] = useState(quiz?.passPercent ?? 70)
+  const [minutes, setMinutes] = useState(quiz?.timeLimitSec ? String(Math.round(quiz.timeLimitSec / 60)) : "")
+  const [status, setStatus] = useState<QuizStatus>(quiz?.status ?? "published")
+  const [questions, setQuestionsRaw] = useState<Draft[]>(quiz ? fromQuiz(quiz) : [blank()])
+  // Only send questions when they were touched: the server replaces them all, and refuses once students have attempted.
+  const [dirty, setDirty] = useState(false)
+  const setQuestions = (fn: (q: Draft[]) => Draft[]) => {
+    setDirty(true)
+    setQuestionsRaw(fn)
+  }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,19 +58,30 @@ export function QuizBuilder({ lessonId, onCreated }: { lessonId: string; onCreat
     setError(null)
     setSaving(true)
     try {
-      const quiz = await createQuiz(lessonId, {
-        title: title.trim(),
-        description: description.trim(),
-        passPercent,
-        timeLimitSec: minutes ? Math.round(Number(minutes) * 60) : undefined,
-        status,
-        questions: questions.map((q) => ({
-          questionText: q.text.trim(),
-          explanation: q.explanation.trim(),
-          options: q.options.map((o, i) => ({ optionText: o.trim(), isCorrect: i === q.correct })),
-        })),
-      })
-      onCreated(quiz)
+      const payloadQuestions = questions.map((q) => ({
+        questionText: q.text.trim(),
+        explanation: q.explanation.trim(),
+        options: q.options.map((o, i) => ({ optionText: o.trim(), isCorrect: i === q.correct })),
+      }))
+      const timeLimitSec = minutes ? Math.round(Number(minutes) * 60) : undefined
+      const saved = editing
+        ? await updateQuiz(quiz.id, {
+            title: title.trim(),
+            description: description.trim(),
+            passPercent,
+            timeLimitSec: timeLimitSec ?? 0, // 0 = untimed
+            status,
+            ...(dirty ? { questions: payloadQuestions } : {}),
+          })
+        : await createQuiz(lessonId!, {
+            title: title.trim(),
+            description: description.trim(),
+            passPercent,
+            timeLimitSec,
+            status,
+            questions: payloadQuestions,
+          })
+      onSaved(saved)
     } catch (err) {
       setError(errMsg(err))
       setSaving(false)
@@ -56,8 +92,8 @@ export function QuizBuilder({ lessonId, onCreated }: { lessonId: string; onCreat
     <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field className="sm:col-span-2">
-          <FieldLabel htmlFor={`qt-${lessonId}`}>Quiz title</FieldLabel>
-          <Input id={`qt-${lessonId}`} required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
+          <FieldLabel htmlFor={`qt-${key}`}>Quiz title</FieldLabel>
+          <Input id={`qt-${key}`} required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field className="sm:col-span-2">
           <FieldLabel>Description</FieldLabel>
@@ -96,7 +132,7 @@ export function QuizBuilder({ lessonId, onCreated }: { lessonId: string; onCreat
               <div key={j} className="flex items-center gap-2">
                 <input
                   type="radio"
-                  name={`correct-${lessonId}-${i}`}
+                  name={`correct-${key}-${i}`}
                   checked={q.correct === j}
                   onChange={() => patch(i, { correct: j })}
                   aria-label={`Option ${j + 1} is correct`}
@@ -145,7 +181,7 @@ export function QuizBuilder({ lessonId, onCreated }: { lessonId: string; onCreat
       <div>
         <Button type="submit" disabled={saving}>
           {saving && <Loader2 className="animate-spin" />}
-          Create quiz
+          {editing ? "Save quiz" : "Create quiz"}
         </Button>
       </div>
     </form>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Copy, Loader2, Plus, Users } from "lucide-react"
+import { ArrowRight, Copy, Loader2, Plus, Users } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -11,15 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { useUser } from "@/hooks/use-user"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  UUID_RE,
   createCourse,
   listCourses,
   listExams,
+  listUsers,
   type Course,
   type CourseStatus,
   type Exam,
+  type UserSummary,
 } from "@/lib/api"
 
 const PAGE = 20
@@ -43,6 +45,8 @@ export default function CoursesPage() {
 function Courses() {
   const [courses, setCourses] = useState<Course[]>([])
   const [exams, setExams] = useState<Exam[]>([])
+  const [users, setUsers] = useState<UserSummary[]>([])
+  const me = useUser()!
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -69,15 +73,22 @@ function Courses() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load(0)
     listExams().then(setExams).catch((e) => setError(errMsg(e)))
+    listUsers().then(setUsers).catch((e) => setError(errMsg(e)))
   }, [load])
 
   const examName = (id: string) => exams.find((x) => x.id === id)?.name ?? "—"
+  const person = (id: string) => {
+    if (id === me.id) return "You"
+    const u = users.find((x) => x.id === id)
+    return u ? `${u.firstName} ${u.lastName}` : id
+  }
+  const eligible = users.filter((u) => u.role === "instructor" || u.role === "admin")
 
   return (
     <>
       <PageTitle
         title="Courses"
-        subtitle="Every course on the platform. Status can be set when creating; afterwards only the course's instructor account can change it (open the course ID while signed in as that instructor)."
+        subtitle="Every course on the platform. Courses you own can be edited, published and filled with lessons, notes and quizzes."
         actions={
           <Button onClick={() => setCreating((v) => !v)}>
             <Plus />
@@ -89,6 +100,7 @@ function Courses() {
       {creating && (
         <CreateCourse
           exams={exams}
+          instructors={eligible}
           onCreated={() => {
             setCreating(false)
             load(0)
@@ -143,17 +155,23 @@ function Courses() {
                   <CopyButton text={c.id} label="Copy course ID" />
                 </div>
                 <div className="sm:col-span-2">
-                  <dt className="inline font-medium">Instructor ID: </dt>
-                  <dd className="inline font-mono">{c.instructorId}</dd>
+                  <dt className="inline font-medium">Instructor: </dt>
+                  <dd className="inline">{person(c.instructorId)}</dd>
                 </div>
               </dl>
-              <Link
-                href={`/enrollments?courseId=${encodeURIComponent(c.id)}`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <Users />
-                Enrollments
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/courses/${c.id}`} className={buttonVariants({ size: "sm" })}>
+                  {c.instructorId === me.id ? "Manage" : "View"}
+                  <ArrowRight />
+                </Link>
+                <Link
+                  href={`/enrollments?courseId=${encodeURIComponent(c.id)}`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <Users />
+                  Enrollments
+                </Link>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -195,18 +213,20 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
 
 function CreateCourse({
   exams,
+  instructors,
   onCreated,
 }: {
   exams: Exam[]
+  instructors: UserSummary[]
   onCreated: () => void
 }) {
   const [title, setTitle] = useState("")
   const [slug, setSlug] = useState("")
   const [slugEdited, setSlugEdited] = useState(false)
   const [examId, setExamId] = useState("")
-  // The API only accepts a user with the instructor role as a course's instructor, so the admin's own
-  // ID is rejected. The admin's linked instructor account (NEXT_PUBLIC_ADMIN_INSTRUCTOR_ID) is used instead.
-  const [instructorId, setInstructorId] = useState(process.env.NEXT_PUBLIC_ADMIN_INSTRUCTOR_ID ?? "")
+  const me = useUser()!
+  // Defaults to the admin: the course owner can manage its lessons, notes and quizzes.
+  const [instructorId, setInstructorId] = useState(me.id)
   const [shortDescription, setShort] = useState("")
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState<CourseStatus>("draft")
@@ -218,12 +238,11 @@ function CreateCourse({
     e.preventDefault()
     setError(null)
     if (!examId) return setError("Choose the exam this course is for.")
-    if (!UUID_RE.test(instructorId.trim())) return setError("Enter the instructor ID.")
     setSaving(true)
     try {
       await createCourse({
         examId,
-        instructorId: instructorId.trim(),
+        instructorId,
         title: title.trim(),
         slug: slug.trim(),
         shortDescription: shortDescription.trim(),
@@ -287,17 +306,18 @@ function CreateCourse({
             />
           </Field>
           <Field className="sm:col-span-2">
-            <FieldLabel htmlFor="instructor">Instructor ID</FieldLabel>
-            <Input
-              id="instructor"
-              required
-              value={instructorId}
-              className="h-10 bg-white font-mono"
-              onChange={(e) => setInstructorId(e.target.value)}
-            />
-            <p className="text-xs text-gray-500">
-              Prefilled with your instructor account. To add lessons, notes and quizzes, sign in with that account.
-            </p>
+            <FieldLabel htmlFor="instructor">Instructor</FieldLabel>
+            <Select id="instructor" required value={instructorId} onChange={(e) => setInstructorId(e.target.value)}>
+              <option value={me.id}>Me ({me.firstName} {me.lastName})</option>
+              {instructors
+                .filter((u) => u.id !== me.id)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.firstName} {u.lastName} — {u.email}
+                  </option>
+                ))}
+            </Select>
+            <p className="text-xs text-gray-500">The instructor owns the course and manages its lessons, notes and quizzes.</p>
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="short">Short description</FieldLabel>

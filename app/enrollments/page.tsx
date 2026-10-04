@@ -16,10 +16,12 @@ import {
   createEnrollment,
   listCourses,
   listEnrollments,
+  listUsers,
   updateEnrollmentStatus,
   type Course,
   type Enrollment,
   type EnrollmentStatus,
+  type UserSummary,
 } from "@/lib/api"
 
 const STATUSES: EnrollmentStatus[] = ["active", "completed", "expired", "cancelled"]
@@ -38,12 +40,14 @@ function Enrollments() {
   const initialCourse = useSearchParams().get("courseId") ?? ""
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState(UUID_RE.test(initialCourse) ? initialCourse : "")
+  const [students, setStudents] = useState<UserSummary[]>([])
   const [rows, setRows] = useState<Enrollment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     listCourses(100, 0).then(setCourses).catch((e) => setError(errMsg(e)))
+    listUsers("student").then(setStudents).catch((e) => setError(errMsg(e)))
   }, [])
 
   const load = useCallback(async () => {
@@ -64,6 +68,10 @@ function Enrollments() {
   }, [load])
 
   const title = (id: string) => courses.find((c) => c.id === id)?.title ?? id
+  const student = (id: string) => {
+    const u = students.find((x) => x.id === id)
+    return u ? `${u.firstName} ${u.lastName} (${u.email})` : id
+  }
 
   async function onStatus(e: Enrollment, status: EnrollmentStatus) {
     setError(null)
@@ -79,7 +87,7 @@ function Enrollments() {
     <>
       <PageTitle title="Enrollments" subtitle="Enroll students into published courses and manage their access." />
 
-      <EnrollForm courses={courses.filter((c) => c.status === "published")} defaultCourse={courseId} onDone={load} />
+      <EnrollForm students={students} courses={courses.filter((c) => c.status === "published")} defaultCourse={courseId} onDone={load} />
 
       <Card className="bg-white shadow-xs">
         <CardHeader>
@@ -109,7 +117,7 @@ function Enrollments() {
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="space-y-0.5 text-sm">
                   <div className="font-medium text-gray-900">{title(r.courseId)}</div>
-                  <div className="font-mono text-xs text-gray-500">Student {r.userId}</div>
+                  <div className="text-xs text-gray-600">Student: {student(r.userId)}</div>
                   <div className="text-xs text-gray-500">
                     Enrolled {new Date(r.enrolledAt).toLocaleDateString()} ·{" "}
                     {r.expiresAt ? `expires ${new Date(r.expiresAt).toLocaleDateString()}` : "never expires"}
@@ -142,10 +150,12 @@ function Enrollments() {
 }
 
 function EnrollForm({
+  students,
   courses,
   defaultCourse,
   onDone,
 }: {
+  students: UserSummary[]
   courses: Course[]
   defaultCourse: string
   onDone: () => void
@@ -162,11 +172,11 @@ function EnrollForm({
     e.preventDefault()
     setError(null)
     setOk(false)
-    if (!UUID_RE.test(userId.trim())) return setError("Student ID must be a valid ID.")
+    if (!userId) return setError("Choose a student.")
     if (!selected) return setError("Choose a published course.")
     setSaving(true)
     try {
-      await createEnrollment({ userId: userId.trim(), courseId: selected, months })
+      await createEnrollment({ userId, courseId: selected, months })
       setOk(true)
       setUserId("")
       onDone()
@@ -185,14 +195,15 @@ function EnrollForm({
       <CardContent>
         <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="student">Student ID</FieldLabel>
-            <Input
-              id="student"
-              required
-              value={userId}
-              className="h-10 bg-white font-mono"
-              onChange={(e) => setUserId(e.target.value)}
-            />
+            <FieldLabel htmlFor="student">Student</FieldLabel>
+            <Select id="student" required value={userId} onChange={(e) => setUserId(e.target.value)}>
+              <option value="">{students.length ? "Select a student…" : "No students found"}</option>
+              {students.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.firstName} {u.lastName} — {u.email}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor="ecourse">Course (published only)</FieldLabel>

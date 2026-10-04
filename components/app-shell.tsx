@@ -3,22 +3,69 @@
 import { BookOpen, GraduationCap, LogOut, Newspaper, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import { Brand } from "@/components/brand"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { roleHome, useUser } from "@/hooks/use-user"
-import { clearUser, type Role } from "@/lib/api"
+import { ApiError, getMe, isSessionFresh, logout, markSessionVerified, saveUser, type Role } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const NAV: Record<Role, { href: string; label: string; icon: typeof BookOpen }[]> = {
   admin: [
-    { href: "/courses", label: "Courses", icon: BookOpen },
+    { href: "/courses", label: "All courses", icon: BookOpen },
+    { href: "/feed", label: "My courses", icon: Newspaper },
     { href: "/enrollments", label: "Enrollments", icon: Users },
   ],
   instructor: [{ href: "/feed", label: "My classroom", icon: Newspaper }],
   student: [{ href: "/feed", label: "My learning", icon: GraduationCap }],
+}
+
+// The server is the source of truth for who is signed in and their role.
+// The cached profile in local storage lets the page render instantly; it is periodically verified and refreshed in the background.
+function useVerifiedSession(userId: string | undefined) {
+  const [verifiedFor, setVerifiedFor] = useState<string | null>(() => userId ?? null)
+
+  useEffect(() => {
+    if (!userId) return
+
+    let cancelled = false
+
+    const verify = () => {
+      getMe()
+        .then((me) => {
+          markSessionVerified()
+          saveUser(me) // picks up a changed role or name
+          if (!cancelled) setVerifiedFor(me.id)
+        })
+        .catch((e) => {
+          // If offline or non-401 network issue: keep cached session.
+          // 401 calls clearUser() inside call() which triggers re-render via useUser() -> sign out.
+          if (!(e instanceof ApiError && e.status === 401) && !cancelled) {
+            setVerifiedFor(userId)
+          }
+        })
+    }
+
+    if (!isSessionFresh()) {
+      verify()
+    } else {
+      setVerifiedFor(userId)
+    }
+
+    // Keep session active in the background by refreshing/verifying every 4 minutes (well before 14m expiry)
+    const interval = setInterval(() => {
+      verify()
+    }, 4 * 60 * 1000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [userId])
+
+  return !!userId && verifiedFor === userId
 }
 
 /**
@@ -29,15 +76,16 @@ export function AppShell({ roles, children }: { roles?: Role[]; children: React.
   const router = useRouter()
   const pathname = usePathname()
   const user = useUser()
+  const verified = useVerifiedSession(user?.id)
   const allowed = !!user && (!roles || roles.includes(user.role))
 
   useEffect(() => {
     if (user === undefined) return // still hydrating
     if (!user) router.replace("/login")
-    else if (!allowed) router.replace(roleHome(user.role))
-  }, [user, allowed, router])
+    else if (!allowed && verified) router.replace(roleHome(user.role))
+  }, [user, allowed, verified, router])
 
-  if (!user || !allowed) return null
+  if (!user || !allowed || !verified) return null
 
   return (
     <div className="min-h-svh bg-gray-50">
@@ -76,9 +124,8 @@ export function AppShell({ roles, children }: { roles?: Role[]; children: React.
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                // The API has no logout endpoint, so this ends the session in this browser only.
-                clearUser()
+              onClick={async () => {
+                await logout().catch(() => {})
                 router.replace("/login")
               }}
             >
