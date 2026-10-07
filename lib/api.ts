@@ -31,6 +31,25 @@ export type Course = {
   status: CourseStatus
   isFree: boolean
   createdAt: string
+  /**
+   * Only from GET /courses/{id}. "full": enrolled, or the course is free. "preview": published course
+   * the user isn't enrolled in, so only free lessons, notes, quizzes and videos open.
+   */
+  access?: CourseAccess
+}
+
+export type CourseAccess = "owner" | "full" | "preview"
+
+/** A published course in the catalog, with what a non-enrolled user can open for free. */
+export type CatalogCourse = Course & {
+  instructorName: string
+  enrolled: boolean
+  lessonCount: number
+  videoCount: number
+  freeLessonCount: number
+  freeVideoCount: number
+  freeNoteCount: number
+  freeQuizCount: number
 }
 
 export type Enrollment = {
@@ -67,6 +86,43 @@ export type Lesson = {
   isPublished: boolean
   createdAt: string
   notes: Note[] | null
+  /** Previewing a course you're not enrolled in: this lesson's content stays closed. */
+  locked?: boolean
+}
+
+/** uploading → (PUT + confirm) → processing → ready | failed */
+export type VideoStatus = "uploading" | "processing" | "ready" | "failed"
+
+export type Video = {
+  id: string
+  courseId: string
+  lessonId: string
+  title: string
+  isFree: boolean
+  sizeBytes: number
+  status: VideoStatus
+  error: string
+  createdAt: string
+  updatedAt: string
+  /** Previewing a course you're not enrolled in: the title shows, but it can't be streamed. */
+  locked?: boolean
+}
+
+export type VideoStream = {
+  /** Signed HLS manifest; every playlist/segment inside is signed too. Expires at `expiresAt`. */
+  manifestUrl: string
+  queryParams: string
+  expiresAt: string
+  /** Seconds; where this user stopped last time (0 = from the start). */
+  resumeAt: number
+}
+
+export type VideoUpload = {
+  video: Video
+  uploadUrl: string
+  method: string
+  headers: Record<string, string> | null
+  expiresAt: string
 }
 
 export type Post = {
@@ -152,7 +208,7 @@ export class ApiError extends Error {
 const API_BASE = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1`
 
 type Query = Record<string, string | number | undefined>
-type Options = { body?: unknown; form?: FormData; query?: Query }
+type Options = { body?: unknown; form?: FormData; query?: Query; keepalive?: boolean }
 
 const id = encodeURIComponent
 
@@ -165,7 +221,7 @@ function url(path: string, query?: Query) {
   return `${API_BASE}${path}${s ? `?${s}` : ""}`
 }
 
-async function send(method: string, path: string, { body, form, query }: Options) {
+async function send(method: string, path: string, { body, form, query, keepalive }: Options) {
   const headers: Record<string, string> = { Accept: "application/json" }
   let payload: BodyInit | undefined
   if (form) {
@@ -180,6 +236,7 @@ async function send(method: string, path: string, { body, form, query }: Options
       credentials: "include",
       headers,
       body: payload,
+      keepalive,
     })
   } catch {
     throw new ApiError("Unable to reach the server. Please try again.", 0)
@@ -320,6 +377,12 @@ export const listCourses = async (limit = 50, offset = 0) =>
 export const listMyCourses = async (limit = 100, offset = 0) =>
   (await json<Course[]>("GET", "/me/courses", { query: { limit, offset } })) ?? []
 
+/** Every published course with its free-preview counts; any logged-in user. */
+export const listCatalog = async (freeOnly = false, limit = 100, offset = 0) =>
+  (await json<CatalogCourse[]>("GET", "/catalog/courses", {
+    query: { freeOnly: freeOnly ? "true" : undefined, limit, offset },
+  })) ?? []
+
 export const getCourse = (courseId: string) => json<Course>("GET", `/courses/${id(courseId)}`)
 
 export const createCourse = (input: {
@@ -388,6 +451,73 @@ export async function downloadNote(noteId: string): Promise<Blob> {
   const res = await call("GET", `/notes/${id(noteId)}/file`)
   if (!res.ok) return fail(res)
   return new Blob([await res.arrayBuffer()], { type: "application/pdf" })
+}
+
+// ── videos ──────────────────────────────────────────────────────────────────
+export const VIDEO_EXT_RE = /\.(mp4|mov|mkv|webm)$/i
+export const MAX_VIDEO = 5 * 1024 * 1024 * 1024 // 5 GB, enforced by the signed URL too
+
+/** Owner sees every video; students see ready videos of published lessons (free ones only if not enrolled). */
+export const listCourseVideos = async (courseId: string) =>
+  (await json<{ videos: Video[] | null }>("GET", `/courses/${id(courseId)}/videos`))?.videos ?? []
+
+export const listLessonVideos = async (lessonId: string) =>
+  (await json<{ videos: Video[] | null }>("GET", `/lessons/${id(lessonId)}/videos`))?.videos ?? []
+
+/** Creates the video row ('uploading') and returns a signed URL to PUT the file to. */
+export const requestVideoUpload = (lessonId: string, input: { fileName: string; isFree: boolean }) =>
+  json<VideoUpload>("POST", `/lessons/${id(lessonId)}/videos`, { body: input })
+
+/** Tells the server the PUT finished; it checks the file and queues transcoding. */
+export const confirmVideo = async (videoId: string) =>
+  (await json<{ video: Video }>("POST", `/videos/${id(videoId)}/confirm`)).video
+
+export const getVideo = async (videoId: string) =>
+  (await json<{ video: Video }>("GET", `/videos/${id(videoId)}`)).video
+
+export const getVideoStream = (videoId: string) =>
+  json<VideoStream>("GET", `/videos/${id(videoId)}/stream`)
+
+/** `keepalive` lets the save finish while the page unloads. */
+export const saveVideoProgress = (videoId: string, positionSec: number, keepalive = false) =>
+  json<{ positionSec: number }>("PUT", `/videos/${id(videoId)}/progress`, {
+    body: { positionSec: Math.max(0, Math.min(86_400, Math.floor(positionSec))) },
+    keepalive,
+  })
+
+/** Re-queues transcoding of a failed video; the uploaded file is reused. */
+export const retryVideo = async (videoId: string) =>
+  (await json<{ video: Video }>("POST", `/videos/${id(videoId)}/retry`)).video
+
+/** True while the signed upload URL has at least a minute left, so a retry can reuse it. */
+export const uploadUrlFresh = (upload: VideoUpload) => Date.parse(upload.expiresAt) - Date.now() > 60_000
+
+/**
+ * PUTs the file straight to storage. Uses XHR (not fetch) for upload progress.
+ * No cookies are sent: the signature in the URL is the credential.
+ */
+export function putVideoFile(
+  upload: VideoUpload,
+  file: File,
+  onProgress: (loaded: number, total: number) => void,
+  signal?: AbortSignal
+) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open(upload.method || "PUT", upload.uploadUrl)
+    // The signed headers must be sent unchanged, or storage rejects the signature.
+    const headers = { "x-goog-content-length-range": `0,${MAX_VIDEO}`, ...upload.headers }
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
+    xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size)
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new ApiError(`Upload rejected by storage (HTTP ${xhr.status}).`, xhr.status))
+    xhr.onerror = () => reject(new ApiError("Upload failed. Check your connection and try again.", 0))
+    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"))
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true })
+    xhr.send(file)
+  })
 }
 
 // ── enrollments ─────────────────────────────────────────────────────────────

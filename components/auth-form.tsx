@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { roleHome } from "@/hooks/use-user"
-import { ApiError, login, register, saveUser } from "@/lib/api"
+import { ApiError, login, register, saveUser, sendVerifyEmail } from "@/lib/api"
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter()
@@ -38,6 +38,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           })
         : await login(email, password)
       saveUser(user)
+      if (isSignup) {
+        // Register sets the login cookie, so the verification code can go out right away.
+        // If sending fails the verify page lets the user retry.
+        const sent = await sendVerifyEmail().then(
+          () => true,
+          () => false
+        )
+        router.push(sent ? "/verify-email?sent=1" : "/verify-email")
+        return
+      }
       router.push(roleHome(user.role))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong")
