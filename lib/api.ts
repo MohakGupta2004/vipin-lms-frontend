@@ -141,7 +141,9 @@ export type NewQuestion = {
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
+    /** Seconds from the `Retry-After` header on 429 responses. */
+    public retryAfter?: number
   ) {
     super(message)
   }
@@ -184,7 +186,15 @@ async function send(method: string, path: string, { body, form, query }: Options
   }
 }
 
-const NO_RENEW = new Set(["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"])
+const NO_RENEW = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/forgot-password",
+  "/auth/verify-otp",
+  "/auth/reset-password",
+])
 
 let lastRefreshedAt = 0
 let refreshing: Promise<boolean> | null = null
@@ -240,7 +250,12 @@ async function fail(res: Response): Promise<never> {
   try {
     message = JSON.parse(text).message
   } catch {}
-  throw new ApiError(message || text.trim() || "Something went wrong", res.status)
+  const retry = Number(res.headers.get("Retry-After"))
+  throw new ApiError(
+    message || text.trim() || "Something went wrong",
+    res.status,
+    Number.isFinite(retry) && retry > 0 ? retry : undefined
+  )
 }
 
 async function json<T>(method: string, path: string, opts?: Options): Promise<T> {
@@ -274,6 +289,22 @@ export async function logout() {
     clearUser()
   }
 }
+
+export type OtpPurpose = "email_verification" | "password_reset"
+
+/** Emails a 6-digit code to the signed-in user (login required). */
+export const sendVerifyEmail = () => json<unknown>("POST", "/auth/verify-email")
+
+/** Emails a reset code if the account exists; the reply is identical either way. */
+export const forgotPassword = (email: string) =>
+  json<unknown>("POST", "/auth/forgot-password", { body: { email } })
+
+/** Checks a code. For `password_reset` the result carries the single-use `resetToken`. */
+export const verifyOtp = (email: string, purpose: OtpPurpose, otp: string) =>
+  json<{ resetToken?: string }>("POST", "/auth/verify-otp", { body: { email, purpose, otp } })
+
+export const resetPassword = (resetToken: string, newPassword: string) =>
+  json<unknown>("POST", "/auth/reset-password", { body: { resetToken, newPassword } })
 
 // ── users (admin) ───────────────────────────────────────────────────────────
 export const listUsers = async (role?: Role, limit = 200, offset = 0) =>
