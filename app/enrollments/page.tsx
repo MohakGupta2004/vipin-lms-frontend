@@ -89,7 +89,7 @@ function Enrollments() {
 
       <EnrollForm students={students} courses={courses.filter((c) => c.status === "published")} defaultCourse={courseId} onDone={load} />
 
-      <Card className="bg-white shadow-xs">
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle>All enrollments</CardTitle>
         </CardHeader>
@@ -112,11 +112,11 @@ function Enrollments() {
             </p>
           )}
           {!loading && rows.length === 0 && <p className="text-sm text-gray-500">No enrollments found.</p>}
-          <ul className="divide-y divide-gray-100">
-            {rows.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+          <ul className="divide-y divide-border">
+            {rows.map((r, i) => (
+              <li key={r.id} className="rise -mx-3 flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-4 transition-colors hover:bg-mint/60" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
                 <div className="space-y-0.5 text-sm">
-                  <div className="font-medium text-gray-900">{title(r.courseId)}</div>
+                  <div className="font-semibold text-heading">{title(r.courseId)}</div>
                   <div className="text-xs text-gray-600">Student: {student(r.userId)}</div>
                   <div className="text-xs text-gray-500">
                     Enrolled {new Date(r.enrolledAt).toLocaleDateString()} ·{" "}
@@ -188,7 +188,7 @@ function EnrollForm({
   }
 
   return (
-    <Card className="bg-white shadow-xs">
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Enroll a student</CardTitle>
       </CardHeader>
@@ -225,7 +225,7 @@ function EnrollForm({
               max={60}
               required
               value={months}
-              className="h-10 bg-white"
+             
               onChange={(e) => setMonths(Number(e.target.value))}
             />
           </Field>

@@ -1,11 +1,12 @@
 "use client"
 
-import { ClipboardList, Eye, EyeOff, FileText, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react"
+import { ArrowRight, ChevronDown, ChevronsUpDown, ClipboardList, Eye, EyeOff, FileText, Layers, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { PdfPreview } from "@/components/pdf-preview"
 import { QuizBuilder } from "@/components/quiz-builder"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -60,6 +61,7 @@ function CourseView() {
   const [loading, setLoading] = useState(valid)
   const [error, setError] = useState<string | null>(valid ? null : "That is not a valid course ID.")
   const [mode, setMode] = useState<"lesson" | "edit" | null>(null)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
   // Only the course owner (its instructor, or an admin who is its instructor) can manage it.
   const isOwner = !!course && user.role !== "student" && course.instructorId === user.id
@@ -143,15 +145,31 @@ function CourseView() {
       <ErrorNote error={error} />
 
       {course && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={course.status === "published" ? "default" : "secondary"} className="capitalize">
-            {course.status}
-          </Badge>
-          {course.isFree && <Badge variant="outline">Free</Badge>}
-          {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
+        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-6 shadow-[0_1px_2px_rgba(10,37,64,0.05)] lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={course.status === "published" ? "default" : "secondary"}>{course.status}</Badge>
+              {course.isFree && <Badge variant="lime">Free</Badge>}
+              {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
+            </div>
+            {course.description && (
+              <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{course.description}</p>
+            )}
+          </div>
+          {canSeeLessons && (
+            <dl className="flex gap-8 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+              <div>
+                <dt className="text-xs text-muted-foreground">Lessons</dt>
+                <dd className="tnum text-3xl font-semibold text-heading">{lessons.length}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Notes</dt>
+                <dd className="tnum text-3xl font-semibold text-heading">{lessons.reduce((n, l) => n + (l.notes?.length ?? 0), 0)}</dd>
+              </div>
+            </dl>
+          )}
         </div>
       )}
-      {course?.description && <p className="text-sm whitespace-pre-wrap text-gray-700">{course.description}</p>}
 
       {isOwner && mode === "edit" && course && (
         <EditCourse
@@ -192,10 +210,33 @@ function CourseView() {
         </Card>
       )}
 
+      {canSeeLessons && lessons.length > 0 && (
+        <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
+          <h2 className="text-2xl font-semibold text-heading">Course content</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpenIds(openIds.size === lessons.length ? new Set() : new Set(lessons.map((l) => l.id)))}
+          >
+            <ChevronsUpDown />
+            {openIds.size === lessons.length ? "Collapse all" : "Expand all"}
+          </Button>
+        </div>
+      )}
       {canSeeLessons &&
         lessons.map((l, i) => (
           <LessonCard
             key={l.id}
+            open={openIds.has(l.id)}
+            setOpen={(v) =>
+              setOpenIds((cur) => {
+                const next = new Set(cur)
+                const on = typeof v === "function" ? v(cur.has(l.id)) : v
+                if (on) next.add(l.id)
+                else next.delete(l.id)
+                return next
+              })
+            }
             index={i + 1}
             lesson={l}
             isOwner={isOwner}
@@ -238,7 +279,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
   }
 
   return (
-    <Card className="bg-white shadow-xs">
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Edit course</CardTitle>
       </CardHeader>
@@ -256,15 +297,15 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
           </Field>
           <Field>
             <FieldLabel htmlFor="ce-title">Title</FieldLabel>
-            <Input id="ce-title" required maxLength={200} value={form.title} className="h-10 bg-white" onChange={(e) => set("title", e.target.value)} />
+            <Input id="ce-title" required maxLength={200} value={form.title} onChange={(e) => set("title", e.target.value)} />
           </Field>
           <Field>
             <FieldLabel htmlFor="ce-slug">Slug</FieldLabel>
-            <Input id="ce-slug" required maxLength={200} pattern={slugOk} title="Lowercase letters, numbers and single dashes" value={form.slug} className="h-10 bg-white" onChange={(e) => set("slug", e.target.value)} />
+            <Input id="ce-slug" required maxLength={200} pattern={slugOk} title="Lowercase letters, numbers and single dashes" value={form.slug} onChange={(e) => set("slug", e.target.value)} />
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="ce-short">Short description</FieldLabel>
-            <Input id="ce-short" maxLength={500} value={form.shortDescription} className="h-10 bg-white" onChange={(e) => set("shortDescription", e.target.value)} />
+            <Input id="ce-short" maxLength={500} value={form.shortDescription} onChange={(e) => set("shortDescription", e.target.value)} />
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="ce-desc">Description</FieldLabel>
@@ -309,7 +350,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
   }
 
   return (
-    <Card className="bg-white shadow-xs">
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>New lesson</CardTitle>
       </CardHeader>
@@ -317,7 +358,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
         <form onSubmit={onSubmit} className="space-y-4">
           <Field>
             <FieldLabel htmlFor="ltitle">Title</FieldLabel>
-            <Input id="ltitle" required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
+            <Input id="ltitle" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
           <Field>
             <FieldLabel htmlFor="lcontent">Short description</FieldLabel>
@@ -345,18 +386,23 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
 }
 
 function LessonCard({
+  open: open_,
+  setOpen,
   index,
   lesson,
   isOwner,
   onChange,
   onDeleted,
 }: {
+  open: boolean
+  setOpen: (v: boolean | ((c: boolean) => boolean)) => void
   index: number
   lesson: Lesson
   isOwner: boolean
   onChange: (fn: (l: Lesson) => Lesson) => void
   onDeleted: () => void
 }) {
+  const [preview, setPreview] = useState<Note | null>(null)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [error, setError] = useState<string | null>(null)
   const [panel, setPanel] = useState<"note" | "quiz" | "edit" | null>(null)
@@ -388,8 +434,10 @@ function LessonCard({
     }
   }
 
+  // Students preview inside the app only (no file URL, no download); owners keep the plain open-in-tab flow.
   async function open(n: Note) {
     setError(null)
+    if (!isOwner) return setPreview(n)
     try {
       const url = URL.createObjectURL(await downloadNote(n.id))
       window.open(url, "_blank", "noopener")
@@ -411,117 +459,166 @@ function LessonCard({
   }
 
   return (
-    <Card className="bg-white shadow-xs">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>
-            {index}. {lesson.title}
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
-            {lesson.isFree && <Badge variant="outline">Free</Badge>}
-            {isOwner && (
-              <>
-                <Button variant="outline" size="sm" onClick={togglePublished}>
-                  {lesson.isPublished ? <EyeOff /> : <Eye />}
-                  {lesson.isPublished ? "Unpublish" : "Publish"}
-                </Button>
-                <Button variant="ghost" size="icon-sm" aria-label={`Edit ${lesson.title}`} onClick={() => setPanel(panel === "edit" ? null : "edit")}>
-                  <Pencil />
-                </Button>
-                <Button variant="ghost" size="icon-sm" aria-label={`Delete ${lesson.title}`} onClick={removeLesson}>
-                  <Trash2 />
-                </Button>
-              </>
-            )}
-          </div>
+    <article
+      className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200 hover:shadow-md"
+      style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
+    >
+      <div className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open_}
+          aria-controls={`lesson-${lesson.id}`}
+          className="group flex min-w-0 flex-1 items-center gap-4 rounded-md text-left"
+        >
+          <span className="tnum flex size-11 shrink-0 items-center justify-center rounded-full bg-teal text-base font-semibold text-white transition-transform duration-200 group-hover:scale-105">
+            {index}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-lg font-semibold text-heading">{lesson.title}</span>
+            <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5"><FileText className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
+              <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "quiz" : "quizzes"}</span>
+            </span>
+          </span>
+          <ChevronDown className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
+          {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
+          {isOwner && (
+            <>
+              <Button variant="outline" size="sm" onClick={togglePublished}>
+                {lesson.isPublished ? <EyeOff /> : <Eye />}
+                {lesson.isPublished ? "Unpublish" : "Publish"}
+              </Button>
+              <Button variant="ghost" size="icon-sm" aria-label={`Edit ${lesson.title}`} onClick={() => { setOpen(true); setPanel(panel === "edit" ? null : "edit") }}>
+                <Pencil />
+              </Button>
+              <Button variant="ghost" size="icon-sm" aria-label={`Delete ${lesson.title}`} className="hover:bg-destructive/10 hover:text-destructive" onClick={removeLesson}>
+                <Trash2 />
+              </Button>
+            </>
+          )}
         </div>
-        {lesson.content && <p className="text-sm whitespace-pre-wrap text-gray-600">{lesson.content}</p>}
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <ErrorNote error={error} />
+      </div>
 
-        {isOwner && panel === "edit" && (
-          <EditLesson
-            lesson={lesson}
-            onSaved={(l) => {
-              onChange((x) => ({ ...x, title: l.title, content: l.content, isFree: l.isFree, isPublished: l.isPublished }))
-              setPanel(null)
-            }}
-          />
-        )}
+      <div className="expand" data-open={open_} id={`lesson-${lesson.id}`}>
+        <div>
+          <div className="space-y-6 border-t border-border bg-gray-50/60 p-5 sm:p-6">
+            {lesson.content && (
+              <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>
+            )}
+            <ErrorNote error={error} />
 
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-900">Notes</h3>
-          {notes.length === 0 && <p className="text-sm text-gray-500">No notes shared yet.</p>}
-          <ul className="divide-y divide-gray-100">
-            {notes.map((n) => (
-              <li key={n.id} className="flex items-center justify-between gap-3 py-2">
-                <button type="button" onClick={() => open(n)} className="flex min-w-0 items-center gap-2 text-left text-sm hover:underline">
-                  <FileText className="size-4 shrink-0 text-indigo-600" />
-                  <span className="truncate font-medium text-gray-900">{n.title}</span>
-                  <span className="shrink-0 text-xs text-gray-500">{(n.sizeBytes / 1024).toFixed(0)} KB</span>
-                </button>
+            {isOwner && panel === "edit" && (
+              <EditLesson
+                lesson={lesson}
+                onSaved={(l) => {
+                  onChange((x) => ({ ...x, title: l.title, content: l.content, isFree: l.isFree, isPublished: l.isPublished }))
+                  setPanel(null)
+                }}
+              />
+            )}
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
+                  <Layers className="size-4 text-teal" /> Notes
+                </h3>
+                {notes.length === 0 && (
+                  <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
+                    No notes shared yet.
+                  </p>
+                )}
+                <ul className="space-y-2">
+                  {notes.map((n) => (
+                    <li key={n.id} className="group/row flex items-center gap-2 rounded-md border border-border bg-white transition-all duration-200 hover:border-teal/40 hover:shadow-sm">
+                      <button type="button" onClick={() => open(n)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-3 text-left">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-mint text-teal transition-colors group-hover/row:bg-teal group-hover/row:text-white">
+                          <FileText className="size-5" strokeWidth={1.75} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-heading">{n.title}</span>
+                          <span className="tnum text-xs text-muted-foreground">PDF · {(n.sizeBytes / 1024).toFixed(0)} KB</span>
+                        </span>
+                        <ArrowRight className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
+                      </button>
+                      {isOwner && (
+                        <Button variant="ghost" size="icon-sm" aria-label={`Delete ${n.title}`} className="mr-2 hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(n)}>
+                          <Trash2 />
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
                 {isOwner && (
-                  <Button variant="ghost" size="icon-sm" aria-label={`Delete ${n.title}`} onClick={() => remove(n)}>
-                    <Trash2 />
+                  <Button variant="outline" size="sm" onClick={() => setPanel(panel === "note" ? null : "note")}>
+                    <Upload /> Share a note
                   </Button>
                 )}
-              </li>
-            ))}
-          </ul>
-          {isOwner && (
-            <Button variant="outline" size="sm" onClick={() => setPanel(panel === "note" ? null : "note")}>
-              <Upload /> Share a note
-            </Button>
-          )}
-          {isOwner && panel === "note" && (
-            <NoteUpload
-              lessonId={lesson.id}
-              onUploaded={(n) => {
-                setNotes((ns) => [n, ...ns])
-                setPanel(null)
-              }}
-            />
-          )}
-        </section>
+                {isOwner && panel === "note" && (
+                  <NoteUpload
+                    lessonId={lesson.id}
+                    onUploaded={(n) => {
+                      setNotes((ns) => [n, ...ns])
+                      setPanel(null)
+                    }}
+                  />
+                )}
+              </section>
 
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-900">Quizzes</h3>
-          {quizzes.length === 0 && <p className="text-sm text-gray-500">No quizzes yet.</p>}
-          <ul className="space-y-1">
-            {quizzes.map((q) => (
-              <li key={q.id}>
-                <Link href={`/quizzes/${q.id}`} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50">
-                  <span className="flex items-center gap-2 font-medium text-gray-900">
-                    <ClipboardList className="size-4 text-indigo-600" />
-                    {q.title}
-                  </span>
-                  <span className="flex items-center gap-2 text-xs text-gray-500">
-                    {q.questionCount} questions
-                    {q.status === "draft" && <Badge variant="secondary">Draft</Badge>}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {isOwner && (
-            <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
-              <Plus /> Create quiz
-            </Button>
-          )}
-          {isOwner && panel === "quiz" && (
-            <QuizBuilder
-              lessonId={lesson.id}
-              onSaved={(q) => {
-                setQuizzes((qs) => [...qs, q])
-                setPanel(null)
-              }}
-            />
-          )}
-        </section>
-      </CardContent>
-    </Card>
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
+                  <ClipboardList className="size-4 text-teal" /> Quizzes
+                </h3>
+                {quizzes.length === 0 && (
+                  <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
+                    No quizzes yet.
+                  </p>
+                )}
+                <ul className="space-y-2">
+                  {quizzes.map((q) => (
+                    <li key={q.id}>
+                      <Link href={`/quizzes/${q.id}`} className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-lime-soft text-navy transition-colors group-hover/row:bg-secondary">
+                          <ClipboardList className="size-5" strokeWidth={1.75} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-heading">{q.title}</span>
+                          <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
+                            {q.questionCount} questions
+                            {q.status === "draft" && <Badge variant="secondary">Draft</Badge>}
+                          </span>
+                        </span>
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover/row:border-teal group-hover/row:bg-teal group-hover/row:text-white">
+                          <ArrowRight className="size-3.5" />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {isOwner && (
+                  <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
+                    <Plus /> Create quiz
+                  </Button>
+                )}
+                {isOwner && panel === "quiz" && (
+                  <QuizBuilder
+                    lessonId={lesson.id}
+                    onSaved={(q) => {
+                      setQuizzes((qs) => [...qs, q])
+                      setPanel(null)
+                    }}
+                  />
+                )}
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+      {preview && <PdfPreview title={preview.title} load={() => downloadNote(preview.id)} onClose={() => setPreview(null)} />}
+    </article>
   )
 }
 
@@ -545,10 +642,10 @@ function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) 
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
       <Field>
         <FieldLabel htmlFor={`el-${lesson.id}`}>Title</FieldLabel>
-        <Input id={`el-${lesson.id}`} required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
+        <Input id={`el-${lesson.id}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
       <Field>
         <FieldLabel htmlFor={`ec-${lesson.id}`}>Short description</FieldLabel>
@@ -590,18 +687,18 @@ function NoteUpload({ lessonId, onUploaded }: { lessonId: string; onUploaded: (n
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
       <Field>
         <FieldLabel htmlFor={`nt-${lessonId}`}>Title</FieldLabel>
-        <Input id={`nt-${lessonId}`} required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
+        <Input id={`nt-${lessonId}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
       <Field>
         <FieldLabel htmlFor={`nd-${lessonId}`}>Description (optional)</FieldLabel>
-        <Input id={`nd-${lessonId}`} maxLength={2000} value={description} className="h-10 bg-white" onChange={(e) => setDescription(e.target.value)} />
+        <Input id={`nd-${lessonId}`} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
       <Field>
         <FieldLabel htmlFor={`nf-${lessonId}`}>PDF (max 25 MB)</FieldLabel>
-        <Input id={`nf-${lessonId}`} type="file" accept="application/pdf,.pdf" required className="h-10 bg-white" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <Input id={`nf-${lessonId}`} type="file" accept="application/pdf,.pdf" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </Field>
       <ErrorNote error={error} />
       <Button type="submit" disabled={saving}>

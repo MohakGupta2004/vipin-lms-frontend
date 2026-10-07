@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, Loader2, Pencil, Trash2, XCircle } from "lucide-react"
+import { CheckCircle2, Clock, Loader2, Pencil, Trash2, XCircle } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -114,7 +114,7 @@ function QuizView() {
       )}
 
       {quiz && (
-        <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+        <div className="flex flex-wrap gap-2">
           <Badge variant="secondary">{quiz.questionCount} questions</Badge>
           <Badge variant="secondary">Pass mark {quiz.passPercent}%</Badge>
           <Badge variant="secondary">{quiz.timeLimitSec ? `${Math.round(quiz.timeLimitSec / 60)} min limit` : "Untimed"}</Badge>
@@ -154,12 +154,12 @@ function QuizView() {
       {result && quiz && <Result quiz={quiz} attempt={result} />}
 
       {isStudent && attempts.length > 0 && (
-        <Card className="bg-white shadow-xs">
+        <Card className="bg-white">
           <CardHeader>
             <CardTitle>My attempts</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-gray-100 text-sm">
+            <ul className="divide-y divide-border text-sm">
               {attempts.map((a) => (
                 <li key={a.id} className="flex items-center justify-between py-2">
                   <span>{new Date(a.submittedAt).toLocaleString()}</span>
@@ -179,17 +179,24 @@ function QuizView() {
 
 function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {questions.map((q, i) => (
-        <Card key={q.id} className="bg-white shadow-xs">
+        <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
           <CardContent className="space-y-2">
-            <p className="font-medium text-gray-900">
-              {i + 1}. {q.questionText}
+            <p className="text-base font-semibold text-heading">
+              <span className="tnum mr-2 text-teal">{i + 1}.</span>
+              {q.questionText}
             </p>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-2 text-sm">
               {q.options.map((o) => (
-                <li key={o.id} className={o.isCorrect ? "font-medium text-green-700" : "text-gray-700"}>
-                  {o.isCorrect ? "✓ " : "• "}
+                <li
+                  key={o.id}
+                  className={
+                    "flex items-center gap-2 rounded-md border px-3 py-2 " +
+                    (o.isCorrect ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700" : "border-border text-gray-700")
+                  }
+                >
+                  {o.isCorrect ? <CheckCircle2 className="size-4 shrink-0" /> : <span className="size-4 shrink-0 rounded-full border border-gray-300" />}
                   {o.optionText}
                 </li>
               ))}
@@ -241,30 +248,54 @@ function Take({ quiz, onDone }: { quiz: Quiz; onDone: (a: QuizAttempt) => void }
 
   return (
     <div className="space-y-4">
-      {left !== null && (
-        <p className="text-sm font-medium text-gray-900" aria-live="off">
-          Time left: {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
-        </p>
-      )}
+      <div className="sticky top-[88px] z-20 space-y-2 rounded-lg border border-border bg-white/95 p-4 shadow-sm backdrop-blur-sm">
+        <div className="flex items-center justify-between text-sm">
+          <span className="tnum font-semibold text-heading">
+            {Object.keys(picked).length} of {questions.length} answered
+          </span>
+          {left !== null && (
+            <span className={"tnum flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs font-bold " + (left <= 30 ? "bg-red-50 text-red-700" : "bg-mint text-teal")} aria-live="off">
+              <Clock className="size-3.5" />
+              {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
+            </span>
+          )}
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-teal transition-[width] duration-500 ease-out"
+            style={{ width: `${questions.length ? (Object.keys(picked).length / questions.length) * 100 : 0}%` }}
+          />
+        </div>
+      </div>
       {questions.map((q, i) => (
-        <Card key={q.id} className="bg-white shadow-xs">
-          <CardContent className="space-y-3">
-            <p className="font-medium text-gray-900">
-              {i + 1}. {q.questionText}
+        <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+          <CardContent className="space-y-4">
+            <p className="text-base leading-snug font-semibold text-heading">
+              <span className="tnum mr-2 text-teal">{i + 1}.</span>
+              {q.questionText}
             </p>
             <div className="space-y-2" role="radiogroup" aria-label={`Question ${i + 1}`}>
-              {q.options.map((o) => (
-                <label key={o.id} className="flex items-center gap-2 text-sm text-gray-800">
-                  <input type="radio" name={q.id} checked={picked[q.id] === o.id} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
-                  {o.optionText}
-                </label>
-              ))}
+              {q.options.map((o) => {
+                const on = picked[q.id] === o.id
+                return (
+                  <label
+                    key={o.id}
+                    className={
+                      "flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-sm transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring " +
+                      (on ? "border-teal bg-mint font-medium text-heading" : "border-border text-gray-700 hover:border-teal/40 hover:bg-gray-50")
+                    }
+                  >
+                    <input type="radio" name={q.id} className="size-4" checked={on} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
+                    {o.optionText}
+                  </label>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
       ))}
       <ErrorNote error={error} />
-      <Button onClick={submit} disabled={saving}>
+      <Button size="lg" onClick={submit} disabled={saving}>
         {saving && <Loader2 className="animate-spin" />}
         Submit answers
       </Button>
@@ -276,33 +307,37 @@ function Result({ quiz, attempt }: { quiz: Quiz; attempt: QuizAttempt }) {
   const byQ = new Map((attempt.answers ?? []).map((a) => [a.questionId, a]))
   return (
     <div className="space-y-3">
-      <Card className="bg-white shadow-xs">
-        <CardContent className="flex items-center justify-between">
-          <div className="text-lg font-semibold text-gray-900">
-            Score: {attempt.score}/{attempt.total}
+      <Card className="pop overflow-hidden bg-navy">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-sm text-white/75">Your score</div>
+            <div className="tnum text-5xl font-semibold text-white">
+              {attempt.score}<span className="text-2xl text-white/60">/{attempt.total}</span>
+            </div>
           </div>
-          <Badge variant={attempt.passed ? "default" : "secondary"}>{attempt.passed ? "Passed" : "Not passed"}</Badge>
+          <Badge variant={attempt.passed ? "lime" : "secondary"} className="h-7 px-3 text-xs">{attempt.passed ? "Passed" : "Not passed"}</Badge>
         </CardContent>
       </Card>
       {(quiz.questions ?? []).map((q, i) => {
         const a = byQ.get(q.id)
         return (
-          <Card key={q.id} className="bg-white shadow-xs">
-            <CardContent className="space-y-2">
-              <p className="flex items-start gap-2 font-medium text-gray-900">
+          <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+            <CardContent className="space-y-3">
+              <p className="flex items-start gap-2 font-semibold text-heading">
                 {a?.isCorrect ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" />}
                 {i + 1}. {q.questionText}
               </p>
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-2 text-sm">
                 {q.options.map((o) => (
                   <li
                     key={o.id}
                     className={
-                      o.id === a?.correctOptionId
-                        ? "font-medium text-green-700"
+                      "rounded-md border px-3 py-2 " +
+                      (o.id === a?.correctOptionId
+                        ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700"
                         : o.id === a?.selectedOptionId
-                          ? "text-red-700"
-                          : "text-gray-700"
+                          ? "border-red-200 bg-red-50 text-red-700"
+                          : "border-border text-gray-700")
                     }
                   >
                     {o.id === a?.correctOptionId ? "✓ " : o.id === a?.selectedOptionId ? "✗ " : "• "}

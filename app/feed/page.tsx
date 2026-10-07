@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRight, Loader2, Trash2 } from "lucide-react"
+import { ArrowRight, BookOpen, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -72,7 +72,7 @@ function Feed() {
       <ErrorNote error={error} />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">Courses</h2>
+        <h2 className="text-2xl font-semibold text-heading">Courses</h2>
         {loading && (
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <Loader2 className="size-4 animate-spin" /> Loading…
@@ -85,17 +85,22 @@ function Feed() {
             </CardContent>
           </Card>
         )}
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {courses.map((c) => (
-            <li key={c.id}>
-              <Link href={`/courses/${c.id}`} className="block h-full rounded-xl border border-gray-200 bg-white p-4 shadow-xs hover:bg-gray-50">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium text-gray-900">{c.title}</span>
-                  <ArrowRight className="mt-1 size-4 shrink-0 text-gray-400" />
+        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {courses.map((c, i) => (
+            <li key={c.id} className="rise" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+              <Link href={`/courses/${c.id}`} className="group block h-full rounded-lg border border-border bg-white p-6 shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-md">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="flex size-10 items-center justify-center rounded-md bg-mint text-teal transition-colors duration-200 group-hover:bg-teal group-hover:text-white">
+                    <BookOpen className="size-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="flex size-8 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover:border-teal group-hover:bg-teal group-hover:text-white">
+                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
                 </div>
-                {c.shortDescription && <p className="mt-1 line-clamp-2 text-sm text-gray-600">{c.shortDescription}</p>}
+                <h3 className="text-lg leading-snug font-semibold text-heading">{c.title}</h3>
+                {c.shortDescription && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-600">{c.shortDescription}</p>}
                 {canTeach && (
-                  <Badge variant={c.status === "published" ? "default" : "secondary"} className="mt-3 capitalize">
+                  <Badge variant={c.status === "published" ? "default" : "secondary"} className="mt-4">
                     {c.status}
                   </Badge>
                 )}
@@ -108,19 +113,23 @@ function Feed() {
       {canTeach && owned.size > 0 && <NewPost courses={courses} onPosted={load} />}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">Feed</h2>
+        <h2 className="text-2xl font-semibold text-heading">Feed</h2>
         {loading && (
           <p className="flex items-center gap-2 text-sm text-gray-500">
             <Loader2 className="size-4 animate-spin" /> Loading…
           </p>
         )}
         {!loading && posts.length === 0 && <p className="text-sm text-gray-500">No posts yet.</p>}
-        {posts.map((p) => (
-          <Card key={p.id} className="bg-white shadow-xs">
-            <CardContent className="space-y-2">
+        {posts.map((p, i) => (
+          <Card key={p.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+            <CardContent className="flex gap-4">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold text-white">
+                {p.authorName.trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="text-xs text-gray-500">
-                  <span className="font-medium text-gray-800">{p.authorName}</span> in{" "}
+                  <span className="text-sm font-semibold text-heading">{p.authorName}</span> in{" "}
                   <Link href={`/courses/${p.courseId}`} className="underline-offset-4 hover:underline">
                     {p.courseTitle}
                   </Link>{" "}
@@ -146,7 +155,7 @@ function Feed() {
                 )}
               </div>
               {/* Rendered as text, never as HTML. */}
-              <p className="text-sm whitespace-pre-wrap text-gray-800">{p.content}</p>
+              <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{p.content}</p>
               {p.links && p.links.length > 0 && (
                 <ul className="space-y-1 text-sm">
                   {p.links.map((l) => (
@@ -163,6 +172,7 @@ function Feed() {
                   ))}
                 </ul>
               )}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -201,7 +211,7 @@ function NewPost({ courses, onPosted }: { courses: Course[]; onPosted: () => voi
   }
 
   return (
-    <Card className="bg-white shadow-xs">
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Post an update</CardTitle>
       </CardHeader>

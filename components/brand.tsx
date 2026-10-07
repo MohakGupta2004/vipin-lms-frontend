@@ -2,13 +2,23 @@ import { GraduationCap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-export function Brand({ className }: { className?: string }) {
+export function Brand({ className, onDark }: { className?: string; onDark?: boolean }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/30">
-        <GraduationCap className="size-5" />
+      <div
+        className={cn(
+          "flex size-9 items-center justify-center rounded-md",
+          onDark ? "bg-secondary text-navy" : "bg-brand-blue text-white"
+        )}
+      >
+        <GraduationCap className="size-5" strokeWidth={1.75} />
       </div>
-      <span className="text-lg font-semibold tracking-tight text-gray-900">
+      <span
+        className={cn(
+          "text-lg leading-none font-semibold tracking-tight",
+          onDark ? "text-white" : "text-heading"
+        )}
+      >
         LMS Platform
       </span>
     </div>

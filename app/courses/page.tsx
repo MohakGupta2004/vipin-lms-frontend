@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRight, Copy, Loader2, Plus, Users } from "lucide-react"
+import { ArrowRight, Check, Copy, Loader2, Plus, Users } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -123,43 +123,49 @@ function Courses() {
             </CardContent>
           </Card>
         )}
-        {courses.map((c) => (
-          <Card key={c.id} className="bg-white shadow-xs">
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="font-medium text-gray-900">{c.title}</div>
-                  {c.shortDescription && (
-                    <p className="text-sm text-gray-600">{c.shortDescription}</p>
-                  )}
+        <div className="grid gap-6 md:grid-cols-2">
+        {courses.map((c, i) => (
+          <Card key={c.id} className="rise group gap-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-md" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+            <CardContent className="flex h-full flex-col gap-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
+                  {c.isFree && <Badge variant="lime">Free</Badge>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={c.status === "published" ? "default" : "secondary"} className="capitalize">
-                    {c.status}
-                  </Badge>
-                  {c.isFree && <Badge variant="outline">Free</Badge>}
-                </div>
+                <Link
+                  href={`/courses/${c.id}`}
+                  aria-label={`${c.instructorId === me.id ? "Manage" : "View"} ${c.title}`}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover:border-teal group-hover:bg-teal group-hover:text-white"
+                >
+                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
               </div>
-              <dl className="grid gap-2 text-xs text-gray-500 sm:grid-cols-2">
+              <div className="space-y-2">
+                <h2 className="text-xl leading-snug font-semibold text-heading">{c.title}</h2>
+                {c.shortDescription && <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">{c.shortDescription}</p>}
+              </div>
+              <dl className="grid gap-x-6 gap-y-2 border-t border-border pt-4 text-xs sm:grid-cols-2">
                 <div>
-                  <dt className="inline font-medium">Exam: </dt>
-                  <dd className="inline">{examName(c.examId)}</dd>
+                  <dt className="text-muted-foreground">Exam</dt>
+                  <dd className="font-semibold text-heading">{examName(c.examId)}</dd>
                 </div>
                 <div>
-                  <dt className="inline font-medium">Slug: </dt>
-                  <dd className="inline">{c.slug}</dd>
+                  <dt className="text-muted-foreground">Instructor</dt>
+                  <dd className="font-semibold text-heading">{person(c.instructorId)}</dd>
                 </div>
-                <div className="sm:col-span-2">
-                  <dt className="inline font-medium">Course ID: </dt>
-                  <dd className="inline font-mono">{c.id}</dd>
-                  <CopyButton text={c.id} label="Copy course ID" />
+                <div>
+                  <dt className="text-muted-foreground">Slug</dt>
+                  <dd className="truncate font-semibold text-heading">{c.slug}</dd>
                 </div>
-                <div className="sm:col-span-2">
-                  <dt className="inline font-medium">Instructor: </dt>
-                  <dd className="inline">{person(c.instructorId)}</dd>
+                <div>
+                  <dt className="text-muted-foreground">Course ID</dt>
+                  <dd className="flex items-center gap-1 font-mono text-[11px] text-heading">
+                    <span className="truncate">{c.id}</span>
+                    <CopyButton text={c.id} label="Copy course ID" />
+                  </dd>
                 </div>
               </dl>
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-auto flex flex-wrap gap-2">
                 <Link href={`/courses/${c.id}`} className={buttonVariants({ size: "sm" })}>
                   {c.instructorId === me.id ? "Manage" : "View"}
                   <ArrowRight />
@@ -175,6 +181,7 @@ function Courses() {
             </CardContent>
           </Card>
         ))}
+        </div>
       </div>
 
       {(offset > 0 || hasMore) && (
@@ -204,9 +211,9 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
           setTimeout(() => setDone(false), 1500)
         })
       }}
-      className="ml-1 inline-flex align-middle text-gray-400 hover:text-gray-900"
+      className="inline-flex shrink-0 rounded-sm p-0.5 text-gray-400 transition-colors hover:bg-accent hover:text-teal"
     >
-      {done ? <span className="text-green-600">copied</span> : <Copy className="size-3.5" />}
+      {done ? <Check className="pop size-3.5 text-green-600" /> : <Copy className="size-3.5" />}
     </button>
   )
 }
@@ -258,7 +265,7 @@ function CreateCourse({
   }
 
   return (
-    <Card className="bg-white shadow-xs">
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>New course</CardTitle>
       </CardHeader>
@@ -282,7 +289,7 @@ function CreateCourse({
               required
               maxLength={200}
               value={title}
-              className="h-10 bg-white"
+             
               onChange={(e) => {
                 setTitle(e.target.value)
                 if (!slugEdited) setSlug(slugify(e.target.value))
@@ -298,7 +305,7 @@ function CreateCourse({
               pattern="[a-z0-9]+(-[a-z0-9]+)*"
               title="Lowercase letters, numbers and single dashes"
               value={slug}
-              className="h-10 bg-white"
+             
               onChange={(e) => {
                 setSlug(e.target.value)
                 setSlugEdited(true)
@@ -325,7 +332,7 @@ function CreateCourse({
               id="short"
               maxLength={500}
               value={shortDescription}
-              className="h-10 bg-white"
+             
               onChange={(e) => setShort(e.target.value)}
             />
           </Field>

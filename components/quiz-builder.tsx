@@ -93,19 +93,19 @@ export function QuizBuilder({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field className="sm:col-span-2">
           <FieldLabel htmlFor={`qt-${key}`}>Quiz title</FieldLabel>
-          <Input id={`qt-${key}`} required maxLength={200} value={title} className="h-10 bg-white" onChange={(e) => setTitle(e.target.value)} />
+          <Input id={`qt-${key}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field className="sm:col-span-2">
           <FieldLabel>Description</FieldLabel>
-          <Input maxLength={2000} value={description} className="h-10 bg-white" onChange={(e) => setDescription(e.target.value)} />
+          <Input maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
         <Field>
           <FieldLabel>Pass mark (%)</FieldLabel>
-          <Input type="number" min={0} max={100} required value={passPercent} className="h-10 bg-white" onChange={(e) => setPass(Number(e.target.value))} />
+          <Input type="number" min={0} max={100} required value={passPercent} onChange={(e) => setPass(Number(e.target.value))} />
         </Field>
         <Field>
           <FieldLabel>Time limit (minutes, optional)</FieldLabel>
-          <Input type="number" min={1} max={1440} value={minutes} className="h-10 bg-white" onChange={(e) => setMinutes(e.target.value)} />
+          <Input type="number" min={1} max={1440} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
         </Field>
         <Field>
           <FieldLabel>Status</FieldLabel>

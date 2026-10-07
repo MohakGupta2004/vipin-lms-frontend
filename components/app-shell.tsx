@@ -88,41 +88,43 @@ export function AppShell({ roles, children }: { roles?: Role[]; children: React.
   if (!user || !allowed || !verified) return null
 
   return (
-    <div className="min-h-svh bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-6">
-          <div className="flex items-center gap-8">
-            <Link href={roleHome(user.role)}>
+    <div className="flex min-h-svh flex-col bg-gray-50">
+      <header className="sticky top-0 z-30 border-b border-border bg-white">
+        <div className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between gap-4 px-6 lg:px-8">
+          <div className="flex items-center gap-10">
+            <Link href={roleHome(user.role)} aria-label="Home">
               <Brand />
             </Link>
-            <nav className="hidden items-center gap-1 sm:flex">
-              {NAV[user.role].map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100",
-                    pathname.startsWith(href) && "bg-gray-100 text-gray-900"
-                  )}
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </Link>
-              ))}
+            <nav aria-label="Primary" className="hidden items-center gap-7 sm:flex">
+              {NAV[user.role].map(({ href, label, icon: Icon }) => {
+                const active = pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2 border-b-2 border-transparent py-1 text-sm font-medium text-heading transition-colors duration-200 hover:text-teal",
+                      active && "border-teal text-teal"
+                    )}
+                  >
+                    <Icon className="size-4" strokeWidth={1.75} />
+                    {label}
+                  </Link>
+                )
+              })}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <div className="text-sm font-medium text-gray-900">
+          <div className="flex items-center gap-4">
+            <div className="hidden text-right md:block">
+              <div className="text-sm leading-tight font-semibold text-heading">
                 {user.firstName} {user.lastName}
               </div>
-              <div className="text-xs text-gray-500">{user.email}</div>
+              <div className="text-xs text-muted-foreground">{user.email}</div>
             </div>
-            <Badge variant="secondary" className="capitalize">
-              {user.role}
-            </Badge>
+            <Badge variant="tag">{user.role}</Badge>
             <Button
-              variant="ghost"
+              variant="navy"
               size="sm"
               onClick={async () => {
                 await logout().catch(() => {})
@@ -134,8 +136,32 @@ export function AppShell({ roles, children }: { roles?: Role[]; children: React.
             </Button>
           </div>
         </div>
+        <nav aria-label="Primary mobile" className="flex gap-6 overflow-x-auto border-t border-border px-6 sm:hidden">
+          {NAV[user.role].map(({ href, label }) => {
+            const active = pathname.startsWith(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "border-b-2 border-transparent py-3 text-sm font-medium whitespace-nowrap text-heading",
+                  active && "border-teal text-teal"
+                )}
+              >
+                {label}
+              </Link>
+            )
+          })}
+        </nav>
       </header>
-      <main className="mx-auto max-w-5xl space-y-6 px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-8 px-6 py-12 lg:px-8 lg:py-14">{children}</main>
+      <footer className="bg-navy">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5 text-xs text-white/60 lg:px-8">
+          <Brand onDark className="[&_span]:text-sm [&>div]:size-7" />
+          <span>© {new Date().getFullYear()} LMS Platform</span>
+        </div>
+      </footer>
     </div>
   )
 }
@@ -150,12 +176,16 @@ export function PageTitle({
   actions?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+    <div className="rise relative overflow-hidden rounded-xl bg-gradient-to-br from-[#E3F2C9] via-[#CBE8DC] to-[#8FC3CB] px-6 py-9 sm:px-10 sm:py-12">
+      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full border border-white/50" />
+      <div aria-hidden className="pointer-events-none absolute -right-4 -bottom-28 size-72 rounded-full border border-white/40" />
+      <div className="relative flex flex-wrap items-end justify-between gap-6">
+        <div className="max-w-2xl space-y-3">
+          <h1 className="text-3xl leading-[1.1] font-semibold tracking-tight text-heading sm:text-5xl">{title}</h1>
+          {subtitle && <p className="text-base leading-relaxed text-heading/80 sm:text-lg">{subtitle}</p>}
+        </div>
+        {actions}
       </div>
-      {actions}
     </div>
   )
 }
@@ -163,7 +193,7 @@ export function PageTitle({
 export function ErrorNote({ error }: { error: string | null }) {
   if (!error) return null
   return (
-    <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       {error}
     </p>
   )
