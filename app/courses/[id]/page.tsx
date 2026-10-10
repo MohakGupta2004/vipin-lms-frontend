@@ -174,7 +174,7 @@ function CourseView() {
       <ErrorNote error={error} />
 
       {preview && canSeeLessons && (
-        <div className="rise flex flex-wrap items-center gap-4 rounded-lg border border-secondary bg-lime-soft/50 p-5" style={{ "--i": 1 } as React.CSSProperties}>
+        <div className="rise flex flex-wrap items-center gap-4 rounded-lg border border-secondary bg-lime-soft/50 p-4 sm:p-5" style={{ "--i": 1 } as React.CSSProperties}>
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-navy">
             <LockOpen className="size-5" />
           </span>
@@ -189,8 +189,8 @@ function CourseView() {
       )}
 
       {course && (
-        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-6 shadow-[0_1px_2px_rgba(10,37,64,0.05)] lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
-          <div className="space-y-3">
+        <div className="rise grid gap-5 rounded-lg border border-border bg-white p-5 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:gap-6 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
+          <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={course.status === "published" ? "default" : "secondary"}>{course.status}</Badge>
               {course.isFree && <Badge variant="lime">Free</Badge>}
@@ -202,7 +202,7 @@ function CourseView() {
             )}
           </div>
           {canSeeLessons && (
-            <dl className="flex gap-8 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+            <dl className="flex gap-6 border-t border-border pt-4 sm:gap-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
               <div>
                 <dt className="text-xs text-muted-foreground">Lessons</dt>
                 <dd className="tnum text-3xl font-semibold text-heading">{lessons.length}</dd>
@@ -415,7 +415,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
             <FieldLabel htmlFor="lcontent">Short description</FieldLabel>
             <Textarea id="lcontent" maxLength={50000} value={content} onChange={(e) => setContent(e.target.value)} />
           </Field>
-          <div className="flex gap-6 text-sm text-gray-700">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-700">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isPublished} onChange={(e) => setPublished(e.target.checked)} />
               Published (visible to students)
@@ -508,13 +508,13 @@ function LessonCard({
       className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200 hover:shadow-md"
       style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
     >
-      <div className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4 sm:p-6">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open_}
           aria-controls={`lesson-${lesson.id}`}
-          className="group flex min-w-0 flex-1 items-center gap-4 rounded-md text-left"
+          className="group flex min-w-0 flex-[1_1_16rem] items-center gap-3 rounded-md text-left sm:gap-4"
         >
           {locked ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Locked">
@@ -526,7 +526,7 @@ function LessonCard({
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-lg font-semibold text-heading">{lesson.title}</span>
+            <span className="block truncate text-base font-semibold text-heading sm:text-lg">{lesson.title}</span>
             <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><FileText className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
               <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
@@ -558,7 +558,7 @@ function LessonCard({
 
       <div className="expand" data-open={open_} id={`lesson-${lesson.id}`}>
         <div>
-          <div className="space-y-6 border-t border-border bg-gray-50/60 p-5 sm:p-6">
+          <div className="space-y-6 border-t border-border bg-gray-50/60 p-4 sm:p-6">
             {lesson.content && (
               <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>
             )}
@@ -586,7 +586,7 @@ function LessonCard({
             )}
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <section className="space-y-3">
+              <section className="min-w-0 space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
                   <Layers className="size-4 text-teal" /> Notes
                 </h3>
@@ -604,7 +604,7 @@ function LessonCard({
                 />
               </section>
 
-              <section className="space-y-3">
+              <section className="min-w-0 space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
                   <ClipboardList className="size-4 text-teal" /> Tests
                 </h3>
@@ -656,7 +656,7 @@ function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) 
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:p-5">
       <Field>
         <FieldLabel htmlFor={`el-${lesson.id}`}>Title</FieldLabel>
         <Input id={`el-${lesson.id}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />

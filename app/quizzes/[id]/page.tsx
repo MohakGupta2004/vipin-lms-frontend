@@ -185,7 +185,7 @@ function QuizView() {
           <CardContent>
             <ul className="divide-y divide-border text-sm">
               {attempts.map((a) => (
-                <li key={a.id} className="flex items-center justify-between py-2">
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
                   <span>{new Date(a.submittedAt).toLocaleString()}</span>
                   <span className="flex items-center gap-2">
                     {a.score ?? 0}/{a.total ?? 0}
@@ -272,7 +272,7 @@ function Take({ quiz, onDone }: { quiz: Quiz; onDone: (a: QuizAttempt) => void }
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-[88px] z-20 space-y-2 rounded-lg border border-border bg-white/95 p-4 shadow-sm backdrop-blur-sm">
+      <div className="sticky top-[128px] z-20 space-y-2 rounded-lg border border-border bg-white/95 p-3 shadow-sm backdrop-blur-sm sm:top-[88px] sm:p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="tnum font-semibold text-heading">
             {Object.keys(picked).length} of {questions.length} answered
@@ -305,11 +305,11 @@ function Take({ quiz, onDone }: { quiz: Quiz; onDone: (a: QuizAttempt) => void }
                   <label
                     key={o.id}
                     className={
-                      "flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-sm transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring " +
+                      "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3 text-sm sm:px-4 transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring " +
                       (on ? "border-teal bg-mint font-medium text-heading" : "border-border text-gray-700 hover:border-teal/40 hover:bg-gray-50")
                     }
                   >
-                    <input type="radio" name={q.id} className="size-4" checked={on} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
+                    <input type="radio" name={q.id} className="size-4 shrink-0" checked={on} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
                     {o.optionText}
                   </label>
                 )
@@ -335,7 +335,7 @@ function Result({ quiz, attempt }: { quiz: Quiz; attempt: QuizAttempt }) {
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-sm text-white/75">Your score</div>
-            <div className="tnum text-5xl font-semibold text-white">
+            <div className="tnum text-4xl font-semibold text-white sm:text-5xl">
               {attempt.score ?? 0}<span className="text-2xl text-white/60">/{attempt.total ?? 0}</span>
             </div>
           </div>
@@ -427,7 +427,7 @@ function Practice({
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-[88px] z-20 space-y-2 rounded-lg border border-border bg-white/95 p-4 shadow-sm backdrop-blur-sm">
+      <div className="sticky top-[128px] z-20 space-y-2 rounded-lg border border-border bg-white/95 p-3 shadow-sm backdrop-blur-sm sm:top-[88px] sm:p-4">
         <span className="tnum text-sm font-semibold text-heading">
           {done} of {questions.length} checked
         </span>
@@ -464,11 +464,11 @@ function Practice({
                         <label
                           key={o.id}
                           className={
-                            "flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-sm transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring " +
+                            "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-3 text-sm sm:px-4 transition-all duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring " +
                             (on ? "border-teal bg-mint font-medium text-heading" : "border-border text-gray-700 hover:border-teal/40 hover:bg-gray-50")
                           }
                         >
-                          <input type="radio" name={q.id} className="size-4" checked={on} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
+                          <input type="radio" name={q.id} className="size-4 shrink-0" checked={on} onChange={() => setPicked((p) => ({ ...p, [q.id]: o.id }))} />
                           {o.optionText}
                         </label>
                       )

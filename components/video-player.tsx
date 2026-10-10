@@ -230,7 +230,9 @@ export function VideoPlayer({
   )
 
   return (
-    <div className="relative size-full bg-black" aria-label={`Video player: ${title}`} role="region">
+    // `isolate` keeps ArtPlayer's internal z-indexes (controls are z-60) from escaping above the
+    // sticky header and modal overlays like the PDF preview.
+    <div className="relative isolate size-full bg-black" aria-label={`Video player: ${title}`} role="region">
       <div ref={container} className="size-full" />
       {layer && overlay && createPortal(<div className="pointer-events-auto absolute inset-0">{overlay}</div>, layer)}
       {error && (

@@ -597,7 +597,7 @@ function FormatGuide({ open }: { open: boolean }) {
           Scanned (image-only) PDFs can&apos;t be read.
         </li>
       </ul>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {[
           ["Question paper", QUESTIONS_SAMPLE],
           ["Answer key", ANSWERS_SAMPLE],

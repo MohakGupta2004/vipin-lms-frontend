@@ -72,7 +72,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                       <span className="block truncate text-sm font-semibold text-heading">
                         {q.title}
                       </span>
-                      <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="tnum flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                         {meta(q)}
                         {q.isFree && <Badge variant="lime">Free preview</Badge>}
                         {q.status === "draft" && (

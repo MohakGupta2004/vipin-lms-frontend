@@ -78,7 +78,7 @@ export function NoteList({
                 <span className="block truncate text-sm font-semibold text-heading">
                   {n.title}
                 </span>
-                <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="tnum flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {size(n)}
                   {n.isFree && <Badge variant="lime">Free preview</Badge>}
                 </span>

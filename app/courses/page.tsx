@@ -125,7 +125,7 @@ function Courses() {
         )}
         <div className="grid gap-6 md:grid-cols-2">
         {courses.map((c, i) => (
-          <Card key={c.id} className="rise group gap-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-md" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+          <Card key={c.id} className="rise group min-w-0 gap-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-md" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
             <CardContent className="flex h-full flex-col gap-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -141,7 +141,7 @@ function Courses() {
                 </Link>
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl leading-snug font-semibold text-heading">{c.title}</h2>
+                <h2 className="text-xl leading-snug font-semibold break-words text-heading">{c.title}</h2>
                 {c.shortDescription && <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">{c.shortDescription}</p>}
               </div>
               <dl className="grid gap-x-6 gap-y-2 border-t border-border pt-4 text-xs sm:grid-cols-2">
@@ -153,11 +153,11 @@ function Courses() {
                   <dt className="text-muted-foreground">Instructor</dt>
                   <dd className="font-semibold text-heading">{person(c.instructorId)}</dd>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <dt className="text-muted-foreground">Slug</dt>
                   <dd className="truncate font-semibold text-heading">{c.slug}</dd>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <dt className="text-muted-foreground">Course ID</dt>
                   <dd className="flex items-center gap-1 font-mono text-[11px] text-heading">
                     <span className="truncate">{c.id}</span>

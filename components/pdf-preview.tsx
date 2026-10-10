@@ -75,7 +75,7 @@ export function PdfPreview({
       onContextMenu={(e) => e.preventDefault()}
     >
       <style>{`@media print { .pdf-preview { display: none !important; } }`}</style>
-      <div className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-white/15 px-4 sm:px-6">
+      <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-white/15 px-4 sm:gap-4 sm:px-6">
         <div className="min-w-0">
           <div className="truncate text-base font-semibold text-white">{title}</div>
           {pdf && (
@@ -84,7 +84,7 @@ export function PdfPreview({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Button variant="outlineLight" size="icon-sm" aria-label="Zoom out" disabled={zoom <= 0.6} onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(1)))}>
             <Minus />
           </Button>
@@ -92,8 +92,8 @@ export function PdfPreview({
           <Button variant="outlineLight" size="icon-sm" aria-label="Zoom in" disabled={zoom >= 2} onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(1)))}>
             <Plus />
           </Button>
-          <Button variant="lime" size="sm" onClick={onClose} className="ml-2">
-            <X /> Close
+          <Button variant="lime" size="sm" onClick={onClose} aria-label="Close" className="ml-1 sm:ml-2">
+            <X /> <span className="hidden sm:inline">Close</span>
           </Button>
         </div>
       </div>

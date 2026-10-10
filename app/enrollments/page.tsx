@@ -115,7 +115,7 @@ function Enrollments() {
           <ul className="divide-y divide-border">
             {rows.map((r, i) => (
               <li key={r.id} className="rise -mx-3 flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-4 transition-colors hover:bg-mint/60" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
-                <div className="space-y-0.5 text-sm">
+                <div className="min-w-0 space-y-0.5 text-sm break-words">
                   <div className="font-semibold text-heading">{title(r.courseId)}</div>
                   <div className="text-xs text-gray-600">Student: {student(r.userId)}</div>
                   <div className="text-xs text-gray-500">

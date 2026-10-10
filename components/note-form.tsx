@@ -70,7 +70,7 @@ export function NoteForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm"
+      className="space-y-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:p-5"
     >
       <Field>
         <FieldLabel htmlFor={`nt-${key}`}>Title</FieldLabel>

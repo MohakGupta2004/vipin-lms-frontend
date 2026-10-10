@@ -193,7 +193,7 @@ function Learn() {
         <Link href={`/courses/${id}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-secondary sm:text-base">
           {course?.title ?? "Course"}
         </Link>
-        {preview && <Badge variant="lime" className="shrink-0">Free preview</Badge>}
+        {preview && <Badge variant="lime" className="hidden shrink-0 sm:inline-flex">Free preview</Badge>}
         {flat.length > 0 && <ProgressRing done={completed} total={flat.length} />}
         <Button
           variant="ghost"
@@ -444,16 +444,16 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
   const r = 26
   const c = 2 * Math.PI * r
   return (
-    <div className="flex size-full items-center justify-center bg-black/80 p-6 backdrop-blur-[2px]">
+    <div className="flex size-full items-center justify-center bg-black/80 p-4 backdrop-blur-[2px] sm:p-6">
       <div className="pop w-full max-w-sm text-center text-white">
         <p className="text-xs font-semibold tracking-widest text-white/60 uppercase">Up next</p>
-        <p className="mt-2 text-lg leading-snug font-semibold text-balance">{video.title}</p>
-        {sectionTitle && <p className="mt-1 truncate text-sm text-white/60">{sectionTitle}</p>}
+        <p className="mt-1 line-clamp-2 text-base leading-snug font-semibold text-balance sm:mt-2 sm:text-lg">{video.title}</p>
+        {sectionTitle && <p className="mt-1 hidden truncate text-sm text-white/60 sm:block">{sectionTitle}</p>}
         <button
           type="button"
           onClick={onPlay}
           aria-label={`Play now: ${video.title}`}
-          className="group relative mx-auto mt-5 flex size-16 items-center justify-center rounded-full"
+          className="group relative mx-auto mt-3 flex size-12 items-center justify-center rounded-full sm:mt-5 sm:size-16"
         >
           <svg viewBox="0 0 60 60" className="absolute inset-0 -rotate-90" aria-hidden>
             <circle cx="30" cy="30" r={r} fill="none" stroke="white" strokeOpacity={0.2} strokeWidth="3" />
@@ -470,10 +470,10 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
               className="transition-[stroke-dashoffset] duration-1000 ease-linear"
             />
           </svg>
-          <SkipForward className="size-6 fill-current transition-transform group-hover:scale-110" />
+          <SkipForward className="size-5 fill-current transition-transform group-hover:scale-110 sm:size-6" />
         </button>
-        <p className="tnum mt-3 text-sm text-white/70">Playing in {Math.max(0, left)}s</p>
-        <Button variant="ghost" size="sm" className="mt-2 text-white hover:bg-white/10 hover:text-white" onClick={onCancel}>
+        <p className="tnum mt-2 text-xs text-white/70 sm:mt-3 sm:text-sm">Playing in {Math.max(0, left)}s</p>
+        <Button variant="ghost" size="sm" className="mt-1 text-white sm:mt-2 hover:bg-white/10 hover:text-white" onClick={onCancel}>
           Cancel
         </Button>
       </div>

@@ -262,25 +262,29 @@ function RowShell({
   }[tone]
   return (
     <li className="pop rounded-md border border-border bg-white p-3 transition-colors duration-200 hover:border-teal/40">
-      <div className="flex items-center gap-3">
-        <span
-          className={
-            "flex size-10 shrink-0 items-center justify-center rounded-md " +
-            tile
-          }
-        >
-          <Film className="size-5" strokeWidth={1.75} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-heading">
-            {title}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex min-w-0 flex-[1_1_12rem] items-center gap-3">
+          <span
+            className={
+              "flex size-10 shrink-0 items-center justify-center rounded-md " +
+              tile
+            }
+          >
+            <Film className="size-5" strokeWidth={1.75} />
           </span>
-          <span className="tnum flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            {meta}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-heading">
+              {title}
+            </span>
+            <span className="tnum flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              {meta}
+            </span>
           </span>
         </span>
-        {chip}
-        {children}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {chip}
+          {children}
+        </span>
       </div>
       {bar}
     </li>
@@ -533,7 +537,7 @@ function VideoUploadForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm"
+      className="space-y-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:p-5"
     >
       <label
         htmlFor={inputId}
