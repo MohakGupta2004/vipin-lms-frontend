@@ -43,7 +43,7 @@ function QuizView() {
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [attempts, setAttempts] = useState<QuizAttempt[]>([])
   const [result, setResult] = useState<QuizAttempt | null>(null)
-  const [error, setError] = useState<string | null>(valid ? null : "That is not a valid quiz ID.")
+  const [error, setError] = useState<string | null>(valid ? null : "That is not a valid test ID.")
   const [taking, setTaking] = useState(false)
   // Bumped by "Practice again" to remount <Practice> with fresh state.
   const [practiceRun, setPracticeRun] = useState(0)
@@ -93,12 +93,12 @@ function QuizView() {
   return (
     <>
       <PageTitle
-        title={quiz?.title ?? "Quiz"}
+        title={quiz?.title ?? "Test"}
         subtitle={quiz?.description}
         actions={
           owner && quiz && (
             <div className="flex flex-wrap items-center gap-2">
-              <Select aria-label="Quiz status" className="h-9 w-36" value={quiz.status} onChange={(e) => onStatus(e.target.value as QuizStatus)}>
+              <Select aria-label="Test status" className="h-9 w-36" value={quiz.status} onChange={(e) => onStatus(e.target.value as QuizStatus)}>
                 <option value="published">Published</option>
                 <option value="draft">Draft</option>
               </Select>
@@ -149,7 +149,7 @@ function QuizView() {
 
       {isStudent && quiz && !result && !taking && (
         <Button onClick={() => setTaking(true)} disabled={questions.length === 0}>
-          {practice ? "Start practice" : "Start quiz"}
+          {practice ? "Start practice" : "Start test"}
         </Button>
       )}
 
@@ -207,7 +207,7 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
       {questions.map((q, i) => (
         <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
           <CardContent className="space-y-2">
-            <p className="text-base font-semibold text-heading">
+            <p className="text-base font-semibold whitespace-pre-line text-heading">
               <span className="tnum mr-2 text-teal">{i + 1}.</span>
               {q.questionText}
             </p>
@@ -225,7 +225,7 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
                 </li>
               ))}
             </ul>
-            {q.explanation && <p className="text-xs text-gray-500">{q.explanation}</p>}
+            {q.explanation && <p className="text-xs whitespace-pre-line text-gray-500">{q.explanation}</p>}
           </CardContent>
         </Card>
       ))}
@@ -294,7 +294,7 @@ function Take({ quiz, onDone }: { quiz: Quiz; onDone: (a: QuizAttempt) => void }
       {questions.map((q, i) => (
         <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
           <CardContent className="space-y-4">
-            <p className="text-base leading-snug font-semibold text-heading">
+            <p className="text-base leading-snug font-semibold whitespace-pre-line text-heading">
               <span className="tnum mr-2 text-teal">{i + 1}.</span>
               {q.questionText}
             </p>
@@ -347,13 +347,13 @@ function Result({ quiz, attempt }: { quiz: Quiz; attempt: QuizAttempt }) {
         return (
           <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
             <CardContent className="space-y-3">
-              <p className="flex items-start gap-2 font-semibold text-heading">
+              <p className="flex items-start gap-2 font-semibold whitespace-pre-line text-heading">
                 {a?.isCorrect ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" />}
                 {i + 1}. {q.questionText}
               </p>
               <OptionReveal options={q.options} correctOptionId={a?.correctOptionId} selectedOptionId={a?.selectedOptionId} />
               {!a?.selectedOptionId && <p className="text-xs text-gray-500">Skipped</p>}
-              {a?.explanation && <p className="text-xs text-gray-500">{a.explanation}</p>}
+              {a?.explanation && <p className="text-xs whitespace-pre-line text-gray-500">{a.explanation}</p>}
             </CardContent>
           </Card>
         )
@@ -445,7 +445,7 @@ function Practice({
             <CardContent className="space-y-4">
               <p className="flex items-start gap-2 text-base leading-snug font-semibold text-heading">
                 {a && (a.isCorrect ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" />)}
-                <span>
+                <span className="whitespace-pre-line">
                   <span className="tnum mr-2 text-teal">{i + 1}.</span>
                   {q.questionText}
                 </span>
@@ -453,7 +453,7 @@ function Practice({
               {a ? (
                 <>
                   <OptionReveal options={q.options} correctOptionId={a.correctOptionId} selectedOptionId={a.selectedOptionId} />
-                  {a.explanation && <p className="text-xs text-gray-500">{a.explanation}</p>}
+                  {a.explanation && <p className="text-xs whitespace-pre-line text-gray-500">{a.explanation}</p>}
                 </>
               ) : (
                 <>

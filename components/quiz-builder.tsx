@@ -27,17 +27,20 @@ const fromQuiz = (q: Quiz): Draft[] =>
 export function QuizBuilder({
   lessonId,
   quiz,
+  initialType,
   onSaved,
 }: {
   lessonId?: string
   quiz?: Quiz
+  /** Starting type for a new quiz. */
+  initialType?: QuizType
   onSaved: (q: Quiz) => void
 }) {
   const editing = !!quiz
   const key = quiz?.id ?? lessonId
   const [title, setTitle] = useState(quiz?.title ?? "")
   const [description, setDescription] = useState(quiz?.description ?? "")
-  const [type, setType] = useState<QuizType>(quiz?.type ?? "mock_test")
+  const [type, setType] = useState<QuizType>(quiz?.type ?? initialType ?? "mock_test")
   const practice = type === "practice"
   const [passPercent, setPass] = useState(quiz?.passPercent ?? 70)
   const [minutes, setMinutes] = useState(quiz?.timeLimitSec ? String(Math.round(quiz.timeLimitSec / 60)) : "")
@@ -99,7 +102,7 @@ export function QuizBuilder({
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-gray-900">Quiz type</legend>
+        <legend className="text-sm font-medium text-gray-900">Test type</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {(["mock_test", "practice"] as const).map((t) => (
             <label
@@ -121,7 +124,7 @@ export function QuizBuilder({
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field className="sm:col-span-2">
-          <FieldLabel htmlFor={`qt-${key}`}>Quiz title</FieldLabel>
+          <FieldLabel htmlFor={`qt-${key}`}>Title</FieldLabel>
           <Input id={`qt-${key}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field className="sm:col-span-2">
@@ -218,7 +221,7 @@ export function QuizBuilder({
       <div>
         <Button type="submit" disabled={saving}>
           {saving && <Loader2 className="animate-spin" />}
-          {editing ? "Save quiz" : "Create quiz"}
+          {editing ? "Save test" : "Create test"}
         </Button>
       </div>
     </form>

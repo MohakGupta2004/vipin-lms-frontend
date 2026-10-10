@@ -17,7 +17,9 @@ export type EnrollmentStatus = "active" | "completed" | "expired" | "cancelled"
 export type QuizStatus = "draft" | "published"
 export type QuizType = "mock_test" | "practice"
 
-export const QUIZ_TYPE_LABEL: Record<QuizType, string> = { mock_test: "Mock test", practice: "Practice set" }
+export const QUIZ_TYPE_LABEL: Record<QuizType, string> = { mock_test: "Mock test", practice: "Practice test" }
+/** Section headings: tests are always shown to people as mock tests or practice tests, never "quizzes". */
+export const QUIZ_TYPE_PLURAL: Record<QuizType, string> = { mock_test: "Mock tests", practice: "Practice tests" }
 
 export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" | "role">
 

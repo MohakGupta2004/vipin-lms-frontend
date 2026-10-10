@@ -2,7 +2,7 @@ import { ArrowRight, ClipboardList, Lock } from "lucide-react"
 import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
-import { QUIZ_TYPE_LABEL, isPractice, type Quiz } from "@/lib/api"
+import { QUIZ_TYPE_PLURAL, isPractice, type Quiz } from "@/lib/api"
 
 const meta = (q: Quiz) => {
   const parts = [`${q.questionCount} questions`]
@@ -15,20 +15,16 @@ const meta = (q: Quiz) => {
 }
 
 /**
- * Quiz rows grouped into Mock tests and Practice sets; an empty group is hidden.
- * Locked quizzes (previewing a paid course) show but can't be opened.
+ * Test rows in two sections, Mock tests and Practice tests. Once there is any test both sections
+ * show, each with its own empty state; with none at all the caller shows its own empty message.
+ * Locked tests (previewing a paid course) show but can't be opened.
  */
 export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
-  const groups = [
-    {
-      label: QUIZ_TYPE_LABEL.mock_test + "s",
-      items: quizzes.filter((q) => !isPractice(q)),
-    },
-    {
-      label: QUIZ_TYPE_LABEL.practice + "s",
-      items: quizzes.filter(isPractice),
-    },
-  ].filter((g) => g.items.length > 0)
+  if (quizzes.length === 0) return null
+  const groups = (["mock_test", "practice"] as const).map((t) => ({
+    label: QUIZ_TYPE_PLURAL[t],
+    items: quizzes.filter((q) => q.type === t),
+  }))
 
   return (
     <div className="space-y-4">
@@ -37,6 +33,11 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
           <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {g.label}
           </h4>
+          {g.items.length === 0 && (
+            <p className="rounded-md border border-dashed border-border bg-white px-4 py-3 text-center text-sm text-muted-foreground">
+              No {g.label.toLowerCase()} yet.
+            </p>
+          )}
           <ul className="space-y-2">
             {g.items.map((q) =>
               q.locked ? (

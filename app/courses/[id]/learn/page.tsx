@@ -529,7 +529,7 @@ function LectureTabs({
     { key: "content", label: "Course content", className: "lg:hidden" },
     { key: "overview", label: "Overview" },
     { key: "notes", label: `Notes${notes.length ? ` (${notes.length})` : ""}` },
-    { key: "quizzes", label: `Quizzes${quizzes?.length ? ` (${quizzes.length})` : ""}` },
+    { key: "quizzes", label: `Tests${quizzes?.length ? ` (${quizzes.length})` : ""}` },
   ]
   const overviewActive = tab === "overview"
 
@@ -629,7 +629,7 @@ function LectureTabs({
                 <Loader2 className="size-4 animate-spin" /> Loading…
               </p>
             )}
-            {quizzes?.length === 0 && <Empty>No quizzes for this lecture.</Empty>}
+            {quizzes?.length === 0 && <Empty>No tests for this lecture.</Empty>}
             {quizzes && <QuizList quizzes={quizzes} />}
           </div>
         )}

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react"
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { LessonNotes } from "@/components/note-list"
 import { PdfPreview } from "@/components/pdf-preview"
-import { QuizBuilder } from "@/components/quiz-builder"
+import { QuizCreator } from "@/components/quiz-pdf-import"
 import { QuizList } from "@/components/quiz-list"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -134,8 +134,8 @@ function CourseView() {
         title={course?.title ?? "Course"}
         subtitle={
           isOwner
-            ? "Manage lessons, share PDF notes and publish quizzes."
-            : course?.shortDescription || "Lessons, notes and quizzes for this course."
+            ? "Manage lessons, share PDF notes and publish tests."
+            : course?.shortDescription || "Lessons, notes and tests for this course."
         }
         actions={
           isOwner ? (
@@ -182,7 +182,7 @@ function CourseView() {
             <p className="font-semibold text-heading">You&apos;re previewing this course</p>
             <p className="tnum text-sm text-heading/80">
               {freeLessons} of {lessons.length} {lessons.length === 1 ? "lesson is" : "lessons are"} free to preview, along with any free videos and
-              quizzes. Ask your admin to enroll you to unlock everything.
+              tests. Ask your admin to enroll you to unlock everything.
             </p>
           </div>
         </div>
@@ -247,7 +247,7 @@ function CourseView() {
       {course && !canSeeLessons && (
         <Card className="bg-white">
           <CardContent className="py-8 text-center text-sm text-gray-500">
-            Lessons, notes and quizzes are managed by the course&apos;s instructor.
+            Lessons, notes and tests are managed by the course&apos;s instructor.
           </CardContent>
         </Card>
       )}
@@ -529,7 +529,7 @@ function LessonCard({
             <span className="block truncate text-lg font-semibold text-heading">{lesson.title}</span>
             <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><FileText className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
-              <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "quiz" : "quizzes"}</span>
+              <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
               <span className="flex items-center gap-1.5"><Film className="size-3.5" />{videos.length} {videos.length === 1 ? "video" : "videos"}</span>
             </span>
           </span>
@@ -606,26 +606,24 @@ function LessonCard({
 
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
-                  <ClipboardList className="size-4 text-teal" /> Quizzes
+                  <ClipboardList className="size-4 text-teal" /> Tests
                 </h3>
                 {quizzes.length === 0 && (
                   <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
-                    No quizzes yet.
+                    No tests yet.
                   </p>
                 )}
                 <QuizList quizzes={quizzes} />
                 {isOwner && (
                   <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
-                    <Plus /> Create quiz
+                    <Plus /> Create test
                   </Button>
                 )}
                 {isOwner && panel === "quiz" && (
-                  <QuizBuilder
+                  <QuizCreator
                     lessonId={lesson.id}
-                    onSaved={(q) => {
-                      setQuizzes((qs) => [...qs, q])
-                      setPanel(null)
-                    }}
+                    onSaved={(q) => setQuizzes((qs) => [...qs, q])}
+                    onClose={() => setPanel(null)}
                   />
                 )}
               </section>
