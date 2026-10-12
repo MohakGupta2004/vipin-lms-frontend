@@ -189,7 +189,7 @@ function CourseView() {
       )}
 
       {course && (
-        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-6 shadow-[0_1px_2px_rgba(10,37,64,0.05)] lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
+        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={course.status === "published" ? "default" : "secondary"}>{course.status}</Badge>
@@ -202,7 +202,7 @@ function CourseView() {
             )}
           </div>
           {canSeeLessons && (
-            <dl className="flex gap-8 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+            <dl className="flex flex-wrap gap-x-8 gap-y-4 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
               <div>
                 <dt className="text-xs text-muted-foreground">Lessons</dt>
                 <dd className="tnum text-3xl font-semibold text-heading">{lessons.length}</dd>
@@ -508,13 +508,13 @@ function LessonCard({
       className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200 hover:shadow-md"
       style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
     >
-      <div className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open_}
           aria-controls={`lesson-${lesson.id}`}
-          className="group flex min-w-0 flex-1 items-center gap-4 rounded-md text-left"
+          className="group flex w-full min-w-0 items-center gap-3 rounded-md text-left sm:flex-1 sm:gap-4"
         >
           {locked ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Locked">
@@ -526,8 +526,8 @@ function LessonCard({
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-lg font-semibold text-heading">{lesson.title}</span>
-            <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="line-clamp-2 block text-base font-semibold break-words text-heading sm:truncate sm:text-lg">{lesson.title}</span>
+            <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap text-muted-foreground">
               <span className="flex items-center gap-1.5"><FileText className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
               <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
               <span className="flex items-center gap-1.5"><Film className="size-3.5" />{videos.length} {videos.length === 1 ? "video" : "videos"}</span>
@@ -535,7 +535,7 @@ function LessonCard({
           </span>
           <ChevronDown className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
         </button>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 empty:hidden max-sm:pl-14">
           {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
           {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
           {locked && <Badge variant="outline">Enroll to unlock</Badge>}

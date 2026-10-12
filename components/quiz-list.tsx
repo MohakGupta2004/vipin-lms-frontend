@@ -53,11 +53,12 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                     <span className="block truncate text-sm font-semibold text-gray-600">
                       {q.title}
                     </span>
-                    <span className="tnum text-xs text-muted-foreground">
+                    <span className="tnum flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       {meta(q)}
+                      <Badge variant="outline" className="sm:hidden">Enroll to unlock</Badge>
                     </span>
                   </span>
-                  <Badge variant="outline">Enroll to unlock</Badge>
+                  <Badge variant="outline" className="max-sm:hidden">Enroll to unlock</Badge>
                 </li>
               ) : (
                 <li key={q.id}>
