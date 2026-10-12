@@ -187,7 +187,7 @@ function Learn() {
     <div className="flex min-h-svh flex-col bg-white">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-navy px-4 text-white sm:px-6">
         <Link href={roleHome(user.role)} aria-label="Home" className="shrink-0">
-          <Brand onDark className="[&_span]:hidden sm:[&_span]:inline [&>div]:size-8" />
+          <Brand onDark compact className="[&>span]:hidden sm:[&>span]:flex [&>div]:size-8" />
         </Link>
         <span aria-hidden className="hidden h-6 w-px bg-white/20 sm:block" />
         <Link href={`/courses/${id}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-secondary sm:text-base">

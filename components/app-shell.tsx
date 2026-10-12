@@ -174,8 +174,8 @@ export function AppShell({
       <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-8 px-6 py-12 lg:px-8 lg:py-14">{children}</main>
       <footer className="bg-navy">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5 text-xs text-white/60 lg:px-8">
-          <Brand onDark className="[&_span]:text-sm [&>div]:size-7" />
-          <span>© {new Date().getFullYear()} LMS Platform</span>
+          <Brand onDark compact className="[&>div]:size-8 [&>span>span]:text-base" />
+          <span>© {new Date().getFullYear()} · All rights reserved</span>
         </div>
       </footer>
     </div>

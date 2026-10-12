@@ -35,7 +35,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           </ul>
         </div>
 
-        <p className="text-xs text-white/60">© {new Date().getFullYear()} LMS Platform</p>
+        <p className="text-xs text-white/60">© {new Date().getFullYear()} Vipin Garg</p>
       </aside>
 
       {/* Form panel */}
