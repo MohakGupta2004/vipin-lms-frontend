@@ -199,7 +199,19 @@ export type QuizAttempt = {
   passed: boolean | null
   startedAt: string
   submittedAt: string
+  /** Practice sessions only; mock test attempts never reveal answers. */
   answers: AttemptAnswer[] | null
+}
+
+/** What a mock test submit returns: the marks and nothing else. */
+export type MockResult = {
+  attemptId: string
+  quizId: string
+  score: number
+  total: number
+  passed: boolean
+  passPercent: number
+  submittedAt: string
 }
 
 export const isPractice = (q: Pick<Quiz, "type">) => q.type === "practice"
@@ -607,10 +619,21 @@ export const getQuiz = (quizId: string) => json<Quiz>("GET", `/quizzes/${id(quiz
 export const updateQuizStatus = (quizId: string, status: QuizStatus) =>
   json<Quiz>("PATCH", `/quizzes/${id(quizId)}/status`, { body: { status } })
 
+/** Practice only: grades one answer right away (correct option + explanation). Nothing is saved. */
+export const checkAnswer = (quizId: string, questionId: string, optionId: string) =>
+  json<AttemptAnswer>("POST", `/quizzes/${id(quizId)}/check`, { body: { questionId, optionId } })
+
+/** Practice only: saves a finished session and returns it graded, for the review page. */
 export const submitAttempt = (
   quizId: string,
   answers: { questionId: string; optionId: string }[]
 ) => json<QuizAttempt>("POST", `/quizzes/${id(quizId)}/attempts`, { body: { answers } })
+
+/** Mock tests only: grades and saves the test; returns the marks, never the answers. */
+export const submitMockTest = (
+  quizId: string,
+  answers: { questionId: string; optionId: string }[]
+) => json<MockResult>("POST", `/quizzes/${id(quizId)}/submit`, { body: { answers } })
 
 export const listAttempts = async (quizId: string) =>
   (await json<QuizAttempt[]>("GET", `/quizzes/${id(quizId)}/attempts`)) ?? []
