@@ -1,21 +1,9 @@
 "use client"
 
-import {
-  ArrowLeft,
-  ArrowRight,
-  ChevronDown,
-  CirclePlay,
-  Loader2,
-  Lock,
-  PanelRightClose,
-  PanelRightOpen,
-  SkipForward,
-  Trophy,
-  X,
-} from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, CaretDownIcon, CircleNotchIcon, LockIcon, PlayCircleIcon, SidebarSimpleIcon, SkipForwardIcon, TrophyIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, errMsg } from "@/components/app-shell"
 import { Brand } from "@/components/brand"
@@ -33,6 +21,7 @@ import {
   listCourseVideos,
   listLessons,
   listQuizzes,
+  setVideoCompletion,
   type Course,
   type Lesson,
   type Note,
@@ -70,20 +59,39 @@ function write(key: string, value: unknown) {
   } catch {}
 }
 
-/** Lectures this user marked complete in this course (stored in this browser only). */
+/**
+ * Lectures this user completed in this course. The server is the record (it also feeds Track Your Progress);
+ * ticks are shown at once and saved in the background.
+ */
 function useCompleted(userId: string, courseId: string) {
-  const key = `lms_done:${userId}:${courseId}`
-  const [done, setDone] = useState(() => new Set(readList(key)))
-  const set = (videoId: string, on: boolean) =>
-    setDone((cur) => {
+  const [done, setDoneState] = useState<Set<string>>(() => new Set())
+  const set = (videoId: string, on: boolean, save = true) => {
+    setDoneState((cur) => {
       if (cur.has(videoId) === on) return cur
       const next = new Set(cur)
       if (on) next.add(videoId)
       else next.delete(videoId)
-      write(key, [...next])
       return next
     })
-  return [done, set] as const
+    if (save) setVideoCompletion(videoId, on).catch(() => {})
+  }
+  // Ticks from before completion was saved on the server lived in this browser: send them up once.
+  const legacyKey = `lms_done:${userId}:${courseId}`
+  const load = useCallback((videos: Video[]) => {
+    const server = new Set(videos.filter((v) => v.progress?.completedAt).map((v) => v.id))
+    const ids = new Set(videos.map((v) => v.id))
+    for (const id of readList(legacyKey)) {
+      if (ids.has(id) && !server.has(id)) {
+        server.add(id)
+        setVideoCompletion(id, true).catch(() => {})
+      }
+    }
+    try {
+      localStorage.removeItem(legacyKey)
+    } catch {}
+    setDoneState(server)
+  }, [legacyKey])
+  return [done, set, load] as const
 }
 
 function Learn() {
@@ -97,11 +105,13 @@ function Learn() {
   const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(valid)
   const [error, setError] = useState<string | null>(valid ? null : "That is not a valid course ID.")
-  const [done, setDone] = useCompleted(user.id, id)
+  const [done, setDone, loadDone] = useCompleted(user.id, id)
   const lastKey = `lms_last:${user.id}:${id}`
   const [lastWatched] = useState(() => readList(lastKey)[0] ?? null)
   const [sidebar, setSidebar] = useState(true)
   const [upNext, setUpNext] = useState<{ from: string; to: string } | null>(null)
+  // Students come here from Learn Your Way, so "back" returns them to this course's videos there.
+  const backHref = user.role === "student" ? `/learn?course=${id}` : `/courses/${id}`
 
   useEffect(() => {
     if (!valid) return
@@ -110,13 +120,14 @@ function Learn() {
         setCourse(c)
         // Only ready videos are playable; keep the course's lesson order.
         const ready = videos.filter((v) => v.status === "ready")
+        loadDone(ready)
         setSections(
           lessons.map((lesson) => ({ lesson, videos: ready.filter((v) => v.lessonId === lesson.id) })).filter((s) => s.videos.length > 0)
         )
       })
       .catch((e) => setError(errMsg(e)))
       .finally(() => setLoading(false))
-  }, [id, valid])
+  }, [id, valid, loadDone])
 
   const preview = course?.access === "preview"
   // Locked lectures (previewing a course) are listed but never played, so navigation skips them.
@@ -158,7 +169,7 @@ function Learn() {
 
   function onEnded() {
     if (!current) return
-    setDone(current.id, true)
+    setDone(current.id, true, false) // the player already saved it
     if (next) setUpNext({ from: current.id, to: next.id })
   }
 
@@ -202,23 +213,23 @@ function Learn() {
           onClick={() => setSidebar((s) => !s)}
           aria-pressed={sidebar}
         >
-          {sidebar ? <PanelRightClose /> : <PanelRightOpen />}
+          {sidebar ? <SidebarSimpleIcon /> : <SidebarSimpleIcon />}
           Course content
         </Button>
-        <Link href={`/courses/${id}`} className={buttonVariants({ variant: "ghost", size: "sm", className: "text-white hover:bg-white/10 hover:text-white" })}>
-          <ArrowLeft /> <span className="hidden sm:inline">Back to course</span>
+        <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "sm", className: "text-white hover:bg-white/10 hover:text-white" })}>
+          <ArrowLeftIcon /> <span className="hidden sm:inline">Back to course</span>
         </Link>
       </header>
 
       {loading && (
         <p className="flex flex-1 items-center justify-center gap-2 text-sm text-gray-500">
-          <Loader2 className="size-4 animate-spin" /> Loading course…
+          <CircleNotchIcon className="size-4 animate-spin" /> Loading course…
         </p>
       )}
       {!loading && (error || !current) && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-mint text-teal">
-            <CirclePlay className="size-7" strokeWidth={1.5} />
+          <span className="flex size-14 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            <PlayCircleIcon className="size-7" />
           </span>
           <div className="space-y-1">
             <h1 className="text-xl font-semibold">{error ? "Can't open this course" : lockedCount > 0 ? "Enroll to watch" : "No videos yet"}</h1>
@@ -229,8 +240,8 @@ function Learn() {
                   : "Lectures will appear here once the instructor uploads them and they finish processing.")}
             </p>
           </div>
-          <Link href={`/courses/${id}`} className={buttonVariants({ variant: "outline" })}>
-            <ArrowLeft /> Back to course
+          <Link href={backHref} className={buttonVariants({ variant: "outline" })}>
+            <ArrowLeftIcon /> Back to course
           </Link>
         </div>
       )}
@@ -286,7 +297,7 @@ function Learn() {
               <div className="flex h-14 shrink-0 items-center justify-between border-b border-border pr-2 pl-4">
                 <h2 className="text-base font-semibold">Course content</h2>
                 <Button variant="ghost" size="icon-sm" aria-label="Close course content" onClick={() => setSidebar(false)}>
-                  <X />
+                  <XIcon />
                 </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
@@ -320,7 +331,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
             className="transition-[stroke-dashoffset] duration-500"
           />
         </svg>
-        <Trophy className="size-4 text-secondary" strokeWidth={2} />
+        <TrophyIcon className="size-4 text-secondary" />
       </span>
       <span className="tnum hidden text-xs text-white/80 md:block">
         {done} of {total} complete
@@ -366,14 +377,14 @@ function CourseContent({
             >
               <span className="min-w-0 flex-1">
                 <span className="flex items-start gap-1.5 text-sm leading-snug font-semibold text-heading">
-                  {allLocked && <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-label="Locked" />}
+                  {allLocked && <LockIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-label="Locked" />}
                   Section {i + 1}: {s.lesson.title}
                 </span>
                 <span className="tnum mt-0.5 block text-xs text-muted-foreground">
                   {finished} / {s.videos.length} {s.videos.length === 1 ? "lecture" : "lectures"}
                 </span>
               </span>
-              <ChevronDown className={cn("mt-0.5 size-4 shrink-0 text-heading/70 transition-transform duration-300", open && "rotate-180")} />
+              <CaretDownIcon className={cn("mt-0.5 size-4 shrink-0 text-heading/70 transition-transform duration-300", open && "rotate-180")} />
             </button>
             <div className="expand" data-open={open}>
               <div>
@@ -385,7 +396,7 @@ function CourseContent({
                     if (v.locked)
                       return (
                         <li key={v.id} className="flex items-start gap-3 px-4 py-3 text-muted-foreground">
-                          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                          <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm leading-snug">
                               {n}. {v.title}
@@ -409,7 +420,7 @@ function CourseContent({
                             {n}. {v.title}
                           </span>
                           <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <CirclePlay className="size-3.5" />
+                            <PlayCircleIcon className="size-3.5" />
                             {active ? "Playing" : "Video"}
                             {preview && <Badge variant="lime" className="ml-1 h-4 px-1.5 text-[10px]">Free</Badge>}
                           </span>
@@ -446,7 +457,7 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
   return (
     <div className="flex size-full items-center justify-center bg-black/80 p-6 backdrop-blur-[2px]">
       <div className="pop w-full max-w-sm text-center text-white">
-        <p className="text-xs font-semibold tracking-widest text-white/60 uppercase">Up next</p>
+        <p className="text-xs font-medium text-white/60">Up next</p>
         <p className="mt-2 text-lg leading-snug font-semibold text-balance">{video.title}</p>
         {sectionTitle && <p className="mt-1 truncate text-sm text-white/60">{sectionTitle}</p>}
         <button
@@ -470,7 +481,7 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
               className="transition-[stroke-dashoffset] duration-1000 ease-linear"
             />
           </svg>
-          <SkipForward className="size-6 fill-current transition-transform group-hover:scale-110" />
+          <SkipForwardIcon weight="fill" className="size-6 transition-transform group-hover:scale-110" />
         </button>
         <p className="tnum mt-3 text-sm text-white/70">Playing in {Math.max(0, left)}s</p>
         <Button variant="ghost" size="sm" className="mt-2 text-white hover:bg-white/10 hover:text-white" onClick={onCancel}>
@@ -536,7 +547,7 @@ function LectureTabs({
   const overview = (
     <div className="max-w-3xl space-y-6">
       <div className="space-y-2">
-        <p className="tnum text-xs font-semibold tracking-wide text-teal uppercase">
+        <p className="tnum text-xs font-medium text-teal">
           Section {sectionNo} · Lecture {lectureNo} of {totalLectures}
         </p>
         <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">{video.title}</h1>
@@ -549,14 +560,14 @@ function LectureTabs({
           onClick={onNext}
           className="group flex w-full max-w-md items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-teal/40 hover:bg-gray-50"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-mint text-teal">
-            <SkipForward className="size-5" />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+            <SkipForwardIcon className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-muted-foreground">Next lecture</span>
             <span className="block truncate text-sm font-semibold text-heading">{next.title}</span>
           </span>
-          <ArrowRight className="size-4 text-heading/50 transition-transform group-hover:translate-x-1" />
+          <ArrowRightIcon className="size-4 text-heading/50 transition-transform group-hover:translate-x-1" />
         </button>
       )}
       <dl className="grid max-w-md grid-cols-2 gap-4 border-t border-border pt-6">
@@ -626,7 +637,7 @@ function LectureTabs({
           <div className="max-w-3xl space-y-3">
             {quizzes === null && (
               <p className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="size-4 animate-spin" /> Loading…
+                <CircleNotchIcon className="size-4 animate-spin" /> Loading…
               </p>
             )}
             {quizzes?.length === 0 && <Empty>No tests for this lecture.</Empty>}

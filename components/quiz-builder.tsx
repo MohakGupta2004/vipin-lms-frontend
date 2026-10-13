@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { CircleNotchIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
@@ -162,7 +162,7 @@ export function QuizBuilder({
             <legend className="text-sm font-medium text-gray-900">Question {i + 1}</legend>
             {questions.length > 1 && (
               <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove question ${i + 1}`} onClick={() => setQuestions((qs) => qs.filter((_, k) => k !== i))}>
-                <Trash2 />
+                <TrashIcon />
               </Button>
             )}
           </div>
@@ -199,14 +199,14 @@ export function QuizBuilder({
                       })
                     }
                   >
-                    <Trash2 />
+                    <TrashIcon />
                   </Button>
                 )}
               </div>
             ))}
             {q.options.length < 10 && (
               <Button type="button" variant="ghost" size="sm" onClick={() => patch(i, { options: [...q.options, ""] })}>
-                <Plus /> Add option
+                <PlusIcon /> Add option
               </Button>
             )}
           </div>
@@ -215,12 +215,12 @@ export function QuizBuilder({
       ))}
 
       <Button type="button" variant="outline" size="sm" onClick={() => setQuestions((qs) => [...qs, blank()])}>
-        <Plus /> Add question
+        <PlusIcon /> Add question
       </Button>
       <ErrorNote error={error} />
       <div>
         <Button type="submit" disabled={saving}>
-          {saving && <Loader2 className="animate-spin" />}
+          {saving && <CircleNotchIcon className="animate-spin" />}
           {editing ? "Save test" : "Create test"}
         </Button>
       </div>

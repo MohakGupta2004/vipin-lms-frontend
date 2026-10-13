@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, Minus, Plus, X } from "lucide-react"
+import { CircleNotchIcon, MinusIcon, PlusIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -86,14 +86,14 @@ export function PdfPreview({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outlineLight" size="icon-sm" aria-label="Zoom out" disabled={zoom <= 0.6} onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(1)))}>
-            <Minus />
+            <MinusIcon />
           </Button>
           <span className="tnum w-10 text-center text-xs text-white/80">{Math.round(zoom * 100)}%</span>
           <Button variant="outlineLight" size="icon-sm" aria-label="Zoom in" disabled={zoom >= 2} onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(1)))}>
-            <Plus />
+            <PlusIcon />
           </Button>
           <Button variant="lime" size="sm" onClick={onClose} className="ml-2">
-            <X /> Close
+            <XIcon /> Close
           </Button>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function PdfPreview({
       >
         {!pdf && !error && (
           <div className="flex h-full items-center justify-center gap-2 text-sm text-white/80">
-            <Loader2 className="size-4 animate-spin" /> Loading preview…
+            <CircleNotchIcon className="size-4 animate-spin" /> Loading preview…
           </div>
         )}
         {error && <div className="flex h-full items-center justify-center text-sm text-white/80">{error}</div>}

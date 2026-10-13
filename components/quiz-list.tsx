@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardList, Lock } from "lucide-react"
+import { ArrowRightIcon, ListChecksIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
@@ -30,7 +30,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
     <div className="space-y-4">
       {groups.map((g) => (
         <div key={g.label} className="space-y-2">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h4 className="text-xs font-medium text-muted-foreground">
             {g.label}
           </h4>
           {g.items.length === 0 && (
@@ -47,7 +47,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                   aria-label={`${q.title}, locked`}
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                    <Lock className="size-4.5" />
+                    <LockIcon className="size-4.5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-gray-600">
@@ -67,7 +67,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                     className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-lime-soft text-navy transition-colors group-hover/row:bg-secondary">
-                      <ClipboardList className="size-5" strokeWidth={1.75} />
+                      <ListChecksIcon className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-heading">
@@ -82,7 +82,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                       </span>
                     </span>
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover/row:border-teal group-hover/row:bg-teal group-hover/row:text-white">
-                      <ArrowRight className="size-3.5" />
+                      <ArrowRightIcon className="size-3.5" />
                     </span>
                   </Link>
                 </li>

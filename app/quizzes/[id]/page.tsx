@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, Loader2, Pencil, Trash2 } from "lucide-react"
+import { CheckCircleIcon, CircleNotchIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
@@ -105,10 +105,10 @@ function QuizView() {
                 <option value="draft">Draft</option>
               </Select>
               <Button variant="outline" onClick={() => setEditing((v) => !v)}>
-                <Pencil /> Edit
+                <PencilSimpleIcon /> Edit
               </Button>
               <Button variant="destructive" onClick={onDelete}>
-                <Trash2 /> Delete
+                <TrashIcon /> Delete
               </Button>
             </div>
           )
@@ -117,7 +117,7 @@ function QuizView() {
       <ErrorNote error={error} />
       {!quiz && !error && (
         <p className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="size-4 animate-spin" /> Loading…
+          <CircleNotchIcon className="size-4 animate-spin" /> Loading…
         </p>
       )}
 
@@ -201,7 +201,7 @@ function StartCard({ quiz, onStart }: { quiz: Quiz; onStart: () => void }) {
         <ul className="space-y-2 text-sm text-gray-700">
           {rules.map((r) => (
             <li key={r} className="flex gap-2">
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal" />
+              <CheckCircleIcon className="mt-0.5 size-4 shrink-0 text-teal" />
               {r}
             </li>
           ))}
@@ -284,7 +284,7 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
                     (o.isCorrect ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700" : "border-border text-gray-700")
                   }
                 >
-                  {o.isCorrect ? <CheckCircle2 className="size-4 shrink-0" /> : <span className="size-4 shrink-0 rounded-full border border-gray-300" />}
+                  {o.isCorrect ? <CheckCircleIcon className="size-4 shrink-0" /> : <span className="size-4 shrink-0 rounded-full border border-gray-300" />}
                   {o.optionText}
                 </li>
               ))}

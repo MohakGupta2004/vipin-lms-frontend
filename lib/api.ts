@@ -8,6 +8,8 @@ export type User = {
   firstName: string
   lastName: string
   email: string
+  // Empty for accounts created before phone numbers were collected.
+  phone: string
   role: Role
   lastLoginAt: string
 }
@@ -115,7 +117,20 @@ export type Video = {
   updatedAt: string
   /** Previewing a course you're not enrolled in: the title shows, but it can't be streamed. */
   locked?: boolean
+  /** The signed-in user's own playback; absent until they play it. */
+  progress?: VideoProgress
 }
+
+export type VideoProgress = {
+  positionSec: number
+  /** What the player reported; null until it has. */
+  durationSec: number | null
+  completedAt: string | null
+  updatedAt: string
+}
+
+/** A video in one of my courses (GET /me/videos). */
+export type MyVideo = Video & { courseTitle: string; lessonTitle: string }
 
 export type VideoStream = {
   /** Signed HLS manifest; every playlist/segment inside is signed too. Expires at `expiresAt`. */
@@ -215,6 +230,47 @@ export type MockResult = {
 }
 
 export const isPractice = (q: Pick<Quiz, "type">) => q.type === "practice"
+
+/** A quiz in one of my courses (GET /me/quizzes), with how I did. */
+export type MyQuiz = Quiz & {
+  courseTitle: string
+  lessonTitle: string
+  attemptCount: number
+  /** Mock tests only: best score in percent. */
+  bestPercent: number | null
+  /** Mock tests only: true once any attempt passed. */
+  passed: boolean | null
+  lastAttemptAt: string | null
+}
+
+/** What I have done in a course (or, in `totals`, across all of them). */
+export type CourseProgress = {
+  courseId?: string
+  courseTitle?: string
+  videosTotal: number
+  videosCompleted: number
+  videosInProgress: number
+  /** Approximate: full length of completed videos plus the position reached in the rest. */
+  watchedSec: number
+  practiceTotal: number
+  practiceDone: number
+  mockTotal: number
+  mockDone: number
+  mockPassed: number
+  /** Average of the best score of each mock test taken; null when none taken. */
+  mockAvgPercent: number | null
+  quizAttempts: number
+  notesTotal: number
+  /** Videos completed + quizzes attempted, out of all of them. */
+  percent: number
+}
+
+export type ProgressSummary = {
+  courseCount: number
+  totals: CourseProgress
+  courses: CourseProgress[]
+  continueWatching: MyVideo[]
+}
 
 export type NewQuestion = {
   questionText: string
@@ -358,6 +414,7 @@ export const register = (input: {
   firstName: string
   lastName: string
   email: string
+  phone: string
   password: string
 }) => json<User>("POST", "/auth/register", { body: input })
 
@@ -406,6 +463,16 @@ export const listMyCourses = async (limit = 100, offset = 0) =>
   (await json<Course[]>("GET", "/me/courses", { query: { limit, offset } })) ?? []
 
 /** Every published course with its free-preview counts; any logged-in user. */
+/** Ready videos across my courses (or one of them), with my progress. */
+export const listMyVideos = async (courseId?: string) =>
+  (await json<MyVideo[]>("GET", "/me/videos", { query: { courseId } })) ?? []
+
+/** Quizzes across my courses (or one of them), with my attempts. */
+export const listMyQuizzes = async (courseId?: string, type?: QuizType) =>
+  (await json<MyQuiz[]>("GET", "/me/quizzes", { query: { courseId, type } })) ?? []
+
+export const getMyProgress = () => json<ProgressSummary>("GET", "/me/progress")
+
 export const listCatalog = async (freeOnly = false, limit = 100, offset = 0) =>
   (await json<CatalogCourse[]>("GET", "/catalog/courses", {
     query: { freeOnly: freeOnly ? "true" : undefined, limit, offset },
@@ -511,12 +578,24 @@ export const getVideo = async (videoId: string) =>
 export const getVideoStream = (videoId: string) =>
   json<VideoStream>("GET", `/videos/${id(videoId)}/stream`)
 
-/** `keepalive` lets the save finish while the page unloads. */
-export const saveVideoProgress = (videoId: string, positionSec: number, keepalive = false) =>
+/**
+ * `keepalive` lets the save finish while the page unloads. Sending the duration lets the server mark the
+ * video completed once 90% of it is reached.
+ */
+export const saveVideoProgress = (videoId: string, positionSec: number, keepalive = false, durationSec?: number) =>
   json<{ positionSec: number }>("PUT", `/videos/${id(videoId)}/progress`, {
-    body: { positionSec: Math.max(0, Math.min(86_400, Math.floor(positionSec))) },
+    body: {
+      positionSec: Math.max(0, Math.min(86_400, Math.floor(positionSec))),
+      ...(durationSec && Number.isFinite(durationSec) && durationSec >= 1
+        ? { durationSec: Math.min(86_400, Math.round(durationSec)) }
+        : {}),
+    },
     keepalive,
   })
+
+/** Ticks a video off (or back on) in my progress. */
+export const setVideoCompletion = (videoId: string, completed: boolean) =>
+  json<{ completed: boolean }>("PUT", `/videos/${id(videoId)}/completion`, { body: { completed } })
 
 /** Re-queues transcoding of a failed video; the uploaded file is reused. */
 export const retryVideo = async (videoId: string) =>

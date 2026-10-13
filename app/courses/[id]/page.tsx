@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronsUpDown, CirclePlay, ClipboardList, Eye, EyeOff, FileText, Film, Layers, Loader2, Lock, LockOpen, Pencil, Plus, Trash2 } from "lucide-react"
+import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, FileTextIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
@@ -142,7 +142,7 @@ function CourseView() {
             <div className="flex flex-wrap items-center gap-2">
               {readyVideos > 0 && (
                 <Link href={learnHref} className={buttonVariants({ variant: "outline" })}>
-                  <CirclePlay /> Preview player
+                  <PlayCircleIcon /> Preview player
                 </Link>
               )}
               <Select aria-label="Course status" className="h-9 w-36" value={course.status} onChange={(e) => onStatus(e.target.value as CourseStatus)}>
@@ -151,20 +151,20 @@ function CourseView() {
                 <option value="archived">Archived</option>
               </Select>
               <Button variant="outline" onClick={() => setMode(mode === "edit" ? null : "edit")}>
-                <Pencil /> Edit
+                <PencilSimpleIcon /> Edit
               </Button>
               <Button variant="destructive" onClick={onDelete}>
-                <Trash2 /> Delete
+                <TrashIcon /> Delete
               </Button>
               <Button onClick={() => setMode(mode === "lesson" ? null : "lesson")}>
-                <Plus /> Add lesson
+                <PlusIcon /> Add lesson
               </Button>
             </div>
           ) : (
             canSeeLessons &&
             playable > 0 && (
               <Link href={learnHref} className={buttonVariants({ variant: "navy", size: "lg" })}>
-                <CirclePlay /> {preview ? "Watch free preview" : "Start learning"}
+                <PlayCircleIcon /> {preview ? "Watch free preview" : "Start learning"}
               </Link>
             )
           )
@@ -176,7 +176,7 @@ function CourseView() {
       {preview && canSeeLessons && (
         <div className="rise flex flex-wrap items-center gap-4 rounded-lg border border-secondary bg-lime-soft/50 p-5" style={{ "--i": 1 } as React.CSSProperties}>
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-navy">
-            <LockOpen className="size-5" />
+            <LockOpenIcon className="size-5" />
           </span>
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="font-semibold text-heading">You&apos;re previewing this course</p>
@@ -241,7 +241,7 @@ function CourseView() {
 
       {loading && (
         <p className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="size-4 animate-spin" /> Loading…
+          <CircleNotchIcon className="size-4 animate-spin" /> Loading…
         </p>
       )}
       {course && !canSeeLessons && (
@@ -267,7 +267,7 @@ function CourseView() {
             size="sm"
             onClick={() => setOpenIds(openIds.size === lessons.length ? new Set() : new Set(lessons.map((l) => l.id)))}
           >
-            <ChevronsUpDown />
+            <CaretUpDownIcon />
             {openIds.size === lessons.length ? "Collapse all" : "Expand all"}
           </Button>
         </div>
@@ -369,7 +369,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="animate-spin" />}
+              {saving && <CircleNotchIcon className="animate-spin" />}
               Save changes
             </Button>
           </div>
@@ -427,7 +427,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
           </div>
           <ErrorNote error={error} />
           <Button type="submit" disabled={saving}>
-            {saving && <Loader2 className="animate-spin" />}
+            {saving && <CircleNotchIcon className="animate-spin" />}
             Create lesson
           </Button>
         </form>
@@ -505,7 +505,7 @@ function LessonCard({
 
   return (
     <article
-      className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200 hover:shadow-md"
+      className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200"
       style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
     >
       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
@@ -518,7 +518,7 @@ function LessonCard({
         >
           {locked ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Locked">
-              <Lock className="size-4.5" />
+              <LockIcon className="size-4.5" />
             </span>
           ) : (
             <span className="tnum flex size-11 shrink-0 items-center justify-center rounded-full bg-teal text-base font-semibold text-white transition-transform duration-200 group-hover:scale-105">
@@ -528,12 +528,12 @@ function LessonCard({
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 block text-base font-semibold break-words text-heading sm:truncate sm:text-lg">{lesson.title}</span>
             <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap text-muted-foreground">
-              <span className="flex items-center gap-1.5"><FileText className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
-              <span className="flex items-center gap-1.5"><ClipboardList className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
-              <span className="flex items-center gap-1.5"><Film className="size-3.5" />{videos.length} {videos.length === 1 ? "video" : "videos"}</span>
+              <span className="flex items-center gap-1.5"><FileTextIcon className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
+              <span className="flex items-center gap-1.5"><ListChecksIcon className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
+              <span className="flex items-center gap-1.5"><FilmStripIcon className="size-3.5" />{videos.length} {videos.length === 1 ? "video" : "videos"}</span>
             </span>
           </span>
-          <ChevronDown className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
+          <CaretDownIcon className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
         </button>
         <div className="flex flex-wrap items-center gap-2 empty:hidden max-sm:pl-14">
           {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
@@ -542,14 +542,14 @@ function LessonCard({
           {isOwner && (
             <>
               <Button variant="outline" size="sm" onClick={togglePublished}>
-                {lesson.isPublished ? <EyeOff /> : <Eye />}
+                {lesson.isPublished ? <EyeSlashIcon /> : <EyeIcon />}
                 {lesson.isPublished ? "Unpublish" : "Publish"}
               </Button>
               <Button variant="ghost" size="icon-sm" aria-label={`Edit ${lesson.title}`} onClick={() => { setOpen(true); setPanel(panel === "edit" ? null : "edit") }}>
-                <Pencil />
+                <PencilSimpleIcon />
               </Button>
               <Button variant="ghost" size="icon-sm" aria-label={`Delete ${lesson.title}`} className="hover:bg-destructive/10 hover:text-destructive" onClick={removeLesson}>
-                <Trash2 />
+                <TrashIcon />
               </Button>
             </>
           )}
@@ -587,8 +587,8 @@ function LessonCard({
 
             <div className="grid gap-6 lg:grid-cols-2">
               <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
-                  <Layers className="size-4 text-teal" /> Notes
+                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+                  <StackIcon className="size-4 text-teal" /> Notes
                 </h3>
                 <LessonNotes
                   lessonId={lesson.id}
@@ -605,8 +605,8 @@ function LessonCard({
               </section>
 
               <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
-                  <ClipboardList className="size-4 text-teal" /> Tests
+                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+                  <ListChecksIcon className="size-4 text-teal" /> Tests
                 </h3>
                 {quizzes.length === 0 && (
                   <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
@@ -616,7 +616,7 @@ function LessonCard({
                 <QuizList quizzes={quizzes} />
                 {isOwner && (
                   <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
-                    <Plus /> Create test
+                    <PlusIcon /> Create test
                   </Button>
                 )}
                 {isOwner && panel === "quiz" && (
@@ -671,7 +671,7 @@ function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) 
       </label>
       <ErrorNote error={error} />
       <Button type="submit" disabled={saving}>
-        {saving && <Loader2 className="animate-spin" />}
+        {saving && <CircleNotchIcon className="animate-spin" />}
         Save lesson
       </Button>
     </form>

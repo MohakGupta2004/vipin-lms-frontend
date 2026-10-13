@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { CheckCircleIcon, CircleNotchIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -61,12 +61,12 @@ export function VerifyEmailFlow({ initialSent = false }: { initialSent?: boolean
         <div className="space-y-4">
           {error && (
             <Alert variant="destructive">
-              <AlertCircle />
+              <WarningCircleIcon />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           <Button size="lg" disabled={sending} onClick={send} className="w-full">
-            {sending && <Loader2 className="animate-spin" />}
+            {sending && <CircleNotchIcon className="animate-spin" />}
             Send verification code
           </Button>
         </div>
@@ -101,7 +101,7 @@ export function VerifyEmailFlow({ initialSent = false }: { initialSent?: boolean
 
       {step === "done" && (
         <div className="space-y-4">
-          <CheckCircle2 className="size-10 text-teal" strokeWidth={1.5} />
+          <CheckCircleIcon className="size-10 text-teal" />
           <Link href={roleHome(user.role)} className={buttonVariants({ size: "lg", className: "w-full" })}>
             Continue
           </Link>

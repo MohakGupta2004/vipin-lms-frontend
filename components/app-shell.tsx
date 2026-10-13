@@ -1,30 +1,58 @@
 "use client"
 
-import { BookOpen, Compass, GraduationCap, LogOut, Newspaper, Users } from "lucide-react"
+import { BookOpenTextIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
+import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
 import { Brand } from "@/components/brand"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar"
 import { roleHome, useUser } from "@/hooks/use-user"
-import { ApiError, getMe, isSessionFresh, logout, markSessionVerified, saveUser, type Role } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { ApiError, getMe, isSessionFresh, logout, markSessionVerified, saveUser, type Role, type User } from "@/lib/api"
 
-const NAV: Record<Role, { href: string; label: string; icon: typeof BookOpen }[]> = {
+const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
   admin: [
-    { href: "/courses", label: "All courses", icon: BookOpen },
-    { href: "/feed", label: "My courses", icon: Newspaper },
-    { href: "/enrollments", label: "Enrollments", icon: Users },
+    { href: "/courses", label: "All courses", icon: BookOpenTextIcon },
+    { href: "/feed", label: "My courses", icon: NewspaperIcon },
+    { href: "/enrollments", label: "Enrollments", icon: UsersIcon },
   ],
   instructor: [
-    { href: "/feed", label: "My classroom", icon: Newspaper },
-    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/feed", label: "My classroom", icon: NewspaperIcon },
+    { href: "/explore", label: "Explore", icon: CompassIcon },
   ],
   student: [
-    { href: "/feed", label: "My learning", icon: GraduationCap },
-    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/feed", label: "Dashboard", icon: SquaresFourIcon },
+    { href: "/learn", label: "Learn Your Way", icon: PlayCircleIcon },
+    { href: "/practice", label: "Practice & Prepare", icon: ListChecksIcon },
+    { href: "/progress", label: "Track Your Progress", icon: ChartLineUpIcon },
+    { href: "/explore", label: "Explore", icon: CompassIcon },
   ],
 }
 
@@ -93,7 +121,6 @@ export function AppShell({
   const user = useUser()
   const verified = useVerifiedSession(user?.id)
   const allowed = !!user && (!roles || roles.includes(user.role))
-
   useEffect(() => {
     if (user === undefined) return // still hydrating
     if (!user) router.replace("/login")
@@ -103,82 +130,117 @@ export function AppShell({
   if (!user || !allowed || !verified) return null
   if (bare) return children
 
+  const signOut = async () => {
+    await logout().catch(() => {})
+    router.replace("/login")
+  }
+
   return (
-    <div className="flex min-h-svh flex-col bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-border bg-white">
-        <div className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between gap-4 px-6 lg:px-8">
-          <div className="flex items-center gap-10">
-            <Link href={roleHome(user.role)} aria-label="Home">
-              <Brand />
-            </Link>
-            <nav aria-label="Primary" className="hidden items-center gap-7 sm:flex">
-              {NAV[user.role].map(({ href, label, icon: Icon }) => {
+    <SidebarProvider defaultOpen={readSidebarOpen()}>
+      <AppSidebar user={user} pathname={pathname} onSignOut={signOut} />
+      <SidebarInset className="min-w-0">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-sm sm:px-6">
+          <SidebarTrigger className="-ml-1 text-muted-foreground" />
+          <Separator orientation="vertical" className="data-vertical:h-4 data-vertical:self-center" />
+          <Link href={roleHome(user.role)} aria-label="Home" className="md:hidden">
+            <Brand compact className="[&>div]:size-7" />
+          </Link>
+          <span className="hidden truncate text-sm text-muted-foreground md:block">{pageName(user.role, pathname)}</span>
+        </header>
+        <div className="mx-auto w-full max-w-[1120px] flex-1 space-y-10 px-5 py-9 sm:px-8 lg:px-12 lg:py-12">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+/** The sidebar remembers being collapsed (the shadcn sidebar writes this cookie on every toggle). */
+function readSidebarOpen() {
+  if (typeof document === "undefined") return true
+  return !document.cookie.split("; ").includes("sidebar_state=false")
+}
+
+function pageName(role: Role, pathname: string) {
+  return NAV[role].find((n) => pathname.startsWith(n.href))?.label ?? ""
+}
+
+function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: string; onSignOut: () => void }) {
+  const { isMobile, setOpenMobile } = useSidebar()
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-2">
+        <Link href={roleHome(user.role)} aria-label="Home" className="flex items-center" onClick={() => setOpenMobile(false)}>
+          <Brand compact className="[&>div]:size-8 group-data-[collapsible=icon]:[&>span]:hidden" />
+        </Link>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
+              {NAV[user.role].map(({ href, label, icon: NavIcon }) => {
                 const active = pathname.startsWith(href)
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2 border-b-2 border-transparent py-1 text-sm font-medium text-heading transition-colors duration-200 hover:text-teal",
-                      active && "border-teal text-teal"
-                    )}
-                  >
-                    <Icon className="size-4" strokeWidth={1.75} />
-                    {label}
-                  </Link>
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      isActive={active}
+                      tooltip={label}
+                      className="h-9 text-[14px] data-active:bg-white data-active:shadow-[0_1px_2px_rgba(16,42,67,0.08),0_0_0_1px_rgba(16,42,67,0.06)] [&_svg]:size-[18px]"
+                      render={<Link href={href} aria-current={active ? "page" : undefined} onClick={() => setOpenMobile(false)} />}
+                    >
+                      <NavIcon weight={active ? "fill" : "regular"} className={active ? "text-primary" : "text-gray-500"} />
+                      <span>{label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 )
               })}
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden text-right md:block">
-              <div className="text-sm leading-tight font-semibold text-heading">
-                {user.firstName} {user.lastName}
-              </div>
-              <div className="text-xs text-muted-foreground">{user.email}</div>
-            </div>
-            <Badge variant="tag">{user.role}</Badge>
-            <Button
-              variant="navy"
-              size="sm"
-              onClick={async () => {
-                await logout().catch(() => {})
-                router.replace("/login")
-              }}
-            >
-              <LogOut />
-              Sign out
-            </Button>
-          </div>
-        </div>
-        <nav aria-label="Primary mobile" className="flex gap-6 overflow-x-auto border-t border-border px-6 sm:hidden">
-          {NAV[user.role].map(({ href, label }) => {
-            const active = pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "border-b-2 border-transparent py-3 text-sm font-medium whitespace-nowrap text-heading",
-                  active && "border-teal text-teal"
-                )}
-              >
-                {label}
-              </Link>
-            )
-          })}
-        </nav>
-      </header>
-      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-8 px-6 py-12 lg:px-8 lg:py-14">{children}</main>
-      <footer className="bg-navy">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-5 text-xs text-white/60 lg:px-8">
-          <Brand onDark compact className="[&>div]:size-8 [&>span>span]:text-base" />
-          <span>© {new Date().getFullYear()} · All rights reserved</span>
-        </div>
-      </footer>
-    </div>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton size="lg" className="data-popup-open:bg-sidebar-accent">
+                    <Avatar className="size-8">
+                      <AvatarFallback className="bg-navy text-[13px] font-medium text-white">
+                        {user.firstName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="grid min-w-0 flex-1 leading-tight">
+                      <span className="truncate text-[13px] font-medium text-heading">
+                        {user.firstName} {user.lastName}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground capitalize">{user.role}</span>
+                    </span>
+                    <CaretUpDownIcon className="ml-auto text-gray-400" />
+                  </SidebarMenuButton>
+                }
+              />
+              <DropdownMenuContent side={isMobile ? "top" : "right"} align="end" className="w-60">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="font-normal">
+                    <span className="block truncate text-sm font-medium text-heading">
+                      {user.firstName} {user.lastName}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onSignOut}>
+                  <SignOutIcon />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   )
 }
 
@@ -192,17 +254,13 @@ export function PageTitle({
   actions?: React.ReactNode
 }) {
   return (
-    <div className="rise relative overflow-hidden rounded-xl bg-gradient-to-br from-[#E3F2C9] via-[#CBE8DC] to-[#8FC3CB] px-6 py-9 sm:px-10 sm:py-12">
-      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full border border-white/50" />
-      <div aria-hidden className="pointer-events-none absolute -right-4 -bottom-28 size-72 rounded-full border border-white/40" />
-      <div className="relative flex flex-wrap items-end justify-between gap-6">
-        <div className="max-w-2xl space-y-3">
-          <h1 className="text-3xl leading-[1.1] font-semibold tracking-tight text-heading sm:text-5xl">{title}</h1>
-          {subtitle && <p className="text-base leading-relaxed text-heading/80 sm:text-lg">{subtitle}</p>}
-        </div>
-        {actions}
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-border pb-7">
+      <div className="max-w-2xl space-y-2.5">
+        <h1 className="display text-[2.375rem] leading-[1.05] text-heading sm:text-[2.875rem]">{title}</h1>
+        {subtitle && <p className="text-[15px] leading-relaxed text-muted-foreground">{subtitle}</p>}
       </div>
-    </div>
+      {actions}
+    </header>
   )
 }
 
