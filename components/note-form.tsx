@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2 } from "lucide-react"
+import { CircleNotchIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
@@ -114,7 +114,7 @@ export function NoteForm({
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          {saving && <Loader2 className="animate-spin" />}
+          {saving && <CircleNotchIcon className="animate-spin" />}
           {editing ? "Save note" : "Upload"}
         </Button>
         {onCancel && (

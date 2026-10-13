@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, Loader2 } from "lucide-react"
+import { CircleNotchIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useState } from "react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -88,7 +88,7 @@ export function OtpStep({
       <FieldGroup>
         {error && (
           <Alert variant="destructive">
-            <AlertCircle />
+            <WarningCircleIcon />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -113,7 +113,7 @@ export function OtpStep({
         </Field>
 
         <Button type="submit" size="lg" disabled={loading || otp.length !== 6} className="w-full">
-          {loading && <Loader2 className="animate-spin" />}
+          {loading && <CircleNotchIcon className="animate-spin" />}
           {submitLabel}
         </Button>
 
@@ -124,7 +124,7 @@ export function OtpStep({
           onClick={resend}
           className="w-full"
         >
-          {resending && <Loader2 className="animate-spin" />}
+          {resending && <CircleNotchIcon className="animate-spin" />}
           {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
         </Button>
       </FieldGroup>

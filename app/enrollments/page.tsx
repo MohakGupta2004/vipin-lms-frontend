@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2 } from "lucide-react"
+import { CircleNotchIcon } from "@phosphor-icons/react/dist/ssr"
 import { useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useState } from "react"
 
@@ -108,7 +108,7 @@ function Enrollments() {
           <ErrorNote error={error} />
           {loading && (
             <p className="flex items-center gap-2 text-sm text-gray-500">
-              <Loader2 className="size-4 animate-spin" /> Loading…
+              <CircleNotchIcon className="size-4 animate-spin" /> Loading…
             </p>
           )}
           {!loading && rows.length === 0 && <p className="text-sm text-gray-500">No enrollments found.</p>}
@@ -233,7 +233,7 @@ function EnrollForm({
             <ErrorNote error={error} />
             {ok && <p className="text-sm text-green-700">Student enrolled.</p>}
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="animate-spin" />}
+              {saving && <CircleNotchIcon className="animate-spin" />}
               Enroll
             </Button>
           </div>

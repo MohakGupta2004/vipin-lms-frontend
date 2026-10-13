@@ -1,15 +1,17 @@
 "use client"
 
-import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+import { CircleNotchIcon, EyeIcon, EyeSlashIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { isValidPhoneNumber } from "react-phone-number-input"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AuthShell } from "@/components/auth-shell"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { roleHome } from "@/hooks/use-user"
 import { ApiError, login, register, saveUser, sendVerifyEmail } from "@/lib/api"
 
@@ -18,6 +20,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [phone, setPhone] = useState("")
+  const [phoneInvalid, setPhoneInvalid] = useState(false)
   const isSignup = mode === "signup"
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,6 +31,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const email = String(form.get("email")).trim()
     const password = String(form.get("password"))
 
+    if (isSignup && !isValidPhoneNumber(phone)) {
+      setPhoneInvalid(true)
+      setError("Enter a valid phone number")
+      return
+    }
+
     setLoading(true)
     try {
       const user = isSignup
@@ -34,6 +44,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             firstName: String(form.get("firstName")).trim(),
             lastName: String(form.get("lastName")).trim(),
             email,
+            phone,
             password,
           })
         : await login(email, password)
@@ -58,7 +69,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <AuthShell>
           <div className="space-y-1.5">
-            <h1 className="text-3xl font-semibold tracking-tight text-heading">
+            <h1 className="display text-[2.25rem] leading-tight text-heading">
               {isSignup ? "Create your account" : "Welcome back"}
             </h1>
             <p className="text-sm text-gray-500">
@@ -72,7 +83,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <FieldGroup>
               {error && (
                 <Alert variant="destructive">
-                  <AlertCircle />
+                  <WarningCircleIcon />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -103,6 +114,27 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 />
               </Field>
 
+              {isSignup && (
+                <Field>
+                  <FieldLabel htmlFor="phone">Phone</FieldLabel>
+                  <PhoneInput
+                    id="phone"
+                    defaultCountry="IN"
+                    international
+                    value={phone}
+                    onChange={(v) => {
+                      setPhone(v)
+                      setPhoneInvalid(false)
+                    }}
+                    placeholder="98765 43210"
+                    autoComplete="tel"
+                    aria-invalid={phoneInvalid || undefined}
+                    inputClassName="bg-white"
+                    triggerClassName="border-input bg-white"
+                  />
+                </Field>
+              )}
+
               <Field>
                 <div className="flex items-center justify-between">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -131,7 +163,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 transition-colors hover:text-gray-900"
                   >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showPassword ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
                   </button>
                 </div>
               </Field>
@@ -142,7 +174,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 disabled={loading}
                 className="w-full"
               >
-                {loading && <Loader2 className="animate-spin" />}
+                {loading && <CircleNotchIcon className="animate-spin" />}
                 {isSignup ? "Create account" : "Sign in"}
               </Button>
             </FieldGroup>

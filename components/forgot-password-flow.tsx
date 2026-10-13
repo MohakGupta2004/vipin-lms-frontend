@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react"
+import { CheckCircleIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -69,7 +69,7 @@ export function ForgotPasswordFlow() {
 
       {step === "done" && (
         <div className="space-y-4">
-          <CheckCircle2 className="size-10 text-teal" strokeWidth={1.5} />
+          <CheckCircleIcon className="size-10 text-teal" />
           <Link href="/login" className={buttonVariants({ size: "lg", className: "w-full" })}>
             Back to sign in
           </Link>
@@ -110,7 +110,7 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
       <FieldGroup>
         {error && (
           <Alert variant="destructive">
-            <AlertCircle />
+            <WarningCircleIcon />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -128,7 +128,7 @@ function EmailStep({ onSent }: { onSent: (email: string) => void }) {
           />
         </Field>
         <Button type="submit" size="lg" disabled={loading} className="w-full">
-          {loading && <Loader2 className="animate-spin" />}
+          {loading && <CircleNotchIcon className="animate-spin" />}
           Send reset code
         </Button>
       </FieldGroup>
@@ -171,7 +171,7 @@ function PasswordStep({
       <FieldGroup>
         {error && (
           <Alert variant="destructive">
-            <AlertCircle />
+            <WarningCircleIcon />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -198,12 +198,12 @@ function PasswordStep({
               aria-label={show ? "Hide password" : "Show password"}
               className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-400 transition-colors hover:text-gray-900"
             >
-              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {show ? <EyeSlashIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
         </Field>
         <Button type="submit" size="lg" disabled={loading} className="w-full">
-          {loading && <Loader2 className="animate-spin" />}
+          {loading && <CircleNotchIcon className="animate-spin" />}
           Update password
         </Button>
         {expired && (

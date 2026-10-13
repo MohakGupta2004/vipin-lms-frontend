@@ -1,15 +1,17 @@
 import type { Metadata } from "next"
-import { Jost } from "next/font/google"
+import { Arimo } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils";
 
-const jost = Jost({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-jost" })
+// One family for everything: UI text, titles and key figures.
+const sans = Arimo({ subsets: ["latin"], variable: "--font-ui" })
 
 export const metadata: Metadata = {
-  title: { default: "Vipin Garg — Financial Coach", template: "%s · Vipin Garg" },
-  description: "Courses, notes and tests from financial coach Vipin Garg.",
+  title: { default: "Vipin Garg — Finance Coach", template: "%s · Vipin Garg" },
+  description: "Courses, notes and tests from finance coach Vipin Garg.",
 }
 
 export default function RootLayout({
@@ -21,10 +23,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", "font-sans", jost.variable)}
+      className={cn("antialiased", "font-sans", sans.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

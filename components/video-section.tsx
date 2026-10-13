@@ -1,17 +1,6 @@
 "use client"
 
-import {
-  ArrowRight,
-  CircleCheck,
-  CirclePlay,
-  CloudUpload,
-  Film,
-  Loader2,
-  Lock,
-  RotateCw,
-  TriangleAlert,
-  X,
-} from "lucide-react"
+import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, LockIcon, PlayCircleIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
@@ -194,8 +183,8 @@ export function VideoSection({
 
   return (
     <section className="space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
-        <Film className="size-4 text-teal" /> Videos
+      <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+        <FilmStripIcon className="size-4 text-teal" /> Videos
       </h3>
       <ErrorNote error={error} />
       {empty && !formOpen && (
@@ -225,7 +214,7 @@ export function VideoSection({
 
       {!formOpen && (
         <Button variant="outline" size="sm" onClick={() => setFormOpen(true)}>
-          <CloudUpload /> Upload video
+          <CloudArrowUpIcon /> Upload video
         </Button>
       )}
       {formOpen && (
@@ -269,7 +258,7 @@ function RowShell({
             tile
           }
         >
-          <Film className="size-5" strokeWidth={1.75} />
+          <FilmStripIcon className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-heading">
@@ -362,9 +351,9 @@ function UploadRow({
           className={failed ? "bg-red-50 text-red-700" : "bg-mint text-teal"}
         >
           {failed ? (
-            <TriangleAlert className="size-3.5" />
+            <WarningIcon className="size-3.5" />
           ) : (
-            <Loader2 className="size-3.5 animate-spin" />
+            <CircleNotchIcon className="size-3.5 animate-spin" />
           )}
           {label}
         </Chip>
@@ -379,7 +368,7 @@ function UploadRow({
     >
       {failed && (
         <Button variant="outline" size="sm" onClick={onRetry}>
-          <RotateCw /> Retry
+          <ArrowClockwiseIcon /> Retry
         </Button>
       )}
       <Button
@@ -389,7 +378,7 @@ function UploadRow({
         className="hover:bg-destructive/10 hover:text-destructive"
         onClick={onCancel}
       >
-        <X />
+        <XIcon />
       </Button>
     </RowShell>
   )
@@ -420,7 +409,7 @@ function VideoRow({
           meta={meta}
           chip={
             <Chip className="bg-teal text-white">
-              <CircleCheck className="size-3.5" /> Ready
+              <CheckCircleIcon className="size-3.5" /> Ready
             </Chip>
           }
         >
@@ -428,7 +417,7 @@ function VideoRow({
             href={`/courses/${v.courseId}/learn?v=${v.id}`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            <CirclePlay /> Play
+            <PlayCircleIcon /> Play
           </Link>
         </RowShell>
       )
@@ -447,7 +436,7 @@ function VideoRow({
           }
           chip={
             <Chip className="bg-lime-soft text-navy">
-              <Loader2 className="size-3.5 animate-spin" /> Processing
+              <CircleNotchIcon className="size-3.5 animate-spin" /> Processing
             </Chip>
           }
           bar={<Bar />}
@@ -461,7 +450,7 @@ function VideoRow({
           meta={meta}
           chip={
             <Chip className="bg-red-50 text-red-700">
-              <TriangleAlert className="size-3.5" /> Failed
+              <WarningIcon className="size-3.5" /> Failed
             </Chip>
           }
           bar={
@@ -476,7 +465,7 @@ function VideoRow({
             disabled={retrying}
             onClick={onRetry}
           >
-            {retrying ? <Loader2 className="animate-spin" /> : <RotateCw />}{" "}
+            {retrying ? <CircleNotchIcon className="animate-spin" /> : <ArrowClockwiseIcon />}{" "}
             Retry
           </Button>
         </RowShell>
@@ -554,11 +543,11 @@ function VideoUploadForm({
             : "border-border hover:border-teal/50 hover:bg-gray-50")
         }
       >
-        <span className="flex size-11 items-center justify-center rounded-full bg-mint text-teal">
+        <span className="flex size-11 items-center justify-center rounded-full bg-gray-100 text-gray-500">
           {file ? (
-            <Film className="size-5" />
+            <FilmStripIcon className="size-5" />
           ) : (
-            <CloudUpload className="size-5" />
+            <CloudArrowUpIcon className="size-5" />
           )}
         </span>
         {file ? (
@@ -599,7 +588,7 @@ function VideoUploadForm({
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={!file}>
-          <CloudUpload /> Start upload
+          <CloudArrowUpIcon /> Start upload
         </Button>
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancel
@@ -615,8 +604,8 @@ export function VideoList({ videos }: { videos: Video[] }) {
   if (ready.length === 0) return null
   return (
     <section className="space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-heading uppercase">
-        <Film className="size-4 text-teal" /> Videos
+      <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+        <FilmStripIcon className="size-4 text-teal" /> Videos
       </h3>
       <ul className="space-y-2">
         {ready.map((v) => (
@@ -624,7 +613,7 @@ export function VideoList({ videos }: { videos: Video[] }) {
             {v.locked ? (
               <div className="flex items-center gap-3 rounded-md border border-dashed border-border bg-white/60 p-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                  <Lock className="size-4.5" strokeWidth={1.75} />
+                  <LockIcon className="size-4.5" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-heading/70">
@@ -640,8 +629,8 @@ export function VideoList({ videos }: { videos: Video[] }) {
                 href={`/courses/${v.courseId}/learn?v=${v.id}`}
                 className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-mint text-teal transition-colors group-hover/row:bg-teal group-hover/row:text-white">
-                  <CirclePlay className="size-5" strokeWidth={1.75} />
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
+                  <PlayCircleIcon className="size-5" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-heading">
@@ -652,7 +641,7 @@ export function VideoList({ videos }: { videos: Video[] }) {
                   </span>
                 </span>
                 {v.isFree && <Badge variant="lime">Preview</Badge>}
-                <ArrowRight className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
+                <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
               </Link>
             )}
           </li>

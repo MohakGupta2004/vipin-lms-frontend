@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  ArrowRight,
-  FileText,
-  Lock,
-  Pencil,
-  Trash2,
-  Upload,
-} from "lucide-react"
+import { ArrowRightIcon, FileTextIcon, LockIcon, PencilSimpleIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
@@ -49,7 +42,7 @@ export function NoteList({
             aria-label={`${n.title}, locked`}
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-              <Lock className="size-4.5" />
+              <LockIcon className="size-4.5" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-gray-600">
@@ -72,8 +65,8 @@ export function NoteList({
               onClick={() => onOpen(n)}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-3 text-left"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-mint text-teal transition-colors group-hover/row:bg-teal group-hover/row:text-white">
-                <FileText className="size-5" strokeWidth={1.75} />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
+                <FileTextIcon className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-heading">
@@ -84,7 +77,7 @@ export function NoteList({
                   {n.isFree && <Badge variant="lime">Free preview</Badge>}
                 </span>
               </span>
-              <ArrowRight className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
+              <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
             </button>
             {onEdit && (
               <Button
@@ -93,7 +86,7 @@ export function NoteList({
                 aria-label={`Edit ${n.title}`}
                 onClick={() => onEdit(n)}
               >
-                <Pencil />
+                <PencilSimpleIcon />
               </Button>
             )}
             {onDelete && (
@@ -104,7 +97,7 @@ export function NoteList({
                 className="hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => onDelete(n)}
               >
-                <Trash2 />
+                <TrashIcon />
               </Button>
             )}
           </li>
@@ -190,7 +183,7 @@ export function LessonNotes({
             setUploading((v) => !v)
           }}
         >
-          <Upload /> Share a note
+          <UploadSimpleIcon /> Share a note
         </Button>
       )}
       {isOwner && uploading && (

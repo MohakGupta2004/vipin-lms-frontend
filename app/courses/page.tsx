@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRight, Check, Copy, Loader2, Plus, Users } from "lucide-react"
+import { ArrowRightIcon, CheckIcon, CircleNotchIcon, CopyIcon, PlusIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -91,7 +91,7 @@ function Courses() {
         subtitle="Every course on the platform. Courses you own can be edited, published and filled with lessons, notes and tests."
         actions={
           <Button onClick={() => setCreating((v) => !v)}>
-            <Plus />
+            <PlusIcon />
             {creating ? "Close" : "New course"}
           </Button>
         }
@@ -113,7 +113,7 @@ function Courses() {
       <div className="space-y-3">
         {loading && (
           <p className="flex items-center gap-2 text-sm text-gray-500">
-            <Loader2 className="size-4 animate-spin" /> Loading courses…
+            <CircleNotchIcon className="size-4 animate-spin" /> Loading courses…
           </p>
         )}
         {!loading && courses.length === 0 && !error && (
@@ -125,7 +125,7 @@ function Courses() {
         )}
         <div className="grid gap-6 md:grid-cols-2">
         {courses.map((c, i) => (
-          <Card key={c.id} className="rise group gap-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-md" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+          <Card key={c.id} className="rise group gap-5 transition-all duration-200 hover:border-teal/40" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
             <CardContent className="flex h-full flex-col gap-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -137,7 +137,7 @@ function Courses() {
                   aria-label={`${c.instructorId === me.id ? "Manage" : "View"} ${c.title}`}
                   className="flex size-8 shrink-0 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover:border-teal group-hover:bg-teal group-hover:text-white"
                 >
-                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  <ArrowRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </div>
               <div className="space-y-2">
@@ -168,13 +168,13 @@ function Courses() {
               <div className="mt-auto flex flex-wrap gap-2">
                 <Link href={`/courses/${c.id}`} className={buttonVariants({ size: "sm" })}>
                   {c.instructorId === me.id ? "Manage" : "View"}
-                  <ArrowRight />
+                  <ArrowRightIcon />
                 </Link>
                 <Link
                   href={`/enrollments?courseId=${encodeURIComponent(c.id)}`}
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
-                  <Users />
+                  <UsersIcon />
                   Enrollments
                 </Link>
               </div>
@@ -213,7 +213,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
       }}
       className="inline-flex shrink-0 rounded-sm p-0.5 text-gray-400 transition-colors hover:bg-accent hover:text-teal"
     >
-      {done ? <Check className="pop size-3.5 text-green-600" /> : <Copy className="size-3.5" />}
+      {done ? <CheckIcon className="pop size-3.5 text-green-600" /> : <CopyIcon className="size-3.5" />}
     </button>
   )
 }
@@ -355,7 +355,7 @@ function CreateCourse({
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="animate-spin" />}
+              {saving && <CircleNotchIcon className="animate-spin" />}
               Create course
             </Button>
           </div>

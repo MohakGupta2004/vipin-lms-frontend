@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
 import { errMsg } from "@/components/app-shell"
-import { getVideoStream, saveVideoProgress } from "@/lib/api"
+import { getVideoStream, saveVideoProgress, setVideoCompletion } from "@/lib/api"
 
 const SAVE_EVERY_MS = 15_000
 const REFRESH_BEFORE_MS = 90_000 // re-sign the stream this long before the URL expires
@@ -77,7 +77,8 @@ export function VideoPlayer({
       // Finished (or nearly): the next visit should start over.
       const pos = a.duration && t >= a.duration - 3 ? 0 : t
       lastSaved = Date.now()
-      saveVideoProgress(videoId, pos, keepalive).catch(() => {})
+      // The duration lets the server mark the video completed once 90% of it is watched.
+      saveVideoProgress(videoId, pos, keepalive, a.duration).catch(() => {})
     }
 
     const handlers: Record<string, () => void> = {
@@ -88,7 +89,8 @@ export function VideoPlayer({
       "video:play": () => (ended.current = false),
       "video:ended": () => {
         ended.current = true
-        saveVideoProgress(videoId, 0).catch(() => {})
+        saveVideoProgress(videoId, 0, false, art.current?.duration).catch(() => {})
+        setVideoCompletion(videoId, true).catch(() => {})
         cb.current.onEnded()
       },
     }

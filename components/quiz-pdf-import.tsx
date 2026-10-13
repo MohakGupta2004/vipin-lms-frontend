@@ -1,14 +1,6 @@
 "use client"
 
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronLeft,
-  FileText,
-  FileUp,
-  Loader2,
-  X,
-} from "lucide-react"
+import { CaretLeftIcon, CheckCircleIcon, CircleNotchIcon, FileArrowUpIcon, FileTextIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRef, useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
@@ -96,7 +88,7 @@ export function QuizCreator({
             setManual(false)
           }}
         >
-          <ChevronLeft /> {QUIZ_TYPE_LABEL[type]}
+          <CaretLeftIcon /> {QUIZ_TYPE_LABEL[type]}
         </Button>
         <span className="text-gray-400">·</span>
         <Button
@@ -325,7 +317,7 @@ function PdfImport({
       {parse.status === "parsing" && (
         <div className="space-y-1 text-sm text-gray-600" role="status">
           <p className="flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin" /> Reading PDFs…
+            <CircleNotchIcon className="size-4 animate-spin" /> Reading PDFs…
           </p>
           {(["questions", "answers"] as const).map((k) => {
             const p = parse.progress[k]
@@ -346,7 +338,7 @@ function PdfImport({
         <>
           <div className="space-y-1 text-sm" role="status">
             <p className="flex items-center gap-2 text-teal">
-              <CheckCircle2 className="size-4 shrink-0" />
+              <CheckCircleIcon className="size-4 shrink-0" />
               Found {sets.length} {sets.length === 1 ? "set" : "sets"} · {total}{" "}
               questions → {parts.length} {noun(parts.length)}.
             </p>
@@ -437,7 +429,7 @@ function PdfImport({
 
           <ErrorNote error={error} />
           <Button type="submit" disabled={!!saving || chosen.length === 0}>
-            {saving && <Loader2 className="animate-spin" />}
+            {saving && <CircleNotchIcon className="animate-spin" />}
             {saving
               ? `Creating ${saving[0]} of ${saving[1]}…`
               : `Create ${chosen.length > 1 ? `${chosen.length} ` : ""}${noun(chosen.length)}`}
@@ -461,9 +453,9 @@ function PdfDrop({
   if (file) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-border bg-white p-3">
-        <FileText className="size-5 shrink-0 text-teal" />
+        <FileTextIcon className="size-5 shrink-0 text-teal" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium tracking-wide text-gray-500 uppercase">
+          <p className="text-xs font-medium text-gray-500">
             {label}
           </p>
           <p className="truncate text-sm text-heading" title={file.name}>
@@ -477,7 +469,7 @@ function PdfDrop({
           aria-label={`Remove ${label.toLowerCase()}`}
           onClick={() => onFile(null)}
         >
-          <X />
+          <XIcon />
         </Button>
       </div>
     )
@@ -510,7 +502,7 @@ function PdfDrop({
           if (f) onFile(f)
         }}
       />
-      <FileUp className="size-5 text-teal" />
+      <FileArrowUpIcon className="size-5 text-teal" />
       <span className="font-medium text-heading">{label}</span>
       <span className="text-xs text-gray-500">
         Drop a PDF or click to choose
@@ -530,7 +522,7 @@ function FormatIssues({ issues }: { issues: FormatIssue[] }) {
       className="space-y-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
     >
       <p className="flex items-center gap-2 font-medium">
-        <AlertTriangle className="size-4 shrink-0" />
+        <WarningIcon className="size-4 shrink-0" />
         {issues.length === 1 ? "1 problem" : `${issues.length} problems`} with
         the PDF format. Fix them and upload again.
       </p>
@@ -708,7 +700,7 @@ function SetPreview({
                       </span>
                       <span>{o.optionText}</span>
                       {o.isCorrect && (
-                        <CheckCircle2
+                        <CheckCircleIcon
                           className="size-3.5 shrink-0"
                           aria-label="Correct answer"
                         />

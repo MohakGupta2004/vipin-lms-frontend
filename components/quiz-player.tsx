@@ -1,10 +1,21 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock, Loader2, MinusCircle, RotateCcw, XCircle } from "lucide-react"
+import { ArrowCounterClockwiseIcon, ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, ClockIcon, MinusCircleIcon, PaperPlaneTiltIcon, WarningCircleIcon, XCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useState } from "react"
 
 import { ErrorNote } from "@/components/app-shell"
 import { useQuizSession } from "@/components/quiz-session"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,7 +35,7 @@ export function QuizPlayer({ onRestart, onExit }: { onRestart: () => void; onExi
       actions={
         <>
           <Button onClick={onRestart}>
-            <RotateCcw /> Practice again
+            <ArrowCounterClockwiseIcon /> Practice again
           </Button>
           <Button variant="outline" onClick={onExit}>
             Back to overview
@@ -43,15 +54,13 @@ function Runner() {
   const result = practice ? state.checked[current.id] : undefined
   const submitting = state.status === "submitting"
 
+  // Asking before a submit that can't be undone (or a practice finish with gaps) happens in a dialog.
+  const [asking, setAsking] = useState(false)
+  const left = total - done
+
   function submit() {
-    const left = total - done
-    const msg = practice
-      ? left > 0 && `${left} ${left === 1 ? "question is" : "questions are"} still unanswered. Finish and review anyway?`
-      : left > 0
-        ? `${left} ${left === 1 ? "question is" : "questions are"} unanswered and will count as wrong. Submit anyway?`
-        : "Submit your test? You can't change your answers after this."
-    if (msg && !confirm(msg)) return
-    void finish()
+    if (practice && left === 0) return void finish()
+    setAsking(true)
   }
 
   function primary() {
@@ -71,6 +80,7 @@ function Runner() {
   // 1–9 / A–J pick an option, ←/→ move, Enter checks or goes on.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (asking) return // the dialog owns the keyboard while it is open
       const el = e.target as HTMLElement
       if (e.metaKey || e.ctrlKey || e.altKey || el.closest("textarea, select, [contenteditable], input:not([type=radio])")) return
       const n = /^[1-9]$/.test(e.key) ? Number(e.key) - 1 : LETTERS.indexOf(e.key.toUpperCase())
@@ -91,6 +101,56 @@ function Runner() {
 
   return (
     <div className="space-y-4">
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className={left > 0 ? "bg-amber-50 text-amber-600" : "bg-accent text-primary"}>
+              {left > 0 ? <WarningCircleIcon weight="duotone" /> : <PaperPlaneTiltIcon weight="duotone" />}
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {practice
+                ? `Finish with ${left} unanswered?`
+                : left > 0
+                  ? `Submit with ${left} unanswered?`
+                  : "Submit your test?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {practice
+                ? "You'll see the review with every answer and explanation, including the ones you skipped."
+                : left > 0
+                  ? "Unanswered questions count as wrong. You can't change your answers after you submit."
+                  : `You've answered all ${total} questions. You can't change your answers after you submit.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <dl className="tnum grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border text-sm">
+            <div className="bg-white px-4 py-3">
+              <dt className="text-xs text-muted-foreground">Answered</dt>
+              <dd className="mt-0.5 font-medium text-heading">
+                {done} <span className="font-normal text-gray-400">of {total}</span>
+              </dd>
+            </div>
+            <div className="bg-white px-4 py-3">
+              <dt className="text-xs text-muted-foreground">{remaining !== null ? "Time left" : "Unanswered"}</dt>
+              <dd className="mt-0.5 font-medium text-heading">
+                {remaining !== null ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` : left}
+              </dd>
+            </div>
+          </dl>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{left > 0 ? "Keep answering" : "Review answers"}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={submitting}
+              onClick={() => {
+                setAsking(false)
+                void finish()
+              }}
+            >
+              {submitting && <CircleNotchIcon className="animate-spin" />}
+              {practice ? "Finish & review" : "Submit test"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="sticky top-[88px] z-20 space-y-3 rounded-lg border border-border bg-white/95 p-4 shadow-sm backdrop-blur-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-3">
@@ -105,7 +165,7 @@ function Runner() {
                 className={"tnum flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs font-bold " + (remaining <= 30 ? "bg-red-50 text-red-700" : "bg-mint text-teal")}
                 aria-label="Time left"
               >
-                <Clock className="size-3.5" />
+                <ClockIcon className="size-3.5" />
                 {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
               </span>
             )}
@@ -122,7 +182,7 @@ function Runner() {
       <Card key={current.id} className="rise bg-white">
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-bold tracking-wider text-teal uppercase">Question {state.index + 1}</span>
+            <span className="text-xs font-medium text-teal">Question {state.index + 1}</span>
             {result && <StatusBadge status={result.isCorrect ? "correct" : "wrong"} />}
           </div>
           <p className="text-lg leading-snug font-semibold whitespace-pre-line text-heading">{current.questionText}</p>
@@ -158,7 +218,7 @@ function Runner() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" onClick={() => go(state.index - 1)} disabled={state.index === 0}>
-          <ArrowLeft /> Previous
+          <ArrowLeftIcon /> Previous
         </Button>
         <div className="flex flex-wrap gap-2">
           {practice && !result && (
@@ -167,9 +227,9 @@ function Runner() {
             </Button>
           )}
           <Button onClick={primary} disabled={submitting || state.checking || (practice && !result && !picked)}>
-            {(submitting || state.checking) && <Loader2 className="animate-spin" />}
+            {(submitting || state.checking) && <CircleNotchIcon className="animate-spin" />}
             {practice && !result ? "Check answer" : last ? (practice ? "Finish & review" : "Submit test") : "Next"}
-            {!last && !(practice && !result) && <ArrowRight />}
+            {!last && !(practice && !result) && <ArrowRightIcon />}
           </Button>
         </div>
       </div>
@@ -185,7 +245,7 @@ function QuestionGrid() {
   return (
     <nav aria-label="All questions" className="space-y-3 rounded-lg border border-border bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
-        <span className="font-bold tracking-wider uppercase">All questions</span>
+        <span className="font-medium">All questions</span>
         <span className="flex flex-wrap gap-3">
           {practice ? (
             <>
@@ -265,7 +325,7 @@ function Feedback({ answer, options }: { answer: AttemptAnswer; options: Questio
       className={"pop space-y-1 rounded-md border px-4 py-3 text-sm " + (answer.isCorrect ? "border-green-600/30 bg-lime-soft/50" : "border-red-200 bg-red-50")}
     >
       <p className={"flex items-center gap-2 font-semibold " + (answer.isCorrect ? "text-green-700" : "text-red-700")}>
-        {answer.isCorrect ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
+        {answer.isCorrect ? <CheckCircleIcon className="size-4" /> : <XCircleIcon className="size-4" />}
         {answer.isCorrect ? "Correct" : `Not quite. The right answer is ${LETTERS[correct] ?? "marked in green"}.`}
       </p>
       {answer.explanation && <p className="leading-relaxed whitespace-pre-line text-gray-700">{answer.explanation}</p>}
@@ -316,18 +376,18 @@ function StatusBadge({ status }: { status: ReviewStatus }) {
   if (status === "correct")
     return (
       <Badge variant="lime" className="text-green-700">
-        <CheckCircle2 /> Correct
+        <CheckCircleIcon /> Correct
       </Badge>
     )
   if (status === "wrong")
     return (
       <Badge variant="destructive">
-        <XCircle /> Wrong
+        <XCircleIcon /> Wrong
       </Badge>
     )
   return (
     <Badge variant="outline" className="text-gray-500">
-      <MinusCircle /> Skipped
+      <MinusCircleIcon /> Skipped
     </Badge>
   )
 }
@@ -366,7 +426,7 @@ function MockScore({ result, onRestart, onExit }: { result: MockResult; onRestar
       <p className="text-sm text-gray-600">Mock test answers stay hidden, like in the real exam. Revise the lesson and try again to improve your score.</p>
       <div className="flex flex-wrap gap-2">
         <Button onClick={onRestart}>
-          <RotateCcw /> Retake test
+          <ArrowCounterClockwiseIcon /> Retake test
         </Button>
         <Button variant="outline" onClick={onExit}>
           Back to overview
@@ -407,13 +467,13 @@ export function PracticeReview({ quiz, answers, actions }: { quiz: Quiz; answers
           </div>
           <div className="tnum flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/80">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="size-4 text-secondary" /> {count("correct")} correct
+              <CheckCircleIcon className="size-4 text-secondary" /> {count("correct")} correct
             </span>
             <span className="flex items-center gap-1.5">
-              <XCircle className="size-4 text-red-300" /> {count("wrong")} wrong
+              <XCircleIcon className="size-4 text-red-300" /> {count("wrong")} wrong
             </span>
             <span className="flex items-center gap-1.5">
-              <MinusCircle className="size-4 text-white/50" /> {count("skipped")} skipped
+              <MinusCircleIcon className="size-4 text-white/50" /> {count("skipped")} skipped
             </span>
           </div>
         </CardContent>
@@ -444,7 +504,7 @@ export function PracticeReview({ quiz, answers, actions }: { quiz: Quiz; answers
         <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(k, 8) } as React.CSSProperties}>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold tracking-wider text-teal uppercase">Question {i + 1}</span>
+              <span className="text-xs font-medium text-teal">Question {i + 1}</span>
               <StatusBadge status={status} />
             </div>
             <p className="text-base leading-snug font-semibold whitespace-pre-line text-heading">{q.questionText}</p>
@@ -453,7 +513,7 @@ export function PracticeReview({ quiz, answers, actions }: { quiz: Quiz; answers
                 <OptionReveal options={q.options} correctOptionId={a.correctOptionId} selectedOptionId={a.selectedOptionId} />
                 {a.explanation && (
                   <div className="rounded-md bg-mint/70 px-4 py-3 text-sm">
-                    <p className="mb-1 text-xs font-bold tracking-wider text-teal uppercase">Explanation</p>
+                    <p className="mb-1 text-xs font-medium text-teal">Explanation</p>
                     <p className="leading-relaxed whitespace-pre-line text-gray-700">{a.explanation}</p>
                   </div>
                 )}
