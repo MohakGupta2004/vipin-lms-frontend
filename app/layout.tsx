@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 const jost = Jost({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-jost" })
 
 export const metadata: Metadata = {
-  title: { default: "Vipin Garg — Financial Expert", template: "%s · Vipin Garg" },
-  description: "Courses, notes and tests from financial expert Vipin Garg.",
+  title: { default: "Vipin Garg — Financial Coach", template: "%s · Vipin Garg" },
+  description: "Courses, notes and tests from financial coach Vipin Garg.",
 }
 
 export default function RootLayout({

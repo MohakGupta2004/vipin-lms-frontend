@@ -43,7 +43,7 @@ export function BrandMark({ className, onDark }: { className?: string; onDark?: 
 
 export function Brand({ className, onDark, compact }: { className?: string; onDark?: boolean; compact?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-2.5", className)} aria-label="Vipin Garg, Financial Expert">
+    <div className={cn("flex items-center gap-2.5", className)} aria-label="Vipin Garg, Financial Coach">
       <div className="size-10 shrink-0 drop-shadow-[0_2px_6px_rgba(10,37,64,0.18)]">
         <BrandMark onDark={onDark} />
       </div>
@@ -63,7 +63,7 @@ export function Brand({ className, onDark, compact }: { className?: string; onDa
               onDark ? "text-white/60" : "text-muted-foreground"
             )}
           >
-            Financial Expert
+            Financial Coach
           </span>
         )}
       </span>
