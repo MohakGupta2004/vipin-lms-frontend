@@ -232,7 +232,10 @@ export function VideoPlayer({
   )
 
   return (
-    <div className="relative size-full bg-black" aria-label={`Video player: ${title}`} role="region">
+    // isolate: Artplayer stacks its controls with z-indexes up to 9999. Without its own stacking context
+    // they compete with page overlays (the notes viewer, dialogs) and paint on top of them.
+    // Native fullscreen uses the browser's top layer, so it is unaffected.
+    <div className="relative isolate size-full bg-black" aria-label={`Video player: ${title}`} role="region">
       <div ref={container} className="size-full" />
       {layer && overlay && createPortal(<div className="pointer-events-auto absolute inset-0">{overlay}</div>, layer)}
       {error && (
