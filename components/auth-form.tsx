@@ -67,7 +67,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <AuthShell>
+    <AuthShell whiteLogo>
           <div className="space-y-1.5">
             <h1 className="display text-[2.25rem] leading-tight text-heading">
               {isSignup ? "Create your account" : "Welcome back"}

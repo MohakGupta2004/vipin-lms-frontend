@@ -2,13 +2,15 @@ import Image from "next/image"
 
 import logo from "@/public/logo.jpeg"
 import logoDark from "@/public/logo-bw.jpeg"
+import logoWhite from "@/public/logo-white.png"
 import { cn } from "@/lib/utils"
 
-// Circular mark; the JPEG corners are clipped by rounded-full so either variant sits cleanly on any surface.
-export function BrandMark({ className, onDark }: { className?: string; onDark?: boolean }) {
+// Circular mark; the image corners are clipped by rounded-full so every variant sits cleanly on any surface.
+// white: the white-disc mark, used on the login and signup screens. It wins over onDark.
+export function BrandMark({ className, onDark, white }: { className?: string; onDark?: boolean; white?: boolean }) {
   return (
     <Image
-      src={onDark ? logoDark : logo}
+      src={white ? logoWhite : onDark ? logoDark : logo}
       alt=""
       aria-hidden="true"
       priority
@@ -18,11 +20,22 @@ export function BrandMark({ className, onDark }: { className?: string; onDark?: 
   )
 }
 
-export function Brand({ className, onDark, compact }: { className?: string; onDark?: boolean; compact?: boolean }) {
+export function Brand({
+  className,
+  onDark,
+  compact,
+  white,
+}: {
+  className?: string
+  onDark?: boolean
+  compact?: boolean
+  /** Use the white-disc mark (login and signup only). */
+  white?: boolean
+}) {
   return (
     <div className={cn("flex items-center gap-2.5", className)} aria-label="Vipin Garg, Finance Coach">
       <div className="size-9 shrink-0">
-        <BrandMark onDark={onDark} />
+        <BrandMark onDark={onDark} white={white} />
       </div>
       <span className="flex flex-col leading-none">
         <span
