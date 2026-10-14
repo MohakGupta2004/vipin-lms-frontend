@@ -151,6 +151,14 @@ html { scroll-behavior: smooth; }
 .rise { animation: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .pop { animation: pop 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* Flashcard flip: two faces back to back in one 3D box. Reduced motion turns the 1ms rule below into an instant swap. */
+.flip { perspective: 1200px; }
+.flip-inner { display: grid; transform-style: preserve-3d; transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1); }
+.flip-inner[data-flipped="true"] { transform: rotateY(180deg); }
+/* Both faces share one grid cell, so the card is as tall as the longer of the two. */
+.flip-face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-back { transform: rotateY(180deg); }
+
 /* Unknown-duration progress (e.g. video transcoding) */
 @keyframes indeterminate {
   from { transform: translateX(-100%); }
@@ -186,5 +194,6 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .flip-inner { transition: none !important; }
   .indeterminate { animation: none !important; width: 100%; opacity: 0.5; }
 }

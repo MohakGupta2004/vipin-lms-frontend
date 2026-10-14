@@ -1,10 +1,11 @@
 "use client"
 
-import { ArrowUpRightIcon, BookOpenTextIcon, CaretRightIcon, CircleNotchIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowUpRightIcon, BookOpenTextIcon, CardsIcon, CaretRightIcon, CircleNotchIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { StudyBand } from "@/components/flashcard-links"
 import { Bar, Empty, Figures, Loading, ResumeBand, SectionHead } from "@/components/learning"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,10 +17,12 @@ import { useUser } from "@/hooks/use-user"
 import {
   createPost,
   deletePost,
+  getMyFlashcards,
   getMyProgress,
   listMyCourses,
   listPosts,
   type Course,
+  type MyFlashcards,
   type Post,
   type ProgressSummary,
 } from "@/lib/api"
@@ -39,21 +42,24 @@ function Feed() {
   const [posts, setPosts] = useState<Post[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [progress, setProgress] = useState<ProgressSummary | null>(null)
+  const [flashcards, setFlashcards] = useState<MyFlashcards | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      const [c, p, pr] = await Promise.all([
+      const [c, p, pr, fc] = await Promise.all([
         listMyCourses(100, 0),
         listPosts(50, 0),
         // Students' numbers; the dashboard still works without them.
         canTeach ? null : getMyProgress().catch(() => null),
+        canTeach ? null : getMyFlashcards().catch(() => null),
       ])
       setCourses(c)
       setPosts(p)
       setProgress(pr)
+      setFlashcards(fc)
     } catch (e) {
       setError(errMsg(e))
     } finally {
@@ -104,6 +110,26 @@ function Feed() {
               },
             ]}
           />
+        </section>
+      )}
+
+      {!canTeach && flashcards && courses.length > 0 && (
+        <section className="space-y-4">
+          <SectionHead
+            title="Flashcards"
+            aside={
+              flashcards.decks.length > 0 && (
+                <Link href="/flashcards" className="hover:text-heading hover:underline">
+                  All decks
+                </Link>
+              )
+            }
+          />
+          {flashcards.decks.length > 0 ? (
+            <StudyBand deck={flashcards.recent} />
+          ) : (
+            <Empty icon={CardsIcon} title="No flashcards yet" text="Your instructors haven't published any. They'll show up here for quick revision." />
+          )}
         </section>
       )}
 

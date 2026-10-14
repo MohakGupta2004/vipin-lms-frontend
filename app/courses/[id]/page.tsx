@@ -1,11 +1,13 @@
 "use client"
 
-import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, FileTextIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { DeckSummary } from "@/components/flashcard-links"
+import { FlashcardDeckPanel } from "@/components/flashcard-deck"
 import { LessonNotes } from "@/components/note-list"
 import { PdfPreview } from "@/components/pdf-preview"
 import { QuizCreator } from "@/components/quiz-pdf-import"
@@ -27,6 +29,7 @@ import {
   downloadNote,
   getCourse,
   listExams,
+  listCourseDecks,
   listCourseVideos,
   listLessons,
   listQuizzes,
@@ -36,6 +39,7 @@ import {
   type Course as CourseT,
   type CourseStatus,
   type Exam,
+  type FlashcardDeck,
   type Lesson,
   type Note,
   type Quiz,
@@ -61,6 +65,7 @@ function CourseView() {
   const [course, setCourse] = useState<CourseT | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [videos, setVideos] = useState<Video[]>([])
+  const [decks, setDecks] = useState<FlashcardDeck[]>([])
   const [loading, setLoading] = useState(valid)
   const [error, setError] = useState<string | null>(valid ? null : "That is not a valid course ID.")
   const [mode, setMode] = useState<"lesson" | "edit" | null>(null)
@@ -77,9 +82,11 @@ function CourseView() {
       const c = await getCourse(id)
       setCourse(c)
       if (user.role !== "admin" || c.instructorId === user.id) {
-        const [ls, vs] = await Promise.all([listLessons(id), listCourseVideos(id)])
+        // One request for every deck of the course; the flashcards are optional, so a failure here is not fatal.
+        const [ls, vs, ds] = await Promise.all([listLessons(id), listCourseVideos(id), listCourseDecks(id).catch(() => [])])
         setLessons(ls)
         setVideos(vs)
+        setDecks(ds)
       }
     } catch (e) {
       setError(errMsg(e))
@@ -124,6 +131,11 @@ function CourseView() {
   // Each lesson card manages its own slice of the course's videos.
   const setLessonVideos = (lessonId: string) => (fn: (v: Video[]) => Video[]) =>
     setVideos((all) => [...all.filter((v) => v.lessonId !== lessonId), ...fn(all.filter((v) => v.lessonId === lessonId))])
+
+  // A lesson's deck, or the course-wide one (lessonId null). A null deck means it was deleted or never created.
+  const deckOf = (lessonId: string | null) => decks.find((d) => d.lessonId === lessonId) ?? null
+  const setDeckOf = (lessonId: string | null) => (deck: FlashcardDeck | null) =>
+    setDecks((ds) => [...ds.filter((d) => d.lessonId !== lessonId), ...(deck ? [deck] : [])])
 
   const patchLesson = (lessonId: string, fn: (l: Lesson) => Lesson) =>
     setLessons((ls) => ls.map((l) => (l.id === lessonId ? fn(l) : l)))
@@ -291,10 +303,31 @@ function CourseView() {
             isOwner={isOwner}
             videos={videos.filter((v) => v.lessonId === l.id)}
             setVideos={setLessonVideos(l.id)}
+            deck={deckOf(l.id)}
+            onDeckChange={setDeckOf(l.id)}
+            previewing={preview}
             onChange={(fn) => patchLesson(l.id, fn)}
-            onDeleted={() => setLessons((ls) => ls.filter((x) => x.id !== l.id))}
+            onDeleted={() => {
+              setLessons((ls) => ls.filter((x) => x.id !== l.id))
+              setDeckOf(l.id)(null)
+            }}
           />
         ))}
+
+      {canSeeLessons && (isOwner || (deckOf(null)?.cardCount ?? 0) > 0) && (
+        <section className="space-y-3 pt-2">
+          <h2 className="flex items-center gap-2 text-2xl font-semibold text-heading">
+            <CardsIcon className="size-6 text-teal" /> Course-wide flashcards
+          </h2>
+          <div className="rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6">
+            {isOwner ? (
+              <FlashcardDeckPanel courseId={id} lessonId={null} deck={deckOf(null)} onChange={setDeckOf(null)} />
+            ) : (
+              <DeckSummary deck={deckOf(null)} preview={preview} />
+            )}
+          </div>
+        </section>
+      )}
     </>
   )
 }
@@ -446,6 +479,9 @@ function LessonCard({
   setVideos,
   onChange,
   onDeleted,
+  deck,
+  onDeckChange,
+  previewing,
 }: {
   open: boolean
   setOpen: (v: boolean | ((c: boolean) => boolean)) => void
@@ -456,6 +492,10 @@ function LessonCard({
   setVideos: (fn: (v: Video[]) => Video[]) => void
   onChange: (fn: (l: Lesson) => Lesson) => void
   onDeleted: () => void
+  deck: FlashcardDeck | null
+  onDeckChange: (deck: FlashcardDeck | null) => void
+  /** Previewing a paid course: only free flashcards open. */
+  previewing: boolean
 }) {
   const [preview, setPreview] = useState<Note | null>(null)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
@@ -585,7 +625,7 @@ function LessonCard({
               />
             )}
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-3">
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
                   <StackIcon className="size-4 text-teal" /> Notes
@@ -625,6 +665,17 @@ function LessonCard({
                     onSaved={(q) => setQuizzes((qs) => [...qs, q])}
                     onClose={() => setPanel(null)}
                   />
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+                  <CardsIcon className="size-4 text-teal" /> Flashcards
+                </h3>
+                {isOwner ? (
+                  <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
+                ) : (
+                  <DeckSummary deck={deck} preview={previewing} />
                 )}
               </section>
             </div>
