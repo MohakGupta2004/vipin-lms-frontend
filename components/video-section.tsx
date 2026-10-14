@@ -1,12 +1,15 @@
 "use client"
 
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, LockIcon, PlayCircleIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, LockIcon, PencilSimpleIcon, PlayCircleIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   MAX_VIDEO,
   VIDEO_EXT_RE,
@@ -15,12 +18,16 @@ import {
   putVideoFile,
   requestVideoUpload,
   retryVideo,
+  updateVideo,
   uploadUrlFresh,
   type Video,
   type VideoUpload,
 } from "@/lib/api"
 
 const POLL_MS = 5_000
+// Matches the server's limits.
+const MAX_TITLE = 255
+const MAX_DESCRIPTION = 5000
 
 type Phase = "starting" | "uploading" | "confirming" | "error"
 
@@ -29,6 +36,7 @@ type LocalUpload = {
   key: string
   file: File
   isFree: boolean
+  description: string
   phase: Phase
   loaded: number
   error?: string
@@ -61,6 +69,8 @@ export function VideoSection({
 }) {
   const [uploads, setUploads] = useState<LocalUpload[]>([])
   const [retrying, setRetrying] = useState<string | null>(null)
+  // The video whose title and description are being edited in place.
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ctrls = useRef(new Map<string, AbortController>())
   // The parent passes a fresh setter each render; the poller must not restart because of it.
@@ -121,6 +131,7 @@ export function VideoSection({
           patch(u.key, { phase: "starting", error: undefined, loaded: 0 })
           upload = await requestVideoUpload(lessonId, {
             fileName: u.file.name,
+            description: u.description || undefined,
             isFree: u.isFree,
           })
           patch(u.key, { upload })
@@ -146,11 +157,12 @@ export function VideoSection({
     }
   }
 
-  function start(file: File, isFree: boolean) {
+  function start(file: File, isFree: boolean, description: string) {
     const u: LocalUpload = {
       key: crypto.randomUUID(),
       file,
       isFree,
+      description,
       phase: "starting",
       loaded: 0,
     }
@@ -202,14 +214,29 @@ export function VideoSection({
             onCancel={() => cancel(u)}
           />
         ))}
-        {videos.map((v) => (
-          <VideoRow
-            key={v.id}
-            v={v}
-            retrying={retrying === v.id}
-            onRetry={() => retry(v)}
-          />
-        ))}
+        {videos.map((v) =>
+          editingId === v.id ? (
+            <li key={v.id}>
+              <VideoDetailsForm
+                video={v}
+                onSaved={(next) => {
+                  // Keep the live status: the poller may have moved it on while the form was open.
+                  setVideos((vs) => vs.map((x) => (x.id === v.id ? { ...x, title: next.title, description: next.description } : x)))
+                  setEditingId(null)
+                }}
+                onCancel={() => setEditingId(null)}
+              />
+            </li>
+          ) : (
+            <VideoRow
+              key={v.id}
+              v={v}
+              retrying={retrying === v.id}
+              onRetry={() => retry(v)}
+              onEdit={() => setEditingId(v.id)}
+            />
+          )
+        )}
       </ul>
 
       {!formOpen && (
@@ -388,16 +415,24 @@ function VideoRow({
   v,
   retrying,
   onRetry,
+  onEdit,
 }: {
   v: Video
   retrying: boolean
   onRetry: () => void
+  onEdit: () => void
 }) {
   const meta = (
     <>
       {v.sizeBytes > 0 && <span>{fmtBytes(v.sizeBytes)}</span>}
       {v.isFree && <span>{v.sizeBytes > 0 && "· "}Free preview</span>}
+      {!v.description && <span>{(v.sizeBytes > 0 || v.isFree) && "· "}No description</span>}
     </>
+  )
+  const edit = (
+    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${v.title}`} onClick={onEdit}>
+      <PencilSimpleIcon />
+    </Button>
   )
 
   switch (v.status) {
@@ -419,6 +454,7 @@ function VideoRow({
           >
             <PlayCircleIcon /> Play
           </Link>
+          {edit}
         </RowShell>
       )
     case "processing":
@@ -440,7 +476,9 @@ function VideoRow({
             </Chip>
           }
           bar={<Bar />}
-        />
+        >
+          {edit}
+        </RowShell>
       )
     case "failed":
       return (
@@ -468,6 +506,7 @@ function VideoRow({
             {retrying ? <CircleNotchIcon className="animate-spin" /> : <ArrowClockwiseIcon />}{" "}
             Retry
           </Button>
+          {edit}
         </RowShell>
       )
     default:
@@ -491,10 +530,11 @@ function VideoUploadForm({
   onClose,
 }: {
   lessonId: string
-  onStart: (file: File, isFree: boolean) => void
+  onStart: (file: File, isFree: boolean, description: string) => void
   onClose: () => void
 }) {
   const [file, setFile] = useState<File | null>(null)
+  const [description, setDescription] = useState("")
   // New videos start paid: only videos marked free play without enrolling, even in a free lesson.
   const [isFree, setIsFree] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -514,7 +554,7 @@ function VideoUploadForm({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!file) return setError("Choose a video file.")
-    onStart(file, isFree)
+    onStart(file, isFree, description.trim())
   }
 
   const inputId = `vf-${lessonId}`
@@ -577,6 +617,17 @@ function VideoUploadForm({
           onChange={(e) => pick(e.target.files?.[0])}
         />
       </label>
+      <Field>
+        <FieldLabel htmlFor={`vd-${lessonId}`}>Description (optional)</FieldLabel>
+        <Textarea
+          id={`vd-${lessonId}`}
+          rows={3}
+          maxLength={MAX_DESCRIPTION}
+          placeholder="What this lecture covers. Students see it under the video."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </Field>
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
@@ -591,6 +642,70 @@ function VideoUploadForm({
           <CloudArrowUpIcon /> Start upload
         </Button>
         <Button type="button" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** Edits an uploaded video's title and the description students see under the player. */
+function VideoDetailsForm({
+  video,
+  onSaved,
+  onCancel,
+}: {
+  video: Video
+  onSaved: (v: Video) => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState(video.title)
+  const [description, setDescription] = useState(video.description)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      onSaved(await updateVideo(video.id, { title: title.trim(), description: description.trim() }))
+    } catch (err) {
+      setError(errMsg(err))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
+      <Field>
+        <FieldLabel htmlFor={`vt-${video.id}`}>Title</FieldLabel>
+        <Input
+          id={`vt-${video.id}`}
+          required
+          maxLength={MAX_TITLE}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`vd-${video.id}`}>Description (optional)</FieldLabel>
+        <Textarea
+          id={`vd-${video.id}`}
+          rows={4}
+          maxLength={MAX_DESCRIPTION}
+          placeholder="What this lecture covers. Students see it under the video."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </Field>
+      <ErrorNote error={error} />
+      <div className="flex gap-2">
+        <Button type="submit" disabled={saving}>
+          {saving && <CircleNotchIcon className="animate-spin" />}
+          Save video
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
       </div>

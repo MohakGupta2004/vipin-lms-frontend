@@ -567,6 +567,12 @@ function LectureTabs({
         <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">{video.title}</h1>
         <p className="text-sm text-muted-foreground">{lesson.title}</p>
       </div>
+      {video.description && (
+        <div className="space-y-2">
+          <h2 className="text-base font-semibold">About this lecture</h2>
+          <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{video.description}</p>
+        </div>
+      )}
       {lesson.content && <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>}
       {next && onNext && (
         <button
@@ -594,12 +600,6 @@ function LectureTabs({
           <dd className="tnum text-2xl font-semibold text-heading">{totalLectures}</dd>
         </div>
       </dl>
-      {course.description && (
-        <div className="space-y-2 border-t border-border pt-6">
-          <h2 className="text-base font-semibold">About this course</h2>
-          <p className="max-w-[70ch] text-sm leading-relaxed whitespace-pre-wrap text-gray-700">{course.description}</p>
-        </div>
-      )}
     </div>
   )
 

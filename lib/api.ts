@@ -110,6 +110,8 @@ export type Video = {
   courseId: string
   lessonId: string
   title: string
+  /** What the lecture covers, shown under the player. "" = none written. */
+  description: string
   isFree: boolean
   sizeBytes: number
   status: VideoStatus
@@ -608,8 +610,12 @@ export const listLessonVideos = async (lessonId: string) =>
   (await json<{ videos: Video[] | null }>("GET", `/lessons/${id(lessonId)}/videos`))?.videos ?? []
 
 /** Creates the video row ('uploading') and returns a signed URL to PUT the file to. */
-export const requestVideoUpload = (lessonId: string, input: { fileName: string; isFree: boolean }) =>
+export const requestVideoUpload = (lessonId: string, input: { fileName: string; description?: string; isFree: boolean }) =>
   json<VideoUpload>("POST", `/lessons/${id(lessonId)}/videos`, { body: input })
+
+/** Uploader only. An empty description removes it. */
+export const updateVideo = async (videoId: string, input: Partial<{ title: string; description: string }>) =>
+  (await json<{ video: Video }>("PATCH", `/videos/${id(videoId)}`, { body: input })).video
 
 /** Tells the server the PUT finished; it checks the file and queues transcoding. */
 export const confirmVideo = async (videoId: string) =>
