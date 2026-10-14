@@ -7,6 +7,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, errMsg } from "@/components/app-shell"
 import { Brand } from "@/components/brand"
+import { DeckSummary } from "@/components/flashcard-links"
 import { LessonNotes } from "@/components/note-list"
 import { QuizList } from "@/components/quiz-list"
 import { PdfPreview } from "@/components/pdf-preview"
@@ -18,11 +19,13 @@ import {
   UUID_RE,
   downloadNote,
   getCourse,
+  listCourseDecks,
   listCourseVideos,
   listLessons,
   listQuizzes,
   setVideoCompletion,
   type Course,
+  type FlashcardDeck,
   type Lesson,
   type Note,
   type Quiz,
@@ -492,7 +495,7 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
   )
 }
 
-type Tab = "content" | "overview" | "notes" | "quizzes"
+type Tab = "content" | "overview" | "notes" | "quizzes" | "flashcards"
 
 function LectureTabs({
   course,
@@ -528,6 +531,8 @@ function LectureTabs({
   const [loaded, setLoaded] = useState<{ lessonId: string; quizzes: Quiz[] } | null>(null)
   const quizzes = loaded?.lessonId === lesson.id ? loaded.quizzes : null
   const [preview, setPreview] = useState<Note | null>(null)
+  // The course's decks, fetched once the first time the Flashcards tab opens.
+  const [decks, setDecks] = useState<FlashcardDeck[] | null>(null)
   const notes = lesson.notes ?? []
 
   useEffect(() => {
@@ -536,11 +541,20 @@ function LectureTabs({
       .catch(() => setLoaded({ lessonId: lesson.id, quizzes: [] }))
   }, [lesson.id, isOwner])
 
+  const wantDecks = tab === "flashcards" && decks === null
+  useEffect(() => {
+    if (!wantDecks) return
+    listCourseDecks(course.id)
+      .then(setDecks)
+      .catch(() => setDecks([]))
+  }, [wantDecks, course.id])
+
   const tabs: { key: Tab; label: string; className?: string }[] = [
     { key: "content", label: "Course content", className: "lg:hidden" },
     { key: "overview", label: "Overview" },
     { key: "notes", label: `Notes${notes.length ? ` (${notes.length})` : ""}` },
     { key: "quizzes", label: `Tests${quizzes?.length ? ` (${quizzes.length})` : ""}` },
+    { key: "flashcards", label: "Flashcards" },
   ]
   const overviewActive = tab === "overview"
 
@@ -642,6 +656,29 @@ function LectureTabs({
             )}
             {quizzes?.length === 0 && <Empty>No tests for this lecture.</Empty>}
             {quizzes && <QuizList quizzes={quizzes} />}
+          </div>
+        )}
+        {tab === "flashcards" && (
+          <div className="max-w-3xl space-y-6">
+            {decks === null && (
+              <p className="flex items-center gap-2 text-sm text-gray-500">
+                <CircleNotchIcon className="size-4 animate-spin" /> Loading…
+              </p>
+            )}
+            {decks && (
+              <>
+                <section className="space-y-3">
+                  <h2 className="text-sm font-medium text-heading">This lesson</h2>
+                  <DeckSummary deck={decks.find((d) => d.lessonId === lesson.id) ?? null} preview={course.access === "preview"} />
+                </section>
+                {decks.some((d) => d.lessonId === null && d.cardCount > 0) && (
+                  <section className="space-y-3">
+                    <h2 className="text-sm font-medium text-heading">Whole course</h2>
+                    <DeckSummary deck={decks.find((d) => d.lessonId === null) ?? null} preview={course.access === "preview"} />
+                  </section>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

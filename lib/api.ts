@@ -57,6 +57,7 @@ export type CatalogCourse = Course & {
   freeVideoCount: number
   freeNoteCount: number
   freeQuizCount: number
+  freeFlashcardCount: number
 }
 
 export type Enrollment = {
@@ -194,6 +195,48 @@ export type Quiz = {
   createdAt: string
   /** Previewing a course you're not enrolled in: the title shows, but it can't be opened. */
   locked?: boolean
+}
+
+export type DeckStatus = "draft" | "published"
+export type FlashcardRating = 1 | 2 | 3 | 4 | 5
+
+/** The flashcards of one lesson, or of the whole course when lessonId is null. */
+export type FlashcardDeck = {
+  id: string
+  courseId: string
+  lessonId: string | null
+  lessonTitle?: string
+  courseTitle: string
+  status: DeckStatus
+  cardCount: number
+  freeCardCount: number
+  /** My progress: cards I rated, and cards I rated 4 or 5. */
+  myReviewed: number
+  myMastered: number
+}
+
+export type Flashcard = {
+  id: string
+  deckId: string
+  courseId: string
+  front: string
+  back: string
+  isFree: boolean
+  position: number
+  myRating: FlashcardRating | null
+  /** Previewing a course you're not enrolled in: front and back are blank. */
+  locked?: boolean
+}
+
+/** GET /me/flashcards: the deck of the lesson I studied last, and all my decks. */
+export type MyFlashcards = { recent: FlashcardDeck | null; decks: FlashcardDeck[] }
+
+export const RATING_LABEL: Record<FlashcardRating, string> = {
+  1: "No idea",
+  2: "Hard",
+  3: "Okay",
+  4: "Good",
+  5: "Perfect",
 }
 
 export type AttemptAnswer = {
@@ -716,6 +759,53 @@ export const submitMockTest = (
 
 export const listAttempts = async (quizId: string) =>
   (await json<QuizAttempt[]>("GET", `/quizzes/${id(quizId)}/attempts`)) ?? []
+
+// ── flashcards ──────────────────────────────────────────────────────────────
+/** A course's decks (one per lesson plus the course-wide one). Owners also get drafts. */
+export const listCourseDecks = async (courseId: string) =>
+  (await json<FlashcardDeck[]>("GET", `/courses/${id(courseId)}/flashcard-decks`)) ?? []
+
+/** lessonId null makes the course-wide deck. 409 if it already exists. */
+export const createDeck = (courseId: string, input: { lessonId: string | null; status: DeckStatus }) =>
+  json<FlashcardDeck>("POST", `/courses/${id(courseId)}/flashcard-decks`, {
+    body: { status: input.status, ...(input.lessonId ? { lessonId: input.lessonId } : {}) },
+  })
+
+export const updateDeckStatus = (deckId: string, status: DeckStatus) =>
+  json<FlashcardDeck>("PATCH", `/flashcard-decks/${id(deckId)}`, { body: { status } })
+
+/** Marks every card of the deck free (or paid) at once. */
+export const setDeckFree = (deckId: string, isFree: boolean) =>
+  json<FlashcardDeck>("PUT", `/flashcard-decks/${id(deckId)}/free`, { body: { isFree } })
+
+export const deleteDeck = (deckId: string) => json<string>("DELETE", `/flashcard-decks/${id(deckId)}`)
+
+export const listDeckCards = async (deckId: string) =>
+  (await json<Flashcard[]>("GET", `/flashcard-decks/${id(deckId)}/cards`)) ?? []
+
+export const createFlashcard = (deckId: string, input: { front: string; back: string; isFree: boolean }) =>
+  json<Flashcard>("POST", `/flashcard-decks/${id(deckId)}/cards`, { body: input })
+
+export const updateFlashcard = (
+  cardId: string,
+  input: Partial<{ front: string; back: string; isFree: boolean }>,
+) => json<Flashcard>("PATCH", `/flashcards/${id(cardId)}`, { body: input })
+
+export const deleteFlashcard = (cardId: string) => json<string>("DELETE", `/flashcards/${id(cardId)}`)
+
+/** Distinct cards of a deck in random order; cards I rated low come up more. Previewers only get free cards. */
+export const getDeckSession = async (deckId: string, limit?: number) =>
+  (await json<Flashcard[]>("GET", `/flashcard-decks/${id(deckId)}/session`, { query: { limit } })) ?? []
+
+export const getMyFlashcards = async (courseId?: string) =>
+  (await json<MyFlashcards>("GET", "/me/flashcards", { query: { courseId } })) ?? { recent: null, decks: [] }
+
+/** A random mix across my courses (or one of them). */
+export const getMixSession = async (courseId?: string, limit?: number) =>
+  (await json<Flashcard[]>("GET", "/me/flashcards/session", { query: { courseId, limit } })) ?? []
+
+export const reviewFlashcard = (cardId: string, rating: FlashcardRating) =>
+  json<string>("PUT", `/flashcards/${id(cardId)}/review`, { body: { rating } })
 
 // ── local session cache (profile only; tokens live in HttpOnly cookies) ─────
 export const USER_KEY = "lms_user"

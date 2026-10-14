@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, CircleNotchIcon, FileTextIcon, ListChecksIcon, MagnifyingGlassIcon, PlayCircleIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, CardsIcon, CircleNotchIcon, FileTextIcon, ListChecksIcon, MagnifyingGlassIcon, PlayCircleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
@@ -20,7 +20,7 @@ export default function ExplorePage() {
   )
 }
 
-const hasFree = (c: CatalogCourse) => c.freeLessonCount + c.freeVideoCount + c.freeNoteCount + c.freeQuizCount > 0
+const hasFree = (c: CatalogCourse) => c.freeLessonCount + c.freeVideoCount + c.freeNoteCount + c.freeQuizCount + c.freeFlashcardCount > 0
 
 function Explore() {
   const [courses, setCourses] = useState<CatalogCourse[]>([])
@@ -138,6 +138,7 @@ function CourseCard({ c }: { c: CatalogCourse }) {
     { n: c.freeVideoCount, one: "video", many: "videos", icon: PlayCircleIcon },
     { n: c.freeNoteCount, one: "note", many: "notes", icon: FileTextIcon },
     { n: c.freeQuizCount, one: "test", many: "tests", icon: ListChecksIcon },
+    { n: c.freeFlashcardCount, one: "flashcard", many: "flashcards", icon: CardsIcon },
   ].filter((s) => s.n > 0)
 
   return (
