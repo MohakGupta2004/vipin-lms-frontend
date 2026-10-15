@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpenTextIcon, CardsIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
+import { BookOpenTextIcon, CardsIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, NotePencilIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -52,6 +52,7 @@ const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
     { href: "/learn", label: "Learn Your Way", icon: PlayCircleIcon },
     { href: "/practice", label: "Practice & Prepare", icon: ListChecksIcon },
     { href: "/flashcards", label: "Flashcards", icon: CardsIcon },
+    { href: "/notes", label: "Notes", icon: NotePencilIcon },
     { href: "/progress", label: "Track Your Progress", icon: ChartLineUpIcon },
     { href: "/explore", label: "Explore", icon: CompassIcon },
   ],
