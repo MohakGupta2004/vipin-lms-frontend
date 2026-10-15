@@ -591,11 +591,18 @@ export const updateNote = (noteId: string, input: Partial<{ title: string; descr
 export const deleteNote = (noteId: string) =>
   json<string>("DELETE", `/notes/${id(noteId)}`)
 
-/** Fetches the PDF as a Blob (the cookie-authenticated endpoint cannot be used as a plain link). */
+/**
+ * Fetches the PDF as a Blob (the cookie-authenticated endpoint cannot be used as a plain link).
+ * The server scrambles it so the raw response is not a usable file: a 16-byte AES key,
+ * a 16-byte counter block, then the PDF encrypted with AES-CTR. It is decrypted here, in memory.
+ */
 export async function downloadNote(noteId: string): Promise<Blob> {
   const res = await call("GET", `/notes/${id(noteId)}/file`)
   if (!res.ok) return fail(res)
-  return new Blob([await res.arrayBuffer()], { type: "application/pdf" })
+  const buf = new Uint8Array(await res.arrayBuffer())
+  const key = await crypto.subtle.importKey("raw", buf.subarray(0, 16), "AES-CTR", false, ["decrypt"])
+  const pdf = await crypto.subtle.decrypt({ name: "AES-CTR", counter: buf.subarray(16, 32), length: 128 }, key, buf.subarray(32))
+  return new Blob([pdf], { type: "application/pdf" })
 }
 
 // ── videos ──────────────────────────────────────────────────────────────────

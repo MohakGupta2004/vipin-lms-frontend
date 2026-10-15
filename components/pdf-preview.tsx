@@ -56,11 +56,18 @@ export function PdfPreview({
       if (e.key === "Escape") onClose()
       if ((e.ctrlKey || e.metaKey) && ["s", "p"].includes(e.key.toLowerCase())) e.preventDefault()
     }
+    // Block the context menu page-wide while open, in the capture phase: a touch long-press
+    // (phones, or DevTools device mode) also raises it and would offer "Save image".
+    const block = (e: Event) => e.preventDefault()
     document.addEventListener("keydown", onKey)
+    document.addEventListener("contextmenu", block, true)
+    document.addEventListener("dragstart", block, true)
     const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
     return () => {
       document.removeEventListener("keydown", onKey)
+      document.removeEventListener("contextmenu", block, true)
+      document.removeEventListener("dragstart", block, true)
       document.body.style.overflow = prev
     }
   }, [onClose])
@@ -71,7 +78,7 @@ export function PdfPreview({
       role="dialog"
       aria-modal="true"
       aria-label={`Preview of ${title}`}
-      className="pdf-preview pop fixed inset-0 z-50 flex flex-col bg-navy"
+      className="pdf-preview pop fixed inset-0 z-50 flex flex-col bg-navy [-webkit-touch-callout:none]"
       onContextMenu={(e) => e.preventDefault()}
     >
       <style>{`@media print { .pdf-preview { display: none !important; } }`}</style>
@@ -167,7 +174,8 @@ function PdfPage({ pdf, n, zoom }: { pdf: PdfDoc; n: number; zoom: number }) {
 
   return (
     <div ref={wrap} data-page={n} className="w-full rounded-sm bg-white shadow-2xl" style={{ aspectRatio: "1 / 1.294", minHeight: visible ? undefined : 300 }}>
-      <canvas ref={ref} className="block h-auto w-full rounded-sm" />
+      {/* No pointer events: a press or right-click lands on the wrapper, so there is no image to save or drag. */}
+      <canvas ref={ref} className="pointer-events-none block h-auto w-full rounded-sm" />
     </div>
   )
 }
