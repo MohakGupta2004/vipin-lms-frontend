@@ -1,8 +1,9 @@
 import { ArrowRightIcon, ListChecksIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
+import { LockHint, TierBadge } from "@/components/tier-badge"
 import { Badge } from "@/components/ui/badge"
-import { QUIZ_TYPE_PLURAL, isPractice, type Quiz } from "@/lib/api"
+import { QUIZ_TYPE_PLURAL, isPractice, type Quiz, type Tier } from "@/lib/api"
 
 const meta = (q: Quiz) => {
   const parts = [`${q.questionCount} questions`]
@@ -17,9 +18,10 @@ const meta = (q: Quiz) => {
 /**
  * Test rows in two sections, Mock tests and Practice tests. Once there is any test both sections
  * show, each with its own empty state; with none at all the caller shows its own empty message.
- * Locked tests (previewing a paid course) show but can't be opened.
+ * Locked tests (not enrolled, or on a lower tier) show but can't be opened; `tier` is the viewer's tier in the
+ * course. The owner sees each test's tiers.
  */
-export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
+export function QuizList({ quizzes, tier, owner }: { quizzes: Quiz[]; tier?: Tier; owner?: boolean }) {
   if (quizzes.length === 0) return null
   const groups = (["mock_test", "practice"] as const).map((t) => ({
     label: QUIZ_TYPE_PLURAL[t],
@@ -55,10 +57,10 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                     </span>
                     <span className="tnum flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       {meta(q)}
-                      <Badge variant="outline" className="sm:hidden">Enroll to unlock</Badge>
+                      <LockHint courseTier={tier} tags={q.tiers} className="sm:hidden" />
                     </span>
                   </span>
-                  <Badge variant="outline" className="max-sm:hidden">Enroll to unlock</Badge>
+                  <LockHint courseTier={tier} tags={q.tiers} className="max-sm:hidden" />
                 </li>
               ) : (
                 <li key={q.id}>
@@ -75,7 +77,7 @@ export function QuizList({ quizzes }: { quizzes: Quiz[] }) {
                       </span>
                       <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
                         {meta(q)}
-                        {q.isFree && <Badge variant="lime">Free preview</Badge>}
+                        {owner ? <TierBadge tags={q.tiers} /> : q.tiers.includes("free") && <Badge variant="lime">Free preview</Badge>}
                         {q.status === "draft" && (
                           <Badge variant="secondary">Draft</Badge>
                         )}

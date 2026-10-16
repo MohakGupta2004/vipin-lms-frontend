@@ -9,10 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { TierPicker } from "@/components/tier-picker"
 import {
+  DEFAULT_TIERS,
   QUIZ_TYPE_LABEL,
   QUIZ_TYPE_PLURAL,
   createQuiz,
+  type ContentTier,
   type Quiz,
   type QuizStatus,
   type QuizType,
@@ -174,7 +177,7 @@ function PdfImport({
   const [passPercent, setPass] = useState(70)
   const [minutes, setMinutes] = useState("")
   const [status, setStatus] = useState<QuizStatus>("published")
-  const [isFree, setIsFree] = useState(false)
+  const [tiers, setTiers] = useState<ContentTier[]>(DEFAULT_TIERS.quiz)
   const [saving, setSaving] = useState<Progress>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -254,7 +257,7 @@ function PdfImport({
       ? {}
       : { passPercent, ...(timeLimitSec ? { timeLimitSec } : {}) }),
     status,
-    isFree,
+    tiers,
     questions: p.questions,
   })
 
@@ -410,14 +413,9 @@ function PdfImport({
                 <option value="draft">Draft</option>
               </Select>
             </Field>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={isFree}
-                onChange={(e) => setIsFree(e.target.checked)}
-              />
-              Free preview (open without enrolling)
-            </label>
+            <div className="sm:col-span-2">
+              <TierPicker value={tiers} onChange={setTiers} />
+            </div>
           </div>
 
           <RequestPreview

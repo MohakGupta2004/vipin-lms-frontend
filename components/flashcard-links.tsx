@@ -1,13 +1,13 @@
 "use client"
 
-import { CardsIcon, CaretRightIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
+import { CardsIcon, CaretRightIcon, LockIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
 import { Bar } from "@/components/learning"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import type { FlashcardDeck } from "@/lib/api"
+import type { FlashcardDeck, Tier } from "@/lib/api"
 
 export const deckHref = (deckId: string) => `/flashcards/study?deck=${deckId}`
 export const mixHref = (courseId?: string | null) => `/flashcards/study?mix=1${courseId ? `&course=${courseId}` : ""}`
@@ -50,6 +50,22 @@ export function DeckRows({ decks, showCourse }: { decks: FlashcardDeck[]; showCo
       <ul className="divide-y divide-border">
         {decks.map((d) => {
           const pct = d.cardCount ? Math.round((d.myMastered / d.cardCount) * 100) : 0
+          if (d.locked)
+            return (
+              <li key={d.id} className="flex items-center gap-3 bg-gray-50 px-5 py-4" aria-label={`${deckName(d)}, locked`}>
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                  <LockIcon className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] text-gray-600">{deckName(d)}</p>
+                  <p className="tnum mt-0.5 truncate text-xs text-muted-foreground">
+                    {showCourse && `${d.courseTitle} · `}
+                    {d.cardCount} {d.cardCount === 1 ? "card" : "cards"}
+                  </p>
+                </div>
+                <Badge variant="outline">Not on your plan</Badge>
+              </li>
+            )
           return (
             <li key={d.id}>
               <Link
@@ -79,10 +95,10 @@ export function DeckRows({ decks, showCourse }: { decks: FlashcardDeck[]; showCo
 }
 
 /**
- * A deck as non-owners see it on a course page: its size and a link to study it. Someone previewing
- * a paid course can only study the free cards.
+ * A deck as non-owners see it on a course page: its size and a link to study it. Only the cards the viewer's
+ * `tier` can study open; a deck with none shows why it is locked.
  */
-export function DeckSummary({ deck, preview }: { deck: FlashcardDeck | null; preview: boolean }) {
+export function DeckSummary({ deck, tier }: { deck: FlashcardDeck | null; tier?: Tier }) {
   if (!deck || deck.cardCount === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
@@ -90,7 +106,8 @@ export function DeckSummary({ deck, preview }: { deck: FlashcardDeck | null; pre
       </p>
     )
   }
-  const open = preview ? deck.freeCardCount : deck.cardCount
+  const open = deck.accessibleCardCount
+  const partial = open < deck.cardCount
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-white p-3">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
@@ -101,7 +118,7 @@ export function DeckSummary({ deck, preview }: { deck: FlashcardDeck | null; pre
           {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
         </span>
         <span className="block text-xs text-muted-foreground">
-          {preview ? `${deck.freeCardCount} free to preview` : deck.myReviewed > 0 ? `${deck.myMastered} mastered` : "Not studied yet"}
+          {partial ? `${open} of ${deck.cardCount} open on your plan` : deck.myReviewed > 0 ? `${deck.myMastered} mastered` : "Not studied yet"}
         </span>
       </span>
       {open > 0 ? (
@@ -109,7 +126,7 @@ export function DeckSummary({ deck, preview }: { deck: FlashcardDeck | null; pre
           Study
         </Link>
       ) : (
-        <Badge variant="outline">Enroll to unlock</Badge>
+        <Badge variant="outline">{tier === "free" ? "Enroll to unlock" : "Not on your plan"}</Badge>
       )}
     </div>
   )

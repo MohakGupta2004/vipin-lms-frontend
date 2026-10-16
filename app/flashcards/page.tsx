@@ -37,7 +37,7 @@ function Flashcards() {
 
   const decks = courseId ? mine.decks.filter((d) => d.courseId === courseId) : mine.decks
   // The recent deck, unless the course filter hides it.
-  const recent = mine.recent && (!courseId || mine.recent.courseId === courseId) ? mine.recent : null
+  const recent = mine.recent && !mine.recent.locked && (!courseId || mine.recent.courseId === courseId) ? mine.recent : null
   const perCourse = Object.fromEntries(courses.map((c) => [c.id, mine.decks.filter((d) => d.courseId === c.id).length]))
 
   return (

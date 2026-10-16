@@ -1,12 +1,13 @@
 "use client"
 
-import { CaretRightIcon, CheckCircleIcon, ListChecksIcon } from "@phosphor-icons/react/dist/ssr"
+import { CaretRightIcon, CheckCircleIcon, ListChecksIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { Suspense, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { CourseChips, Empty, Loading, Segmented, useCourseFilter } from "@/components/learning"
 import { QUIZ_TYPE_PLURAL, listMyCourses, listMyQuizzes, type Course, type MyQuiz, type QuizType } from "@/lib/api"
+import { LockHint } from "@/components/tier-badge"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -130,10 +131,17 @@ function QuizRow({ quiz: q, showCourse }: { quiz: MyQuiz; showCourse: boolean })
   return (
     <TableRow className="group relative">
       <TableCell className="max-w-0 py-3.5 pl-5 whitespace-normal">
-        {/* The title link covers the row, so the whole row opens the test. */}
-        <Link href={`/quizzes/${q.id}`} className="block truncate text-[15px] text-heading after:absolute after:inset-0">
-          {q.title}
-        </Link>
+        {/* The title link covers the row, so the whole row opens the test. A locked test only shows its title. */}
+        {q.locked ? (
+          <span className="flex items-center gap-2 truncate text-[15px] text-gray-600">
+            <LockIcon className="size-4 shrink-0" aria-label="Locked" />
+            {q.title}
+          </span>
+        ) : (
+          <Link href={`/quizzes/${q.id}`} className="block truncate text-[15px] text-heading after:absolute after:inset-0">
+            {q.title}
+          </Link>
+        )}
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {showCourse && `${q.courseTitle} · `}
           {q.lessonTitle}
@@ -149,7 +157,9 @@ function QuizRow({ quiz: q, showCourse }: { quiz: MyQuiz; showCourse: boolean })
         {isMock && q.passPercent !== null && <span className="block text-xs text-gray-400">pass {q.passPercent}%</span>}
       </TableCell>
       <TableCell>
-        {!tried ? (
+        {q.locked ? (
+          <LockHint tags={q.tiers} />
+        ) : !tried ? (
           <span className="text-gray-400">Not attempted</span>
         ) : isMock ? (
           <span className="flex items-baseline gap-2">
@@ -164,7 +174,9 @@ function QuizRow({ quiz: q, showCourse }: { quiz: MyQuiz; showCourse: boolean })
         )}
       </TableCell>
       <TableCell className="hidden pr-5 md:table-cell">
-        <CaretRightIcon className="size-4 text-gray-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-heading" />
+        {!q.locked && (
+          <CaretRightIcon className="size-4 text-gray-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-heading" />
+        )}
       </TableCell>
     </TableRow>
   )

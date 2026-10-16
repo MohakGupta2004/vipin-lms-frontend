@@ -10,6 +10,7 @@ import { Brand } from "@/components/brand"
 import { DeckSummary } from "@/components/flashcard-links"
 import { LessonNotes } from "@/components/note-list"
 import { QuizList } from "@/components/quiz-list"
+import { LockHint } from "@/components/tier-badge"
 import { PdfPreview } from "@/components/pdf-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -17,6 +18,8 @@ import { VideoPlayer } from "@/components/video-player"
 import { roleHome, useUser } from "@/hooks/use-user"
 import {
   UUID_RE,
+  VIDEO_KINDS,
+  VIDEO_KIND_LABEL,
   downloadNote,
   getCourse,
   listCourseDecks,
@@ -29,6 +32,7 @@ import {
   type Lesson,
   type Note,
   type Quiz,
+  type Tier,
   type Video,
 } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -124,8 +128,14 @@ function Learn() {
         // Only ready videos are playable; keep the course's lesson order.
         const ready = videos.filter((v) => v.status === "ready")
         loadDone(ready)
+        // Within a lesson, Offline Recordings come first, then Meet Recordings; next/previous follow that order.
         setSections(
-          lessons.map((lesson) => ({ lesson, videos: ready.filter((v) => v.lessonId === lesson.id) })).filter((s) => s.videos.length > 0)
+          lessons
+            .map((lesson) => ({
+              lesson,
+              videos: VIDEO_KINDS.flatMap((kind) => ready.filter((v) => v.lessonId === lesson.id && v.kind === kind)),
+            }))
+            .filter((s) => s.videos.length > 0)
         )
       })
       .catch((e) => setError(errMsg(e)))
@@ -133,6 +143,7 @@ function Learn() {
   }, [id, valid, loadDone])
 
   const preview = course?.access === "preview"
+  const tier: Tier = course?.tier ?? "free"
   // Locked lectures (previewing a course) are listed but never played, so navigation skips them.
   const flat = sections.flatMap((s) => s.videos).filter((v) => !v.locked)
   const lockedCount = sections.reduce((n, s) => n + s.videos.filter((v) => v.locked).length, 0)
@@ -181,6 +192,7 @@ function Learn() {
     <CourseContent
       sections={sections}
       preview={preview}
+      tier={tier}
       currentId={current?.id}
       done={done}
       isOpen={isOpen}
@@ -235,11 +247,13 @@ function Learn() {
             <PlayCircleIcon className="size-7" />
           </span>
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">{error ? "Can't open this course" : lockedCount > 0 ? "Enroll to watch" : "No videos yet"}</h1>
+            <h1 className="text-xl font-semibold">{error ? "Can't open this course" : lockedCount > 0 ? (tier === "free" ? "Enroll to watch" : "Not on your plan") : "No videos yet"}</h1>
             <p className="max-w-md text-sm text-muted-foreground">
               {error ??
                 (lockedCount > 0
-                  ? `This course has ${lockedCount} ${lockedCount === 1 ? "lecture" : "lectures"} and none are free to preview. Ask your admin to enroll you.`
+                  ? tier === "free"
+                    ? `This course has ${lockedCount} ${lockedCount === 1 ? "lecture" : "lectures"} and none are free to preview. Ask your admin to enroll you.`
+                    : `This course has ${lockedCount} ${lockedCount === 1 ? "lecture" : "lectures"} but none are included in your plan. Ask your admin to upgrade you.`
                   : "Lectures will appear here once the instructor uploads them and they finish processing.")}
             </p>
           </div>
@@ -346,6 +360,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
 function CourseContent({
   sections,
   preview,
+  tier,
   currentId,
   done,
   isOpen,
@@ -355,6 +370,7 @@ function CourseContent({
 }: {
   sections: Section[]
   preview: boolean
+  tier: Tier
   currentId: string | undefined
   done: Set<string>
   isOpen: (lessonId: string) => boolean
@@ -391,47 +407,60 @@ function CourseContent({
             </button>
             <div className="expand" data-open={open}>
               <div>
-                <ol>
-                  {s.videos.map((v, j) => {
-                    const n = firstNo[i] + j
-                    const active = v.id === currentId
-                    const checked = done.has(v.id)
-                    if (v.locked)
-                      return (
-                        <li key={v.id} className="flex items-start gap-3 px-4 py-3 text-muted-foreground">
-                          <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm leading-snug">
-                              {n}. {v.title}
-                            </span>
-                            <span className="mt-1 block text-xs">Enroll to watch</span>
-                          </span>
-                        </li>
-                      )
-                    return (
-                      <li key={v.id} className={cn("relative flex items-start gap-3 px-4 py-3 transition-colors", active ? "bg-mint" : "hover:bg-gray-50")}>
-                        {active && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-teal" />}
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 size-4 shrink-0 cursor-pointer"
-                          checked={checked}
-                          onChange={() => onToggleDone(v)}
-                          aria-label={`Mark "${v.title}" ${checked ? "not complete" : "complete"}`}
-                        />
-                        <button type="button" onClick={() => onSelect(v)} aria-current={active ? "true" : undefined} className="min-w-0 flex-1 text-left">
-                          <span className={cn("block text-sm leading-snug text-heading", active && "font-semibold")}>
-                            {n}. {v.title}
-                          </span>
-                          <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <PlayCircleIcon className="size-3.5" />
-                            {active ? "Playing" : "Video"}
-                            {preview && <Badge variant="lime" className="ml-1 h-4 px-1.5 text-[10px]">Free</Badge>}
-                          </span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ol>
+                {VIDEO_KINDS.map((kind) => {
+                  const group = s.videos.filter((v) => v.kind === kind)
+                  if (group.length === 0) return null
+                  return (
+                    <div key={kind}>
+                      <h4 className="bg-white px-4 pt-3 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                        {VIDEO_KIND_LABEL[kind]}
+                      </h4>
+                      <ol>
+                        {group.map((v) => {
+                          const n = firstNo[i] + s.videos.indexOf(v)
+                          const active = v.id === currentId
+                          const checked = done.has(v.id)
+                          if (v.locked)
+                            return (
+                              <li key={v.id} className="flex items-start gap-3 px-4 py-3 text-muted-foreground">
+                                <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm leading-snug">
+                                    {n}. {v.title}
+                                  </span>
+                                  <span className="mt-1 block text-xs">
+                                    <LockHint courseTier={tier} tags={v.tiers} />
+                                  </span>
+                                </span>
+                              </li>
+                            )
+                          return (
+                            <li key={v.id} className={cn("relative flex items-start gap-3 px-4 py-3 transition-colors", active ? "bg-mint" : "hover:bg-gray-50")}>
+                              {active && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-teal" />}
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 size-4 shrink-0 cursor-pointer"
+                                checked={checked}
+                                onChange={() => onToggleDone(v)}
+                                aria-label={`Mark "${v.title}" ${checked ? "not complete" : "complete"}`}
+                              />
+                              <button type="button" onClick={() => onSelect(v)} aria-current={active ? "true" : undefined} className="min-w-0 flex-1 text-left">
+                                <span className={cn("block text-sm leading-snug text-heading", active && "font-semibold")}>
+                                  {n}. {v.title}
+                                </span>
+                                <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <PlayCircleIcon className="size-3.5" />
+                                  {active ? "Playing" : "Video"}
+                                  {preview && <Badge variant="lime" className="ml-1 h-4 px-1.5 text-[10px]">Free</Badge>}
+                                </span>
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </section>
@@ -643,6 +672,7 @@ function LectureTabs({
               setNotes={setNotes}
               isOwner={isOwner}
               onOpen={setPreview}
+              tier={course.tier ?? "free"}
               empty={<Empty>No notes for this lecture.</Empty>}
             />
           </div>
@@ -655,7 +685,7 @@ function LectureTabs({
               </p>
             )}
             {quizzes?.length === 0 && <Empty>No tests for this lecture.</Empty>}
-            {quizzes && <QuizList quizzes={quizzes} />}
+            {quizzes && <QuizList quizzes={quizzes} tier={course.tier ?? "free"} owner={isOwner} />}
           </div>
         )}
         {tab === "flashcards" && (
@@ -669,12 +699,12 @@ function LectureTabs({
               <>
                 <section className="space-y-3">
                   <h2 className="text-sm font-medium text-heading">This lesson</h2>
-                  <DeckSummary deck={decks.find((d) => d.lessonId === lesson.id) ?? null} preview={course.access === "preview"} />
+                  <DeckSummary deck={decks.find((d) => d.lessonId === lesson.id) ?? null} tier={course.tier ?? "free"} />
                 </section>
                 {decks.some((d) => d.lessonId === null && d.cardCount > 0) && (
                   <section className="space-y-3">
                     <h2 className="text-sm font-medium text-heading">Whole course</h2>
-                    <DeckSummary deck={decks.find((d) => d.lessonId === null) ?? null} preview={course.access === "preview"} />
+                    <DeckSummary deck={decks.find((d) => d.lessonId === null) ?? null} tier={course.tier ?? "free"} />
                   </section>
                 )}
               </>

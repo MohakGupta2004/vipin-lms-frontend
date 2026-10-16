@@ -43,8 +43,11 @@ import {
   type FlashcardDeck,
   type Lesson,
   type Note,
+  TIER_LABEL,
   type Quiz,
+  type Tier,
   type Video,
+  type VideoKind,
 } from "@/lib/api"
 
 
@@ -126,6 +129,8 @@ function CourseView() {
   const readyVideos = videos.filter((v) => v.status === "ready").length
   // Not enrolled in a paid course: only free lessons, notes, quizzes and videos open.
   const preview = course?.access === "preview"
+  // My tier in this course: unenrolled previewers are free; enrolled students have the tier they were enrolled on.
+  const tier: Tier = course?.tier ?? "free"
   const playable = videos.filter((v) => v.status === "ready" && !v.locked).length
   const freeLessons = lessons.filter((l) => !l.locked).length
   const learnHref = `/courses/${id}/learn`
@@ -209,6 +214,7 @@ function CourseView() {
               <Badge variant={course.status === "published" ? "default" : "secondary"}>{course.status}</Badge>
               {course.isFree && <Badge variant="lime">Free</Badge>}
               {preview && <Badge variant="secondary">Preview</Badge>}
+              {!isOwner && course.access === "full" && !course.isFree && <Badge variant="lime">Your plan: {TIER_LABEL[tier]}</Badge>}
               {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
             </div>
             {course.description && (
@@ -307,7 +313,7 @@ function CourseView() {
             setVideos={setLessonVideos(l.id)}
             deck={deckOf(l.id)}
             onDeckChange={setDeckOf(l.id)}
-            previewing={preview}
+            tier={tier}
             onChange={(fn) => patchLesson(l.id, fn)}
             onDeleted={() => {
               setLessons((ls) => ls.filter((x) => x.id !== l.id))
@@ -325,7 +331,7 @@ function CourseView() {
             {isOwner ? (
               <FlashcardDeckPanel courseId={id} lessonId={null} deck={deckOf(null)} onChange={setDeckOf(null)} />
             ) : (
-              <DeckSummary deck={deckOf(null)} preview={preview} />
+              <DeckSummary deck={deckOf(null)} tier={tier} />
             )}
           </div>
         </section>
@@ -485,7 +491,7 @@ function LessonCard({
   onDeleted,
   deck,
   onDeckChange,
-  previewing,
+  tier,
 }: {
   open: boolean
   setOpen: (v: boolean | ((c: boolean) => boolean)) => void
@@ -498,13 +504,13 @@ function LessonCard({
   onDeleted: () => void
   deck: FlashcardDeck | null
   onDeckChange: (deck: FlashcardDeck | null) => void
-  /** Previewing a paid course: only free flashcards open. */
-  previewing: boolean
+  /** The viewer's tier in the course. Free = not enrolled: only free items open. */
+  tier: Tier
 }) {
   const [preview, setPreview] = useState<Note | null>(null)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [panel, setPanel] = useState<"quiz" | "video" | "edit" | null>(null)
+  const [panel, setPanel] = useState<"quiz" | "video-offline" | "video-meet" | "edit" | null>(null)
   const notes = lesson.notes ?? []
   const locked = !!lesson.locked
   const setNotes = (fn: (n: Note[]) => Note[]) => onChange((l) => ({ ...l, notes: fn(l.notes ?? []) }))
@@ -582,7 +588,7 @@ function LessonCard({
         <div className="flex flex-wrap items-center gap-2 empty:hidden max-sm:pl-14">
           {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
           {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
-          {locked && <Badge variant="outline">Enroll to unlock</Badge>}
+          {locked && <Badge variant="outline">{tier === "free" ? "Enroll to unlock" : "Not on your plan"}</Badge>}
           {isOwner && (
             <>
               <Button variant="outline" size="sm" onClick={togglePublished}>
@@ -618,14 +624,14 @@ function LessonCard({
               />
             )}
 
-            {!isOwner && <VideoList videos={videos} />}
+            {!isOwner && <VideoList videos={videos} tier={tier} />}
             {isOwner && (
               <VideoSection
                 lessonId={lesson.id}
                 videos={videos}
                 setVideos={setVideos}
-                formOpen={panel === "video"}
-                setFormOpen={(v) => setPanel(v ? "video" : null)}
+                formKind={panel === "video-offline" ? "offline" : panel === "video-meet" ? "meet" : null}
+                setFormKind={(k: VideoKind | null) => setPanel(k ? `video-${k}` : null)}
               />
             )}
 
@@ -640,6 +646,7 @@ function LessonCard({
                   setNotes={setNotes}
                   isOwner={isOwner}
                   onOpen={open}
+                  tier={tier}
                   empty={
                     <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
                       No notes shared yet.
@@ -657,7 +664,7 @@ function LessonCard({
                     No tests yet.
                   </p>
                 )}
-                <QuizList quizzes={quizzes} />
+                <QuizList quizzes={quizzes} tier={tier} owner={isOwner} />
                 {isOwner && (
                   <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
                     <PlusIcon /> Create test
@@ -679,7 +686,7 @@ function LessonCard({
                 {isOwner ? (
                   <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
                 ) : (
-                  <DeckSummary deck={deck} preview={previewing} />
+                  <DeckSummary deck={deck} tier={tier} />
                 )}
               </section>
             </div>

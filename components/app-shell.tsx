@@ -8,6 +8,7 @@ import { useEffect, useState } from "react"
 
 import { Brand } from "@/components/brand"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { roleHome, useUser } from "@/hooks/use-user"
-import { ApiError, getMe, isSessionFresh, logout, markSessionVerified, saveUser, type Role, type User } from "@/lib/api"
+import { ApiError, TIER_LABEL, TIER_ORDER, getMe, isSessionFresh, listMyCourses, logout, markSessionVerified, saveUser, type Role, type Tier, type User } from "@/lib/api"
 
 const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
   admin: [
@@ -167,6 +168,17 @@ function pageName(role: Role, pathname: string) {
 
 function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: string; onSignOut: () => void }) {
   const { isMobile, setOpenMobile } = useSidebar()
+  // A student's tier is per course; the sidebar shows the highest one they hold.
+  const [tier, setTier] = useState<Tier | null>(null)
+  useEffect(() => {
+    if (user.role !== "student") return
+    listMyCourses(100, 0)
+      .then((cs) => {
+        const best = cs.map((c) => c.tier).filter((t): t is Tier => !!t).sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
+        setTier(best ?? null)
+      })
+      .catch(() => {})
+  }, [user.role])
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-2">
@@ -213,8 +225,11 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
                       </AvatarFallback>
                     </Avatar>
                     <span className="grid min-w-0 flex-1 leading-tight">
-                      <span className="truncate text-[13px] font-medium text-heading">
-                        {user.firstName} {user.lastName}
+                      <span className="flex items-center gap-1.5 text-[13px] font-medium text-heading">
+                        <span className="truncate">
+                          {user.firstName} {user.lastName}
+                        </span>
+                        {tier && <Badge variant="lime" className="h-4 shrink-0 px-1.5 text-[10px]">{TIER_LABEL[tier]}</Badge>}
                       </span>
                       <span className="truncate text-xs text-muted-foreground capitalize">{user.role}</span>
                     </span>
