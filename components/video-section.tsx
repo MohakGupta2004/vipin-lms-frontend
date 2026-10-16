@@ -9,10 +9,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
+import { LockHint, TierBadge } from "@/components/tier-badge"
+import { TierPicker } from "@/components/tier-picker"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  DEFAULT_TIERS,
   MAX_VIDEO,
   VIDEO_EXT_RE,
+  VIDEO_KINDS,
+  VIDEO_KIND_LABEL,
   confirmVideo,
   getVideo,
   putVideoFile,
@@ -20,7 +26,10 @@ import {
   retryVideo,
   updateVideo,
   uploadUrlFresh,
+  type ContentTier,
+  type Tier,
   type Video,
+  type VideoKind,
   type VideoUpload,
 } from "@/lib/api"
 
@@ -35,7 +44,8 @@ type Phase = "starting" | "uploading" | "confirming" | "error"
 type LocalUpload = {
   key: string
   file: File
-  isFree: boolean
+  kind: VideoKind
+  tiers: ContentTier[]
   description: string
   phase: Phase
   loaded: number
@@ -51,21 +61,23 @@ export function fmtBytes(n: number) {
 }
 
 /**
- * Owner-only video manager for a lesson: uploads straight to storage via a signed URL,
- * confirms, then polls until transcoding is ready or failed (failed videos can be retried).
+ * Owner-only video manager for a lesson, split into Offline Recordings and Meet Recordings. Uploads go
+ * straight to storage via a signed URL, are confirmed, then polled until transcoding is ready or failed
+ * (failed videos can be retried). The section a video sits in is its `kind`.
  */
 export function VideoSection({
   lessonId,
   videos,
   setVideos,
-  formOpen,
-  setFormOpen,
+  formKind,
+  setFormKind,
 }: {
   lessonId: string
   videos: Video[]
   setVideos: (fn: (v: Video[]) => Video[]) => void
-  formOpen: boolean
-  setFormOpen: (v: boolean) => void
+  /** The section whose upload form is open, if any. */
+  formKind: VideoKind | null
+  setFormKind: (k: VideoKind | null) => void
 }) {
   const [uploads, setUploads] = useState<LocalUpload[]>([])
   const [retrying, setRetrying] = useState<string | null>(null)
@@ -132,7 +144,8 @@ export function VideoSection({
           upload = await requestVideoUpload(lessonId, {
             fileName: u.file.name,
             description: u.description || undefined,
-            isFree: u.isFree,
+            kind: u.kind,
+            tiers: u.tiers,
           })
           patch(u.key, { upload })
         }
@@ -157,17 +170,18 @@ export function VideoSection({
     }
   }
 
-  function start(file: File, isFree: boolean, description: string) {
+  function start(file: File, kind: VideoKind, tiers: ContentTier[], description: string) {
     const u: LocalUpload = {
       key: crypto.randomUUID(),
       file,
-      isFree,
+      kind,
+      tiers,
       description,
       phase: "starting",
       loaded: 0,
     }
     setUploads((us) => [u, ...us])
-    setFormOpen(false)
+    setFormKind(null)
     run(u)
   }
 
@@ -191,66 +205,80 @@ export function VideoSection({
     }
   }
 
-  const empty = videos.length === 0 && uploads.length === 0
-
   return (
-    <section className="space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-        <FilmStripIcon className="size-4 text-teal" /> Videos
-      </h3>
+    <section className="space-y-5">
       <ErrorNote error={error} />
-      {empty && !formOpen && (
-        <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
-          No videos uploaded yet.
-        </p>
-      )}
+      {VIDEO_KINDS.map((kind) => {
+        const kindVideos = videos.filter((v) => v.kind === kind)
+        const kindUploads = uploads.filter((u) => u.kind === kind)
+        const formOpen = formKind === kind
+        return (
+          <div key={kind} className="space-y-3">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+              <FilmStripIcon className="size-4 text-teal" /> {VIDEO_KIND_LABEL[kind]}
+            </h3>
+            {kindVideos.length === 0 && kindUploads.length === 0 && !formOpen && (
+              <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
+                No {VIDEO_KIND_LABEL[kind].toLowerCase()} uploaded yet.
+              </p>
+            )}
 
-      <ul className="space-y-2">
-        {uploads.map((u) => (
-          <UploadRow
-            key={u.key}
-            u={u}
-            onRetry={() => run(u)}
-            onCancel={() => cancel(u)}
-          />
-        ))}
-        {videos.map((v) =>
-          editingId === v.id ? (
-            <li key={v.id}>
-              <VideoDetailsForm
-                video={v}
-                onSaved={(next) => {
-                  // Keep the live status: the poller may have moved it on while the form was open.
-                  setVideos((vs) => vs.map((x) => (x.id === v.id ? { ...x, title: next.title, description: next.description } : x)))
-                  setEditingId(null)
-                }}
-                onCancel={() => setEditingId(null)}
+            <ul className="space-y-2">
+              {kindUploads.map((u) => (
+                <UploadRow
+                  key={u.key}
+                  u={u}
+                  onRetry={() => run(u)}
+                  onCancel={() => cancel(u)}
+                />
+              ))}
+              {kindVideos.map((v) =>
+                editingId === v.id ? (
+                  <li key={v.id}>
+                    <VideoDetailsForm
+                      video={v}
+                      onSaved={(next) => {
+                        // Keep the live status: the poller may have moved it on while the form was open.
+                        setVideos((vs) =>
+                          vs.map((x) =>
+                            x.id === v.id
+                              ? { ...x, title: next.title, description: next.description, kind: next.kind, tiers: next.tiers, isFree: next.isFree }
+                              : x
+                          )
+                        )
+                        setEditingId(null)
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </li>
+                ) : (
+                  <VideoRow
+                    key={v.id}
+                    v={v}
+                    retrying={retrying === v.id}
+                    onRetry={() => retry(v)}
+                    onEdit={() => setEditingId(v.id)}
+                  />
+                )
+              )}
+            </ul>
+
+            {!formOpen && (
+              <Button variant="outline" size="sm" onClick={() => setFormKind(kind)}>
+                <CloudArrowUpIcon /> Upload {kind === "meet" ? "Meet recording" : "offline recording"}
+              </Button>
+            )}
+            {formOpen && (
+              <VideoUploadForm
+                lessonId={lessonId}
+                kind={kind}
+                onStart={start}
+                onClose={() => setFormKind(null)}
               />
-            </li>
-          ) : (
-            <VideoRow
-              key={v.id}
-              v={v}
-              retrying={retrying === v.id}
-              onRetry={() => retry(v)}
-              onEdit={() => setEditingId(v.id)}
-            />
-          )
-        )}
-      </ul>
-
-      {!formOpen && (
-        <Button variant="outline" size="sm" onClick={() => setFormOpen(true)}>
-          <CloudArrowUpIcon /> Upload video
-        </Button>
-      )}
-      {formOpen && (
-        <VideoUploadForm
-          lessonId={lessonId}
-          onStart={start}
-          onClose={() => setFormOpen(false)}
-        />
-      )}
+            )}
+          </div>
+        )
+      })}
     </section>
   )
 }
@@ -370,7 +398,7 @@ function UploadRow({
           {u.phase === "uploading"
             ? `${fmtBytes(u.loaded)} of ${fmtBytes(u.file.size)}`
             : fmtBytes(u.file.size)}
-          {u.isFree && <span>· Free preview</span>}
+          <TierBadge tags={u.tiers} />
         </>
       }
       chip={
@@ -425,8 +453,8 @@ function VideoRow({
   const meta = (
     <>
       {v.sizeBytes > 0 && <span>{fmtBytes(v.sizeBytes)}</span>}
-      {v.isFree && <span>{v.sizeBytes > 0 && "· "}Free preview</span>}
-      {!v.description && <span>{(v.sizeBytes > 0 || v.isFree) && "· "}No description</span>}
+      <TierBadge tags={v.tiers} />
+      {!v.description && <span>No description</span>}
     </>
   )
   const edit = (
@@ -526,17 +554,20 @@ function VideoRow({
 
 function VideoUploadForm({
   lessonId,
+  kind,
   onStart,
   onClose,
 }: {
   lessonId: string
-  onStart: (file: File, isFree: boolean, description: string) => void
+  kind: VideoKind
+  onStart: (file: File, kind: VideoKind, tiers: ContentTier[], description: string) => void
   onClose: () => void
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState("")
-  // New videos start paid: only videos marked free play without enrolling, even in a free lesson.
-  const [isFree, setIsFree] = useState(false)
+  // Offline recordings start on Premium, Meet recordings on Ultra only. Only videos tagged Free play
+  // without enrolling, even in a free lesson.
+  const [tiers, setTiers] = useState<ContentTier[]>(DEFAULT_TIERS[kind])
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -554,10 +585,10 @@ function VideoUploadForm({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!file) return setError("Choose a video file.")
-    onStart(file, isFree, description.trim())
+    onStart(file, kind, tiers, description.trim())
   }
 
-  const inputId = `vf-${lessonId}`
+  const inputId = `vf-${lessonId}-${kind}`
 
   return (
     <form
@@ -618,9 +649,9 @@ function VideoUploadForm({
         />
       </label>
       <Field>
-        <FieldLabel htmlFor={`vd-${lessonId}`}>Description (optional)</FieldLabel>
+        <FieldLabel htmlFor={`vd-${lessonId}-${kind}`}>Description (optional)</FieldLabel>
         <Textarea
-          id={`vd-${lessonId}`}
+          id={`vd-${lessonId}-${kind}`}
           rows={3}
           maxLength={MAX_DESCRIPTION}
           placeholder="What this lecture covers. Students see it under the video."
@@ -628,14 +659,7 @@ function VideoUploadForm({
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={isFree}
-          onChange={(e) => setIsFree(e.target.checked)}
-        />
-        Free preview (watchable without enrolling)
-      </label>
+      <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={!file}>
@@ -649,7 +673,7 @@ function VideoUploadForm({
   )
 }
 
-/** Edits an uploaded video's title and the description students see under the player. */
+/** Edits an uploaded video's title, description, who can watch it, and which section it sits in. */
 function VideoDetailsForm({
   video,
   onSaved,
@@ -661,6 +685,8 @@ function VideoDetailsForm({
 }) {
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState(video.description)
+  const [kind, setKind] = useState<VideoKind>(video.kind)
+  const [tiers, setTiers] = useState<ContentTier[]>(video.tiers)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -669,7 +695,7 @@ function VideoDetailsForm({
     setError(null)
     setSaving(true)
     try {
-      onSaved(await updateVideo(video.id, { title: title.trim(), description: description.trim() }))
+      onSaved(await updateVideo(video.id, { title: title.trim(), description: description.trim(), kind, tiers }))
     } catch (err) {
       setError(errMsg(err))
       setSaving(false)
@@ -699,6 +725,17 @@ function VideoDetailsForm({
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>
+      <Field>
+        <FieldLabel htmlFor={`vk-${video.id}`}>Section</FieldLabel>
+        <Select id={`vk-${video.id}`} value={kind} onChange={(e) => setKind(e.target.value as VideoKind)}>
+          {VIDEO_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {VIDEO_KIND_LABEL[k]}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
@@ -713,55 +750,68 @@ function VideoDetailsForm({
   )
 }
 
-/** Read-only lecture list for students; each row opens the player. Locked rows (previewing a course) only show the title. */
-export function VideoList({ videos }: { videos: Video[] }) {
+/**
+ * Read-only lecture list for students, grouped into Offline Recordings and Meet Recordings (an empty group is
+ * hidden). Each row opens the player. Locked rows (not enrolled, or on a lower tier) only show the title and
+ * why they are closed; `tier` is the student's tier in the course.
+ */
+export function VideoList({ videos, tier }: { videos: Video[]; tier?: Tier }) {
   const ready = videos.filter((v) => v.status === "ready")
   if (ready.length === 0) return null
   return (
-    <section className="space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-        <FilmStripIcon className="size-4 text-teal" /> Videos
-      </h3>
-      <ul className="space-y-2">
-        {ready.map((v) => (
-          <li key={v.id}>
-            {v.locked ? (
-              <div className="flex items-center gap-3 rounded-md border border-dashed border-border bg-white/60 p-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                  <LockIcon className="size-4.5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-heading/70">
-                    {v.title}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Enroll to watch
-                  </span>
-                </span>
-              </div>
-            ) : (
-              <Link
-                href={`/courses/${v.courseId}/learn?v=${v.id}`}
-                className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
-                  <PlayCircleIcon className="size-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-heading">
-                    {v.title}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Video lecture
-                  </span>
-                </span>
-                {v.isFree && <Badge variant="lime">Preview</Badge>}
-                <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <>
+      {VIDEO_KINDS.map((kind) => {
+        const group = ready.filter((v) => v.kind === kind)
+        if (group.length === 0) return null
+        return (
+          <section key={kind} className="space-y-3">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+              <FilmStripIcon className="size-4 text-teal" /> {VIDEO_KIND_LABEL[kind]}
+            </h3>
+            <ul className="space-y-2">
+              {group.map((v) => (
+                <li key={v.id}>
+                  {v.locked ? (
+                    <div className="flex items-center gap-3 rounded-md border border-dashed border-border bg-white/60 p-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+                        <LockIcon className="size-4.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-heading/70">
+                          {v.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Locked
+                        </span>
+                      </span>
+                      <LockHint courseTier={tier} tags={v.tiers} />
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/courses/${v.courseId}/learn?v=${v.id}`}
+                      className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
+                        <PlayCircleIcon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-heading">
+                          {v.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Video lecture
+                        </span>
+                      </span>
+                      {v.tiers.includes("free") && <Badge variant="lime">Preview</Badge>}
+                      <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
+    </>
   )
 }

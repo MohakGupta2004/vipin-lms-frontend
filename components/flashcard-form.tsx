@@ -6,10 +6,11 @@ import { useState } from "react"
 import { ErrorNote, errMsg } from "@/components/app-shell"
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
+import { TierPicker } from "@/components/tier-picker"
 import { Textarea } from "@/components/ui/textarea"
-import { createFlashcard, updateFlashcard, type Flashcard } from "@/lib/api"
+import { type ContentTier, DEFAULT_TIERS, createFlashcard, updateFlashcard, type Flashcard } from "@/lib/api"
 
-/** Adds a card to deck `deckId`, or edits `card` when given (front, back, free preview). */
+/** Adds a card to deck `deckId`, or edits `card` when given (front, back, who can study it). */
 export function FlashcardForm({
   deckId,
   card,
@@ -25,8 +26,8 @@ export function FlashcardForm({
   const key = card?.id ?? deckId
   const [front, setFront] = useState(card?.front ?? "")
   const [back, setBack] = useState(card?.back ?? "")
-  // New cards start paid: only cards marked free open without enrolling.
-  const [isFree, setIsFree] = useState(card?.isFree ?? false)
+  // New cards start on Plus and Premium: only cards tagged Free open without enrolling.
+  const [tiers, setTiers] = useState<ContentTier[]>(card?.tiers ?? DEFAULT_TIERS.flashcard)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,7 +36,7 @@ export function FlashcardForm({
     setError(null)
     setSaving(true)
     try {
-      const input = { front: front.trim(), back: back.trim(), isFree }
+      const input = { front: front.trim(), back: back.trim(), tiers }
       onSaved(editing ? await updateFlashcard(card.id, input) : await createFlashcard(deckId!, input))
       if (!editing) {
         setFront("")
@@ -58,10 +59,7 @@ export function FlashcardForm({
         <FieldLabel htmlFor={`fb-${key}`}>Back (answer)</FieldLabel>
         <Textarea id={`fb-${key}`} required maxLength={2000} className="min-h-24" value={back} onChange={(e) => setBack(e.target.value)} />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
-        Free preview (open without enrolling)
-      </label>
+      <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>

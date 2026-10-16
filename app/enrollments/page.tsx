@@ -12,15 +12,18 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import {
+  ENROLLMENT_TIERS,
+  TIER_LABEL,
   UUID_RE,
   createEnrollment,
   listCourses,
   listEnrollments,
   listUsers,
-  updateEnrollmentStatus,
+  updateEnrollment,
   type Course,
   type Enrollment,
   type EnrollmentStatus,
+  type EnrollmentTier,
   type UserSummary,
 } from "@/lib/api"
 
@@ -73,10 +76,10 @@ function Enrollments() {
     return u ? `${u.firstName} ${u.lastName} (${u.email})` : id
   }
 
-  async function onStatus(e: Enrollment, status: EnrollmentStatus) {
+  async function onChange(e: Enrollment, change: { status?: EnrollmentStatus; tier?: EnrollmentTier }) {
     setError(null)
     try {
-      const updated = await updateEnrollmentStatus(e.id, status)
+      const updated = await updateEnrollment(e.id, change)
       setRows((r) => r.map((x) => (x.id === e.id ? updated : x)))
     } catch (err) {
       setError(errMsg(err))
@@ -128,10 +131,22 @@ function Enrollments() {
                     {r.source}
                   </Badge>
                   <Select
+                    aria-label="Enrollment tier"
+                    className="h-8 w-28"
+                    value={r.tier}
+                    onChange={(e) => onChange(r, { tier: e.target.value as EnrollmentTier })}
+                  >
+                    {ENROLLMENT_TIERS.map((t) => (
+                      <option key={t} value={t}>
+                        {TIER_LABEL[t]}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
                     aria-label="Enrollment status"
                     className="h-8 w-32"
                     value={r.status}
-                    onChange={(e) => onStatus(r, e.target.value as EnrollmentStatus)}
+                    onChange={(e) => onChange(r, { status: e.target.value as EnrollmentStatus })}
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
@@ -163,6 +178,7 @@ function EnrollForm({
   const [userId, setUserId] = useState("")
   const [course, setCourse] = useState("")
   const [months, setMonths] = useState(3)
+  const [tier, setTier] = useState<EnrollmentTier | "">("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -174,9 +190,10 @@ function EnrollForm({
     setOk(false)
     if (!userId) return setError("Choose a student.")
     if (!selected) return setError("Choose a published course.")
+    if (!tier) return setError("Choose a tier.")
     setSaving(true)
     try {
-      await createEnrollment({ userId, courseId: selected, months })
+      await createEnrollment({ userId, courseId: selected, months, tier })
       setOk(true)
       setUserId("")
       onDone()
@@ -228,6 +245,17 @@ function EnrollForm({
              
               onChange={(e) => setMonths(Number(e.target.value))}
             />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="etier">Tier</FieldLabel>
+            <Select id="etier" required value={tier} onChange={(e) => setTier(e.target.value as EnrollmentTier | "")}>
+              <option value="">Select a tier…</option>
+              {ENROLLMENT_TIERS.map((t) => (
+                <option key={t} value={t}>
+                  {TIER_LABEL[t]}
+                </option>
+              ))}
+            </Select>
           </Field>
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />

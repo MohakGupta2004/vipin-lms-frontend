@@ -6,20 +6,23 @@ import { useState } from "react"
 import { ErrorNote, errMsg } from "@/components/app-shell"
 import { NoteForm } from "@/components/note-form"
 import { Badge } from "@/components/ui/badge"
+import { LockHint, TierBadge } from "@/components/tier-badge"
 import { Button } from "@/components/ui/button"
-import { deleteNote, type Note } from "@/lib/api"
+import { deleteNote, type Note, type Tier } from "@/lib/api"
 
 const size = (n: Note) => `PDF · ${(n.sizeBytes / 1024).toFixed(0)} KB`
 
 /**
- * PDF note rows. Locked notes (previewing a paid course) show but can't be opened.
- * Pass onEdit and onDelete for the course owner's controls; editingId swaps that row for `editor`.
+ * PDF note rows. Locked notes (not enrolled, or on a lower tier) show but can't be opened; `tier` is the viewer's
+ * tier in the course. Pass onEdit and onDelete for the course owner's controls, who also see each note's tiers;
+ * editingId swaps that row for `editor`.
  */
 export function NoteList({
   notes,
   onOpen,
   onEdit,
   onDelete,
+  tier,
   editingId,
   editor,
 }: {
@@ -27,6 +30,7 @@ export function NoteList({
   onOpen: (n: Note) => void
   onEdit?: (n: Note) => void
   onDelete?: (n: Note) => void
+  tier?: Tier
   editingId?: string | null
   editor?: React.ReactNode
 }) {
@@ -50,10 +54,10 @@ export function NoteList({
               </span>
               <span className="tnum flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {size(n)}
-                <Badge variant="outline" className="sm:hidden">Enroll to unlock</Badge>
+                <LockHint courseTier={tier} tags={n.tiers} className="sm:hidden" />
               </span>
             </span>
-            <Badge variant="outline" className="max-sm:hidden">Enroll to unlock</Badge>
+            <LockHint courseTier={tier} tags={n.tiers} className="max-sm:hidden" />
           </li>
         ) : (
           <li
@@ -74,7 +78,7 @@ export function NoteList({
                 </span>
                 <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
                   {size(n)}
-                  {n.isFree && <Badge variant="lime">Free preview</Badge>}
+                  {onEdit ? <TierBadge tags={n.tiers} /> : n.tiers.includes("free") && <Badge variant="lime">Free preview</Badge>}
                 </span>
               </span>
               <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
@@ -109,7 +113,7 @@ export function NoteList({
 
 /**
  * A lesson's notes with the owner's controls: share a PDF, edit a note's title, description and
- * free preview, or delete it. Everyone else just gets the list.
+ * tiers, or delete it. Everyone else just gets the list.
  */
 export function LessonNotes({
   lessonId,
@@ -117,6 +121,7 @@ export function LessonNotes({
   setNotes,
   isOwner,
   onOpen,
+  tier,
   empty,
 }: {
   lessonId: string
@@ -124,6 +129,8 @@ export function LessonNotes({
   setNotes: (fn: (n: Note[]) => Note[]) => void
   isOwner: boolean
   onOpen: (n: Note) => void
+  /** The viewer's tier in the course. */
+  tier?: Tier
   /** Shown when the lesson has no notes. */
   empty: React.ReactNode
 }) {
@@ -149,6 +156,7 @@ export function LessonNotes({
       <NoteList
         notes={notes}
         onOpen={onOpen}
+        tier={tier}
         onEdit={
           isOwner
             ? (n) => {

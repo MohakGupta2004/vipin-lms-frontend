@@ -5,16 +5,19 @@ import { useEffect, useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
 import { FlashcardForm } from "@/components/flashcard-form"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select } from "@/components/ui/select"
+import { TierBadge } from "@/components/tier-badge"
+import { TierPicker } from "@/components/tier-picker"
 import {
   createDeck,
   deleteDeck,
   deleteFlashcard,
   listDeckCards,
-  setDeckFree,
+  setDeckTiers,
   updateDeckStatus,
+  DEFAULT_TIERS,
+  type ContentTier,
   type DeckStatus,
   type Flashcard,
   type FlashcardDeck,
@@ -22,7 +25,7 @@ import {
 
 /**
  * The owner's panel for one deck (a lesson's, or the course-wide one when lessonId is null):
- * status, make-all-free, and the cards with add, edit and delete. `deck` is null until the first
+ * status, set-access-for-all, and the cards with add, edit and delete. `deck` is null until the first
  * "Create flashcards"; onChange reports the deck after every change so the page can keep its counts.
  */
 export function FlashcardDeckPanel({
@@ -41,6 +44,7 @@ export function FlashcardDeckPanel({
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [bulkTiers, setBulkTiers] = useState<ContentTier[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const deckId = deck?.id
 
@@ -58,7 +62,7 @@ export function FlashcardDeckPanel({
   // Keeps the deck's counts in step with the card list without refetching.
   function sync(next: Flashcard[]) {
     setCards(next)
-    if (deck) onChange({ ...deck, cardCount: next.length, freeCardCount: next.filter((c) => c.isFree).length })
+    if (deck) onChange({ ...deck, cardCount: next.length, accessibleCardCount: next.length, freeCardCount: next.filter((c) => c.isFree).length })
   }
 
   async function run(fn: () => Promise<void>) {
@@ -102,8 +106,6 @@ export function FlashcardDeckPanel({
     )
   }
 
-  const allFree = deck.cardCount > 0 && deck.freeCardCount === deck.cardCount
-
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -121,15 +123,9 @@ export function FlashcardDeckPanel({
           variant="outline"
           size="sm"
           disabled={busy || deck.cardCount === 0}
-          onClick={() =>
-            run(async () => {
-              const next = await setDeckFree(deck.id, !allFree)
-              onChange(next)
-              setCards((cs) => cs && cs.map((c) => ({ ...c, isFree: !allFree })))
-            })
-          }
+          onClick={() => setBulkTiers(bulkTiers ? null : [...DEFAULT_TIERS.flashcard])}
         >
-          {allFree ? "Make all paid" : "Make all free"}
+          Set access for all cards
         </Button>
         <Button
           variant="ghost"
@@ -153,6 +149,31 @@ export function FlashcardDeckPanel({
         </span>
       </div>
 
+      {bulkTiers && (
+        <div className="space-y-3 rounded-lg border border-border bg-white p-4">
+          <TierPicker label="Access for every card in this deck" value={bulkTiers} onChange={setBulkTiers} />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  const next = await setDeckTiers(deck.id, bulkTiers)
+                  onChange(next)
+                  setCards((cs) => cs && cs.map((c) => ({ ...c, tiers: bulkTiers, isFree: bulkTiers.includes("free") })))
+                  setBulkTiers(null)
+                })
+              }
+            >
+              {busy && <CircleNotchIcon className="animate-spin" />} Apply to {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setBulkTiers(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {cards === null && !error && <p className="text-sm text-muted-foreground">Loading…</p>}
 
       <ul className="space-y-2">
@@ -174,7 +195,7 @@ export function FlashcardDeckPanel({
                 <span className="block truncate text-sm font-medium text-heading">{c.front}</span>
                 <span className="block truncate text-xs text-muted-foreground">{c.back}</span>
               </span>
-              {c.isFree && <Badge variant="lime">Free preview</Badge>}
+              <TierBadge tags={c.tiers} />
               <Button
                 variant="ghost"
                 size="icon-sm"

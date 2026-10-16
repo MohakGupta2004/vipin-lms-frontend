@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { TierPicker } from "@/components/tier-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
-import { QUIZ_TYPE_LABEL, createQuiz, updateQuiz, type Quiz, type QuizStatus, type QuizType } from "@/lib/api"
+import { type ContentTier, DEFAULT_TIERS, QUIZ_TYPE_LABEL, createQuiz, updateQuiz, type Quiz, type QuizStatus, type QuizType } from "@/lib/api"
 
 type Draft = { text: string; explanation: string; options: string[]; correct: number }
 
@@ -49,8 +50,8 @@ export function QuizBuilder({
   const [passPercent, setPass] = useState(quiz?.passPercent ?? 70)
   const [minutes, setMinutes] = useState(quiz?.timeLimitSec ? String(Math.round(quiz.timeLimitSec / 60)) : "")
   const [status, setStatus] = useState<QuizStatus>(quiz?.status ?? "published")
-  // New quizzes start paid: only quizzes marked free open without enrolling, even in a free lesson.
-  const [isFree, setIsFree] = useState(quiz?.isFree ?? false)
+  // New quizzes start on Plus and Premium: only quizzes tagged Free open without enrolling, even in a free lesson.
+  const [tiers, setTiers] = useState<ContentTier[]>(quiz?.tiers ?? DEFAULT_TIERS.quiz)
   const [questions, setQuestionsRaw] = useState<Draft[]>(quiz ? fromQuiz(quiz) : [blank()])
   // Only send questions when they were touched: the server replaces them all, and refuses once students have attempted.
   const [dirty, setDirty] = useState(false)
@@ -87,7 +88,7 @@ export function QuizBuilder({
             ...(type !== quiz.type ? { type } : {}),
             ...(practice ? {} : { passPercent, timeLimitSec: timeLimitSec ?? 0 }), // 0 = untimed
             status,
-            isFree,
+            tiers,
             ...(dirty ? { questions: payloadQuestions } : {}),
           })
         : await createQuiz(lessonId!, {
@@ -96,7 +97,7 @@ export function QuizBuilder({
             description: description.trim(),
             ...(practice ? {} : { passPercent, timeLimitSec }),
             status,
-            isFree,
+            tiers,
             questions: payloadQuestions,
           })
       onSaved(saved)
@@ -157,10 +158,9 @@ export function QuizBuilder({
             <option value="draft">Draft</option>
           </Select>
         </Field>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm text-gray-700">
-          <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
-          Free preview (open without enrolling)
-        </label>
+        <div className="sm:col-span-2">
+          <TierPicker value={tiers} onChange={setTiers} />
+        </div>
       </div>
 
       {questions.map((q, i) => (

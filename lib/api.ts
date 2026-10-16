@@ -23,6 +23,43 @@ export const QUIZ_TYPE_LABEL: Record<QuizType, string> = { mock_test: "Mock test
 /** Section headings: tests are always shown to people as mock tests or practice tests, never "quizzes". */
 export const QUIZ_TYPE_PLURAL: Record<QuizType, string> = { mock_test: "Mock tests", practice: "Practice tests" }
 
+/**
+ * How much of a course a user can open. Not enrolled = free; an enrollment is plus, premium or ultra.
+ * The owner, and everyone in a free course, are ultra.
+ */
+export type Tier = "free" | "plus" | "premium" | "ultra"
+/** What an item is tagged with. Ultra is never stored: it always opens everything. */
+export type ContentTier = Exclude<Tier, "ultra">
+export type EnrollmentTier = Exclude<Tier, "free">
+
+export const TIER_ORDER: Tier[] = ["free", "plus", "premium", "ultra"]
+export const TIER_LABEL: Record<Tier, string> = { free: "Free", plus: "Plus", premium: "Premium", ultra: "Ultra" }
+export const ENROLLMENT_TIERS: EnrollmentTier[] = ["plus", "premium", "ultra"]
+
+export type VideoKind = "offline" | "meet"
+export const VIDEO_KIND_LABEL: Record<VideoKind, string> = { offline: "Offline Recordings", meet: "Meet Recordings" }
+export const VIDEO_KINDS: VideoKind[] = ["offline", "meet"]
+
+/** The tiers the instructor's picker starts with, and the server's default when none are sent. */
+export const DEFAULT_TIERS: Record<"note" | "quiz" | "flashcard" | "offline" | "meet", ContentTier[]> = {
+  note: ["plus", "premium"],
+  quiz: ["plus", "premium"],
+  flashcard: ["plus", "premium"],
+  offline: ["premium"],
+  meet: [],
+}
+
+/** Same rule as the server: ultra opens everything, `free` opens for everyone, else the tier must be listed. */
+export const canAccess = (tier: Tier, tags: readonly ContentTier[] | null | undefined) =>
+  tier === "ultra" || !!tags?.includes("free") || !!tags?.includes(tier as ContentTier)
+
+/** Who can open an item, for a badge: "Free", "Plus · Premium · Ultra" or "Ultra only". */
+export function tierAvailability(tags: readonly ContentTier[] | null | undefined): string {
+  if (tags?.includes("free")) return "Free"
+  const names = TIER_ORDER.filter((t) => t !== "free" && t !== "ultra" && tags?.includes(t)).map((t) => TIER_LABEL[t])
+  return names.length ? [...names, TIER_LABEL.ultra].join(" · ") : `${TIER_LABEL.ultra} only`
+}
+
 export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" | "role">
 
 export type Exam = { id: string; code: string; name: string; description: string }
@@ -43,6 +80,8 @@ export type Course = {
    * the user isn't enrolled in, so only free lessons, notes, quizzes and videos open.
    */
   access?: CourseAccess
+  /** Only from GET /courses/{id}: my tier in this course. */
+  tier?: Tier
 }
 
 export type CourseAccess = "owner" | "full" | "preview"
@@ -65,6 +104,7 @@ export type Enrollment = {
   userId: string
   courseId: string
   status: EnrollmentStatus
+  tier: EnrollmentTier
   source: string
   enrolledAt: string
   expiresAt: string | null
@@ -78,7 +118,9 @@ export type Note = {
   description: string
   fileName: string
   sizeBytes: number
-  /** Free preview: opens without enrolling, even in a paid lesson. */
+  /** Tiers that can open it (ultra always can). A free note opens without enrolling, even in a paid lesson. */
+  tiers: ContentTier[]
+  /** Read-only: `free` is in `tiers`. */
   isFree: boolean
   uploadedBy: string
   uploaderName: string
@@ -112,6 +154,11 @@ export type Video = {
   title: string
   /** What the lecture covers, shown under the player. "" = none written. */
   description: string
+  /** Offline Recordings or Meet Recordings: shown as two separate sections. */
+  kind: VideoKind
+  /** Tiers that can stream it (ultra always can). */
+  tiers: ContentTier[]
+  /** Read-only: `free` is in `tiers`. */
   isFree: boolean
   sizeBytes: number
   status: VideoStatus
@@ -188,6 +235,9 @@ export type Quiz = {
   description: string
   type: QuizType
   status: QuizStatus
+  /** Tiers that can open it (ultra always can). */
+  tiers: ContentTier[]
+  /** Read-only: `free` is in `tiers`. */
   isFree: boolean
   /** null for practice sets. */
   passPercent: number | null
@@ -212,6 +262,10 @@ export type FlashcardDeck = {
   status: DeckStatus
   cardCount: number
   freeCardCount: number
+  /** Cards my tier can study. */
+  accessibleCardCount: number
+  /** There are cards, but none is open to my tier. */
+  locked?: boolean
   /** My progress: cards I rated, and cards I rated 4 or 5. */
   myReviewed: number
   myMastered: number
@@ -223,6 +277,9 @@ export type Flashcard = {
   courseId: string
   front: string
   back: string
+  /** Tiers that can study it (ultra always can). */
+  tiers: ContentTier[]
+  /** Read-only: `free` is in `tiers`. */
   isFree: boolean
   position: number
   myRating: FlashcardRating | null
@@ -574,18 +631,20 @@ export const deleteLesson = (lessonId: string) =>
 
 export const uploadNote = (
   lessonId: string,
-  input: { title: string; description?: string; isFree?: boolean; file: File }
+  input: { title: string; description?: string; tiers: ContentTier[]; file: File }
 ) => {
   const form = new FormData()
   form.set("title", input.title)
   if (input.description) form.set("description", input.description)
-  form.set("isFree", String(!!input.isFree))
+  // A blank field means Ultra only; leaving it out would give the server's default tiers.
+  if (input.tiers.length) for (const t of input.tiers) form.append("tiers", t)
+  else form.set("tiers", "")
   form.set("file", input.file)
   return json<Note>("POST", `/lessons/${id(lessonId)}/notes`, { form })
 }
 
 /** Changes only the fields sent; the PDF itself can't be replaced. */
-export const updateNote = (noteId: string, input: Partial<{ title: string; description: string; isFree: boolean }>) =>
+export const updateNote = (noteId: string, input: Partial<{ title: string; description: string; tiers: ContentTier[] }>) =>
   json<Note>("PATCH", `/notes/${id(noteId)}`, { body: input })
 
 export const deleteNote = (noteId: string) =>
@@ -609,19 +668,25 @@ export async function downloadNote(noteId: string): Promise<Blob> {
 export const VIDEO_EXT_RE = /\.(mp4|mov|mkv|webm)$/i
 export const MAX_VIDEO = 5 * 1024 * 1024 * 1024 // 5 GB, enforced by the signed URL too
 
-/** Owner sees every video; students see ready videos of published lessons (free ones only if not enrolled). */
-export const listCourseVideos = async (courseId: string) =>
-  (await json<{ videos: Video[] | null }>("GET", `/courses/${id(courseId)}/videos`))?.videos ?? []
+/** Owner sees every video; students see ready videos of published lessons, locked when their tier can't stream them. */
+export const listCourseVideos = async (courseId: string, kind?: VideoKind) =>
+  (await json<{ videos: Video[] | null }>("GET", `/courses/${id(courseId)}/videos`, { query: { kind } }))?.videos ?? []
 
-export const listLessonVideos = async (lessonId: string) =>
-  (await json<{ videos: Video[] | null }>("GET", `/lessons/${id(lessonId)}/videos`))?.videos ?? []
+export const listLessonVideos = async (lessonId: string, kind?: VideoKind) =>
+  (await json<{ videos: Video[] | null }>("GET", `/lessons/${id(lessonId)}/videos`, { query: { kind } }))?.videos ?? []
 
 /** Creates the video row ('uploading') and returns a signed URL to PUT the file to. */
-export const requestVideoUpload = (lessonId: string, input: { fileName: string; description?: string; isFree: boolean }) =>
+export const requestVideoUpload = (
+  lessonId: string,
+  input: { fileName: string; description?: string; kind: VideoKind; tiers: ContentTier[] }
+) =>
   json<VideoUpload>("POST", `/lessons/${id(lessonId)}/videos`, { body: input })
 
-/** Uploader only. An empty description removes it. */
-export const updateVideo = async (videoId: string, input: Partial<{ title: string; description: string }>) =>
+/** Uploader only. An empty description removes it; `kind` moves the video to the other section. */
+export const updateVideo = async (
+  videoId: string,
+  input: Partial<{ title: string; description: string; kind: VideoKind; tiers: ContentTier[] }>
+) =>
   (await json<{ video: Video }>("PATCH", `/videos/${id(videoId)}`, { body: input })).video
 
 /** Tells the server the PUT finished; it checks the file and queues transcoding. */
@@ -696,11 +761,15 @@ export const listEnrollments = async (
 ) =>
   (await json<Enrollment[]>("GET", "/enrollments", { query: { ...filter, limit, offset } })) ?? []
 
-export const createEnrollment = (input: { userId: string; courseId: string; months: number }) =>
+export const createEnrollment = (input: { userId: string; courseId: string; months: number; tier: EnrollmentTier }) =>
   json<Enrollment>("POST", "/enrollments", { body: input })
 
+/** Changes only the fields sent. */
+export const updateEnrollment = (enrollmentId: string, input: { status?: EnrollmentStatus; tier?: EnrollmentTier }) =>
+  json<Enrollment>("PATCH", `/enrollments/${id(enrollmentId)}`, { body: input })
+
 export const updateEnrollmentStatus = (enrollmentId: string, status: EnrollmentStatus) =>
-  json<Enrollment>("PATCH", `/enrollments/${id(enrollmentId)}`, { body: { status } })
+  updateEnrollment(enrollmentId, { status })
 
 // ── posts ───────────────────────────────────────────────────────────────────
 export const listPosts = async (limit = 50, offset = 0) =>
@@ -721,7 +790,7 @@ export const createQuiz = (
     title: string
     type?: QuizType
     description?: string
-    isFree?: boolean
+    tiers?: ContentTier[]
     /** Not allowed for practice sets. */
     passPercent?: number
     /** Not allowed for practice sets. */
@@ -738,7 +807,7 @@ export const updateQuiz = (
     /** 409 once the quiz has attempts. */
     type: QuizType
     description: string
-    isFree: boolean
+    tiers: ContentTier[]
     passPercent: number
     /** 0 makes the quiz untimed. */
     timeLimitSec: number
@@ -787,26 +856,26 @@ export const createDeck = (courseId: string, input: { lessonId: string | null; s
 export const updateDeckStatus = (deckId: string, status: DeckStatus) =>
   json<FlashcardDeck>("PATCH", `/flashcard-decks/${id(deckId)}`, { body: { status } })
 
-/** Marks every card of the deck free (or paid) at once. */
-export const setDeckFree = (deckId: string, isFree: boolean) =>
-  json<FlashcardDeck>("PUT", `/flashcard-decks/${id(deckId)}/free`, { body: { isFree } })
+/** Gives every card of the deck the same tiers at once. */
+export const setDeckTiers = (deckId: string, tiers: ContentTier[]) =>
+  json<FlashcardDeck>("PUT", `/flashcard-decks/${id(deckId)}/tiers`, { body: { tiers } })
 
 export const deleteDeck = (deckId: string) => json<string>("DELETE", `/flashcard-decks/${id(deckId)}`)
 
 export const listDeckCards = async (deckId: string) =>
   (await json<Flashcard[]>("GET", `/flashcard-decks/${id(deckId)}/cards`)) ?? []
 
-export const createFlashcard = (deckId: string, input: { front: string; back: string; isFree: boolean }) =>
+export const createFlashcard = (deckId: string, input: { front: string; back: string; tiers: ContentTier[] }) =>
   json<Flashcard>("POST", `/flashcard-decks/${id(deckId)}/cards`, { body: input })
 
 export const updateFlashcard = (
   cardId: string,
-  input: Partial<{ front: string; back: string; isFree: boolean }>,
+  input: Partial<{ front: string; back: string; tiers: ContentTier[] }>,
 ) => json<Flashcard>("PATCH", `/flashcards/${id(cardId)}`, { body: input })
 
 export const deleteFlashcard = (cardId: string) => json<string>("DELETE", `/flashcards/${id(cardId)}`)
 
-/** Distinct cards of a deck in random order; cards I rated low come up more. Previewers only get free cards. */
+/** Distinct cards of a deck in random order; cards I rated low come up more. Only cards my tier can study. */
 export const getDeckSession = async (deckId: string, limit?: number) =>
   (await json<Flashcard[]>("GET", `/flashcard-decks/${id(deckId)}/session`, { query: { limit } })) ?? []
 

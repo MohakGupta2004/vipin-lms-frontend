@@ -7,12 +7,13 @@ import { ErrorNote, errMsg } from "@/components/app-shell"
 import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { updateNote, uploadNote, type Note } from "@/lib/api"
+import { TierPicker } from "@/components/tier-picker"
+import { type ContentTier, DEFAULT_TIERS, updateNote, uploadNote, type Note } from "@/lib/api"
 
 const MAX_PDF = 25 * 1024 * 1024
 
 /**
- * Uploads a PDF note to `lessonId`, or edits `note` when given (title, description, free preview;
+ * Uploads a PDF note to `lessonId`, or edits `note` when given (title, description, who can open it;
  * the PDF itself can't be replaced).
  */
 export function NoteForm({
@@ -30,8 +31,8 @@ export function NoteForm({
   const key = note?.id ?? lessonId
   const [title, setTitle] = useState(note?.title ?? "")
   const [description, setDescription] = useState(note?.description ?? "")
-  // New notes start paid: only notes marked free open without enrolling, even in a free lesson.
-  const [isFree, setIsFree] = useState(note?.isFree ?? false)
+  // New notes start on Plus and Premium: only notes tagged Free open without enrolling, even in a free lesson.
+  const [tiers, setTiers] = useState<ContentTier[]>(note?.tiers ?? DEFAULT_TIERS.note)
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +55,7 @@ export function NoteForm({
       const input = {
         title: title.trim(),
         description: description.trim(),
-        isFree,
+        tiers,
       }
       onSaved(
         editing
@@ -103,14 +104,7 @@ export function NoteForm({
           />
         </Field>
       )}
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={isFree}
-          onChange={(e) => setIsFree(e.target.checked)}
-        />
-        Free preview (open without enrolling)
-      </label>
+      <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
