@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpenTextIcon, CardsIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, NotePencilIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowLeftIcon, BookOpenTextIcon, CardsIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, NotePencilIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -250,14 +250,26 @@ export function PageTitle({
   title,
   subtitle,
   actions,
+  back,
 }: {
   title: string
   subtitle?: string
   actions?: React.ReactNode
+  /** The parent page, shown as a link above the title. */
+  back?: { href: string; label: string }
 }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-border pb-7">
       <div className="max-w-2xl space-y-2.5">
+        {back && (
+          <Link
+            href={back.href}
+            className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-teal"
+          >
+            <ArrowLeftIcon className="size-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
+            {back.label}
+          </Link>
+        )}
         <h1 className="display text-[2.375rem] leading-[1.05] text-heading sm:text-[2.875rem]">{title}</h1>
         {subtitle && <p className="text-[15px] leading-relaxed text-muted-foreground">{subtitle}</p>}
       </div>

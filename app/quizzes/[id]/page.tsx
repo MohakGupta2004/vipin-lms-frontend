@@ -49,6 +49,7 @@ function QuizView() {
   const [reviewing, setReviewing] = useState<QuizAttempt | null>(null)
   const [editing, setEditing] = useState(false)
   const [owner, setOwner] = useState(false)
+  const [courseTitle, setCourseTitle] = useState<string | null>(null)
   const isStudent = user.role === "student"
 
   useEffect(() => {
@@ -56,11 +57,10 @@ function QuizView() {
     getQuiz(id)
       .then(async (q) => {
         setQuiz(q)
-        // Owner = instructor/admin whose id is the course's instructor id.
-        if (!isStudent) {
-          const c = await getCourse(q.courseId).catch(() => null)
-          setOwner(!!c && c.instructorId === user.id)
-        }
+        // Owner = instructor/admin whose id is the course's instructor id. The title labels the back link.
+        const c = await getCourse(q.courseId).catch(() => null)
+        setCourseTitle(c?.title ?? null)
+        if (!isStudent) setOwner(!!c && c.instructorId === user.id)
       })
       .catch((e) => setError(errMsg(e)))
     if (isStudent) listAttempts(id).then(setAttempts).catch((e) => setError(errMsg(e)))
@@ -95,6 +95,7 @@ function QuizView() {
   return (
     <>
       <PageTitle
+        back={quiz ? { href: `/courses/${quiz.courseId}`, label: courseTitle ?? "Back to course" } : undefined}
         title={quiz?.title ?? "Test"}
         subtitle={quiz?.description}
         actions={

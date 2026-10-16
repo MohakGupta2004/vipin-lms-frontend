@@ -143,6 +143,7 @@ function CourseView() {
   return (
     <>
       <PageTitle
+        back={user.role === "admin" ? { href: "/courses", label: "All courses" } : { href: "/feed", label: user.role === "student" ? "Dashboard" : "My classroom" }}
         title={course?.title ?? "Course"}
         subtitle={
           isOwner

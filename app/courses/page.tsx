@@ -2,6 +2,7 @@
 
 import { ArrowRightIcon, CheckIcon, CircleNotchIcon, CopyIcon, PlusIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
@@ -52,6 +53,7 @@ function Courses() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const router = useRouter()
 
   const load = useCallback(async (off: number) => {
     setLoading(true)
@@ -101,10 +103,9 @@ function Courses() {
         <CreateCourse
           exams={exams}
           instructors={eligible}
-          onCreated={() => {
-            setCreating(false)
-            load(0)
-          }}
+          // Straight into the new course so lessons can be added; "All courses" there leads back here.
+          onCreated={(c) => router.push(`/courses/${c.id}`)}
+          onCancel={() => setCreating(false)}
         />
       )}
 
@@ -222,10 +223,12 @@ function CreateCourse({
   exams,
   instructors,
   onCreated,
+  onCancel,
 }: {
   exams: Exam[]
   instructors: UserSummary[]
-  onCreated: () => void
+  onCreated: (c: Course) => void
+  onCancel: () => void
 }) {
   const [title, setTitle] = useState("")
   const [slug, setSlug] = useState("")
@@ -255,7 +258,7 @@ function CreateCourse({
     if (!examId) return setError("Choose the exam this course is for.")
     setSaving(true)
     try {
-      await createCourse({
+      const c = await createCourse({
         examId,
         instructorId,
         title: title.trim(),
@@ -265,7 +268,7 @@ function CreateCourse({
         status,
         isFree,
       })
-      onCreated()
+      onCreated(c)
     } catch (err) {
       setError(errMsg(err))
       setSaving(false)
@@ -362,10 +365,15 @@ function CreateCourse({
           </label>
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />
-            <Button type="submit" disabled={saving}>
-              {saving && <CircleNotchIcon className="animate-spin" />}
-              Create course
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>
+                {saving && <CircleNotchIcon className="animate-spin" />}
+                Create course
+              </Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+                Cancel
+              </Button>
+            </div>
           </div>
         </form>
       </CardContent>
