@@ -144,6 +144,7 @@ function QuizView() {
             setQuiz(q)
             setEditing(false)
           }}
+          onCancel={() => setEditing(false)}
         />
       )}
 

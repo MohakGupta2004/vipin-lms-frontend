@@ -29,12 +29,15 @@ export function QuizBuilder({
   quiz,
   initialType,
   onSaved,
+  onCancel,
 }: {
   lessonId?: string
   quiz?: Quiz
   /** Starting type for a new quiz. */
   initialType?: QuizType
   onSaved: (q: Quiz) => void
+  /** Shows a Cancel button in the save bar when given. */
+  onCancel?: () => void
 }) {
   const editing = !!quiz
   const key = quiz?.id ?? lessonId
@@ -54,6 +57,8 @@ export function QuizBuilder({
     setDirty(true)
     setQuestionsRaw(fn)
   }
+  // Any edit at all, for the "unsaved changes" hint in the save bar.
+  const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,7 +105,7 @@ export function QuizBuilder({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <form onSubmit={onSubmit} onChange={() => setTouched(true)} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-gray-900">Test type</legend>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -217,12 +222,31 @@ export function QuizBuilder({
       <Button type="button" variant="outline" size="sm" onClick={() => setQuestions((qs) => [...qs, blank()])}>
         <PlusIcon /> Add question
       </Button>
-      <ErrorNote error={error} />
-      <div>
-        <Button type="submit" disabled={saving}>
-          {saving && <CircleNotchIcon className="animate-spin" />}
-          {editing ? "Save test" : "Create test"}
-        </Button>
+      {/* Sticks to the bottom of the viewport while the form is on screen, so saving never needs a scroll to the end. */}
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-4 space-y-3 rounded-b-lg border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+        <ErrorNote error={error} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500" aria-live="polite">
+            {touched || dirty ? (
+              <span className="flex items-center gap-2 font-medium text-heading">
+                <span className="size-2 rounded-full bg-amber-500" aria-hidden /> Unsaved changes
+              </span>
+            ) : (
+              `${questions.length} question${questions.length === 1 ? "" : "s"}`
+            )}
+          </p>
+          <div className="flex gap-2">
+            {onCancel && (
+              <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" disabled={saving}>
+              {saving && <CircleNotchIcon className="animate-spin" />}
+              {editing ? "Save test" : "Create test"}
+            </Button>
+          </div>
+        </div>
       </div>
     </form>
   )
