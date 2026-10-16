@@ -9,6 +9,7 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { QUIZ_TYPE_LABEL, createQuiz, updateQuiz, type Quiz, type QuizStatus, type QuizType } from "@/lib/api"
 
 type Draft = { text: string; explanation: string; options: string[]; correct: number }
@@ -59,6 +60,7 @@ export function QuizBuilder({
   }
   // Any edit at all, for the "unsaved changes" hint in the save bar.
   const [touched, setTouched] = useState(false)
+  const formRef = useScrollIntoView<HTMLFormElement>()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,7 +107,7 @@ export function QuizBuilder({
   }
 
   return (
-    <form onSubmit={onSubmit} onChange={() => setTouched(true)} className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <form ref={formRef} onSubmit={onSubmit} onChange={() => setTouched(true)} className="scroll-mt-20 space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-gray-900">Test type</legend>
         <div className="grid gap-2 sm:grid-cols-2">

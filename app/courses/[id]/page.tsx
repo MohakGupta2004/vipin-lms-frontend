@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { VideoList, VideoSection } from "@/components/video-section"
+import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { useUser } from "@/hooks/use-user"
 import {
   UUID_RE,
@@ -334,6 +335,7 @@ function CourseView() {
 }
 
 function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT) => void }) {
+  const cardRef = useScrollIntoView<HTMLDivElement>()
   const [exams, setExams] = useState<Exam[]>([])
   const [form, setForm] = useState({
     title: course.title,
@@ -364,7 +366,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
   }
 
   return (
-    <Card className="bg-white">
+    <Card ref={cardRef} className="rise scroll-mt-20 bg-white">
       <CardHeader>
         <CardTitle>Edit course</CardTitle>
       </CardHeader>
@@ -414,6 +416,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
 }
 
 function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () => void }) {
+  const cardRef = useScrollIntoView<HTMLDivElement>()
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [isFree, setIsFree] = useState(false)
@@ -435,7 +438,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
   }
 
   return (
-    <Card className="bg-white">
+    <Card ref={cardRef} className="rise scroll-mt-20 bg-white">
       <CardHeader>
         <CardTitle>New lesson</CardTitle>
       </CardHeader>
@@ -689,6 +692,7 @@ function LessonCard({
 }
 
 function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) => void }) {
+  const formRef = useScrollIntoView<HTMLFormElement>()
   const [title, setTitle] = useState(lesson.title)
   const [content, setContent] = useState(lesson.content)
   const [isFree, setIsFree] = useState(lesson.isFree)
@@ -708,7 +712,7 @@ function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) 
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
+    <form ref={formRef} onSubmit={onSubmit} className="scroll-mt-20 space-y-3 rounded-lg border border-border bg-white p-5 shadow-sm">
       <Field>
         <FieldLabel htmlFor={`el-${lesson.id}`}>Title</FieldLabel>
         <Input id={`el-${lesson.id}`} required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />

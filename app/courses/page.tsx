@@ -3,7 +3,7 @@
 import { ArrowRightIcon, CheckIcon, CircleNotchIcon, CopyIcon, PlusIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { useUser } from "@/hooks/use-user"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -243,14 +244,10 @@ function CreateCourse({
   const [isFree, setIsFree] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const cardRef = useRef<HTMLDivElement>(null)
+  const cardRef = useScrollIntoView<HTMLDivElement>()
 
-  useEffect(() => {
-    // Bring the freshly opened form into view and put the cursor in its first field.
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    cardRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" })
-    document.getElementById("exam")?.focus({ preventScroll: true })
-  }, [])
+  // Put the cursor in the first field of the freshly opened form.
+  useEffect(() => document.getElementById("exam")?.focus({ preventScroll: true }), [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
