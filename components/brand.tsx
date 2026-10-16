@@ -6,7 +6,7 @@ import logoWhite from "@/public/logo-white.png"
 import { cn } from "@/lib/utils"
 
 // Circular mark; the image corners are clipped by rounded-full so every variant sits cleanly on any surface.
-// white: the white-disc mark, used on the login and signup screens. It wins over onDark.
+// white: the white-disc mark, used on the signed-out auth screens. It wins over onDark.
 export function BrandMark({ className, onDark, white }: { className?: string; onDark?: boolean; white?: boolean }) {
   return (
     <Image
@@ -29,7 +29,7 @@ export function Brand({
   className?: string
   onDark?: boolean
   compact?: boolean
-  /** Use the white-disc mark (login and signup only). */
+  /** Use the white-disc mark (signed-out auth screens only). */
   white?: boolean
 }) {
   return (

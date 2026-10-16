@@ -1,13 +1,12 @@
 import { Brand } from "@/components/brand"
 
 // Two-column layout shared by every signed-out auth screen: brand panel + form panel.
-// whiteLogo swaps in the white-disc mark; only login and signup ask for it.
-export function AuthShell({ children, whiteLogo }: { children: React.ReactNode; whiteLogo?: boolean }) {
+export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="grid min-h-svh bg-white lg:grid-cols-[5fr_6fr]">
       {/* Brand panel */}
       <aside className="relative hidden overflow-hidden bg-navy text-white lg:flex lg:flex-col lg:justify-between lg:p-14">
-        <Brand onDark white={whiteLogo} />
+        <Brand onDark white />
 
         <dl className="max-w-md space-y-9">
           {[
@@ -27,7 +26,7 @@ export function AuthShell({ children, whiteLogo }: { children: React.ReactNode; 
 
       {/* Form panel */}
       <section className="flex flex-col items-center justify-center gap-8 p-6 sm:p-12">
-        <Brand className="lg:hidden" white={whiteLogo} />
+        <Brand className="lg:hidden" white />
         <div className="w-full max-w-sm space-y-6">{children}</div>
       </section>
     </main>
