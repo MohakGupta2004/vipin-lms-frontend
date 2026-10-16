@@ -145,7 +145,7 @@ export function AppShell({
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <Separator orientation="vertical" className="data-vertical:h-4 data-vertical:self-center" />
           <Link href={roleHome(user.role)} aria-label="Home" className="md:hidden">
-            <Brand compact className="[&>div]:size-7" />
+            <Brand className="[&>div]:size-7" />
           </Link>
           <span className="hidden truncate text-sm text-muted-foreground md:block">{pageName(user.role, pathname)}</span>
         </header>
@@ -171,7 +171,7 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-2">
         <Link href={roleHome(user.role)} aria-label="Home" className="flex items-center" onClick={() => setOpenMobile(false)}>
-          <Brand compact className="[&>div]:size-8 group-data-[collapsible=icon]:[&>span]:hidden" />
+          <Brand className="[&>div]:size-8 group-data-[collapsible=icon]:[&>span]:hidden" />
         </Link>
       </SidebarHeader>
 
