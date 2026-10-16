@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, CheckIcon, CircleNotchIcon, CopyIcon, PlusIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -240,6 +240,14 @@ function CreateCourse({
   const [isFree, setIsFree] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Bring the freshly opened form into view and put the cursor in its first field.
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    cardRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" })
+    document.getElementById("exam")?.focus({ preventScroll: true })
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -265,7 +273,7 @@ function CreateCourse({
   }
 
   return (
-    <Card className="bg-white">
+    <Card ref={cardRef} className="rise scroll-mt-20 bg-white">
       <CardHeader>
         <CardTitle>New course</CardTitle>
       </CardHeader>
