@@ -1,6 +1,11 @@
 "use client"
 
-import { CheckCircleIcon, CircleNotchIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  CheckCircleIcon,
+  CircleNotchIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
@@ -42,7 +47,9 @@ function QuizView() {
   const valid = UUID_RE.test(id)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [attempts, setAttempts] = useState<QuizAttempt[]>([])
-  const [error, setError] = useState<string | null>(valid ? null : "That is not a valid test ID.")
+  const [error, setError] = useState<string | null>(
+    valid ? null : "That is not a valid test ID."
+  )
   // Key of the run in progress (bumped by "try again" for a fresh session); null shows the overview.
   const [run, setRun] = useState<number | null>(null)
   // A past practice session opened from the history.
@@ -63,11 +70,18 @@ function QuizView() {
         if (!isStudent) setOwner(!!c && c.instructorId === user.id)
       })
       .catch((e) => setError(errMsg(e)))
-    if (isStudent) listAttempts(id).then(setAttempts).catch((e) => setError(errMsg(e)))
+    if (isStudent)
+      listAttempts(id)
+        .then(setAttempts)
+        .catch((e) => setError(errMsg(e)))
   }, [id, valid, isStudent, user.id])
 
   async function onDelete() {
-    if (!quiz || !confirm(`Delete "${quiz.title}"? Students' past attempts are kept.`)) return
+    if (
+      !quiz ||
+      !confirm(`Delete "${quiz.title}"? Students' past attempts are kept.`)
+    )
+      return
     setError(null)
     try {
       await deleteQuiz(id)
@@ -87,42 +101,61 @@ function QuizView() {
     }
   }
 
-  const onSaved = useCallback((a: QuizAttempt) => setAttempts((x) => [a, ...x]), [])
+  const onSaved = useCallback(
+    (a: QuizAttempt) => setAttempts((x) => [a, ...x]),
+    []
+  )
 
   const questions = quiz?.questions ?? []
   const practice = !!quiz && isPractice(quiz)
   // Students finish back on the tests list, on the right tab, never the course page.
-  const testsHref = quiz ? `/practice?course=${quiz.courseId}&type=${quiz.type}` : "/practice"
+  const testsHref = quiz
+    ? `/practice?course=${quiz.courseId}&type=${quiz.type}`
+    : "/practice"
 
   return (
     <>
-      <PageTitle
-        back={
-          quiz
-            ? isStudent
-              ? { href: testsHref, label: "Practice section" }
-              : { href: `/courses/${quiz.courseId}`, label: courseTitle ?? "Back to course" }
-            : undefined
-        }
-        title={quiz?.title ?? "Test"}
-        subtitle={quiz?.description}
-        actions={
-          owner && quiz && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Select aria-label="Test status" className="h-9 w-36" value={quiz.status} onChange={(e) => onStatus(e.target.value as QuizStatus)}>
-                <option value="published">Published</option>
-                <option value="draft">Draft</option>
-              </Select>
-              <Button variant="outline" onClick={() => setEditing((v) => !v)}>
-                <PencilSimpleIcon /> Edit
-              </Button>
-              <Button variant="destructive" onClick={onDelete}>
-                <TrashIcon /> Delete
-              </Button>
-            </div>
-          )
-        }
-      />
+      {/* Mid-test on a phone the runner's status bar carries the title; the screen belongs to the question. */}
+      <div
+        className={isStudent && run !== null ? "hidden sm:block" : undefined}
+      >
+        <PageTitle
+          back={
+            quiz
+              ? isStudent
+                ? { href: testsHref, label: "Practice section" }
+                : {
+                    href: `/courses/${quiz.courseId}`,
+                    label: courseTitle ?? "Back to course",
+                  }
+              : undefined
+          }
+          title={quiz?.title ?? "Test"}
+          subtitle={quiz?.description}
+          actions={
+            owner &&
+            quiz && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  aria-label="Test status"
+                  className="h-9 w-36"
+                  value={quiz.status}
+                  onChange={(e) => onStatus(e.target.value as QuizStatus)}
+                >
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </Select>
+                <Button variant="outline" onClick={() => setEditing((v) => !v)}>
+                  <PencilSimpleIcon /> Edit
+                </Button>
+                <Button variant="destructive" onClick={onDelete}>
+                  <TrashIcon /> Delete
+                </Button>
+              </div>
+            )
+          }
+        />
+      </div>
       <ErrorNote error={error} />
       {!quiz && !error && (
         <p className="flex items-center gap-2 text-sm text-gray-500">
@@ -131,7 +164,12 @@ function QuizView() {
       )}
 
       {quiz && (
-        <div className="flex flex-wrap gap-2">
+        // Mid-test on a phone the progress bar already says it all; keep the screen for the question.
+        <div
+          className={
+            "flex-wrap gap-2 " + (run !== null ? "hidden sm:flex" : "flex")
+          }
+        >
           <Badge variant="secondary">{quiz.questionCount} questions</Badge>
           <Badge variant="secondary">{QUIZ_TYPE_LABEL[quiz.type]}</Badge>
           {practice ? (
@@ -139,7 +177,11 @@ function QuizView() {
           ) : (
             <>
               <Badge variant="secondary">Pass mark {quiz.passPercent}%</Badge>
-              <Badge variant="secondary">{quiz.timeLimitSec ? `${Math.round(quiz.timeLimitSec / 60)} min limit` : "Untimed"}</Badge>
+              <Badge variant="secondary">
+                {quiz.timeLimitSec
+                  ? `${Math.round(quiz.timeLimitSec / 60)} min limit`
+                  : "Untimed"}
+              </Badge>
             </>
           )}
         </div>
@@ -161,7 +203,10 @@ function QuizView() {
 
       {isStudent && quiz && run !== null && (
         <QuizSessionProvider key={run} quiz={quiz} onSaved={onSaved}>
-          <QuizPlayer onRestart={() => setRun((n) => (n ?? 0) + 1)} onExit={() => router.push(testsHref)} />
+          <QuizPlayer
+            onRestart={() => setRun((n) => (n ?? 0) + 1)}
+            onExit={() => router.push(testsHref)}
+          />
         </QuizSessionProvider>
       )}
 
@@ -181,7 +226,11 @@ function QuizView() {
         <>
           <StartCard quiz={quiz} onStart={() => setRun((n) => (n ?? 0) + 1)} />
           {attempts.length > 0 &&
-            (practice ? <PracticeHistory attempts={attempts} onReview={setReviewing} /> : <MockHistory attempts={attempts} />)}
+            (practice ? (
+              <PracticeHistory attempts={attempts} onReview={setReviewing} />
+            ) : (
+              <MockHistory attempts={attempts} />
+            ))}
         </>
       )}
     </>
@@ -237,7 +286,9 @@ function MockHistory({ attempts }: { attempts: QuizAttempt[] }) {
               <span>{new Date(a.submittedAt).toLocaleString()}</span>
               <span className="tnum flex items-center gap-2">
                 {a.score ?? 0}/{a.total ?? 0}
-                <Badge variant={a.passed ? "default" : "secondary"}>{a.passed ? "Passed" : "Not passed"}</Badge>
+                <Badge variant={a.passed ? "default" : "secondary"}>
+                  {a.passed ? "Passed" : "Not passed"}
+                </Badge>
               </span>
             </li>
           ))}
@@ -247,7 +298,13 @@ function MockHistory({ attempts }: { attempts: QuizAttempt[] }) {
   )
 }
 
-function PracticeHistory({ attempts, onReview }: { attempts: QuizAttempt[]; onReview: (a: QuizAttempt) => void }) {
+function PracticeHistory({
+  attempts,
+  onReview,
+}: {
+  attempts: QuizAttempt[]
+  onReview: (a: QuizAttempt) => void
+}) {
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -258,11 +315,19 @@ function PracticeHistory({ attempts, onReview }: { attempts: QuizAttempt[]; onRe
           {attempts.map((a) => {
             const answers = a.answers ?? []
             return (
-              <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+              <li
+                key={a.id}
+                className="flex items-center justify-between gap-3 py-2"
+              >
                 <span>{new Date(a.submittedAt).toLocaleString()}</span>
                 <span className="tnum flex items-center gap-3 text-gray-600">
-                  {answers.filter((x) => x.isCorrect).length} of {answers.length} right
-                  <Button size="sm" variant="outline" onClick={() => onReview(a)}>
+                  {answers.filter((x) => x.isCorrect).length} of{" "}
+                  {answers.length} right
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onReview(a)}
+                  >
                     Review
                   </Button>
                 </span>
@@ -279,7 +344,11 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
   return (
     <div className="space-y-4">
       {questions.map((q, i) => (
-        <Card key={q.id} className="rise bg-white" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+        <Card
+          key={q.id}
+          className="rise bg-white"
+          style={{ "--i": Math.min(i, 8) } as React.CSSProperties}
+        >
           <CardContent className="space-y-2">
             <p className="text-base font-semibold whitespace-pre-line text-heading">
               <span className="tnum mr-2 text-teal">{i + 1}.</span>
@@ -291,15 +360,25 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
                   key={o.id}
                   className={
                     "flex items-center gap-2 rounded-md border px-3 py-2 " +
-                    (o.isCorrect ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700" : "border-border text-gray-700")
+                    (o.isCorrect
+                      ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700"
+                      : "border-border text-gray-700")
                   }
                 >
-                  {o.isCorrect ? <CheckCircleIcon className="size-4 shrink-0" /> : <span className="size-4 shrink-0 rounded-full border border-gray-300" />}
+                  {o.isCorrect ? (
+                    <CheckCircleIcon className="size-4 shrink-0" />
+                  ) : (
+                    <span className="size-4 shrink-0 rounded-full border border-gray-300" />
+                  )}
                   {o.optionText}
                 </li>
               ))}
             </ul>
-            {q.explanation && <p className="text-xs whitespace-pre-line text-gray-500">{q.explanation}</p>}
+            {q.explanation && (
+              <p className="text-xs whitespace-pre-line text-gray-500">
+                {q.explanation}
+              </p>
+            )}
           </CardContent>
         </Card>
       ))}
