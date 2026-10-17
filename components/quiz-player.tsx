@@ -13,7 +13,7 @@ import {
   WarningCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { ErrorNote } from "@/components/app-shell"
 import { useQuizSession } from "@/components/quiz-session"
@@ -109,8 +109,30 @@ function Runner() {
     setAsking(true)
   }
 
+  // After "Check answer", bring the verdict and explanation into view (not when revisiting a checked question).
+  const feedbackRef = useRef<HTMLDivElement>(null)
+  const revealing = useRef<string | null>(null)
+  useEffect(() => {
+    if (!result || revealing.current !== current.id) return
+    revealing.current = null
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    // Wait a frame so the panel has its final layout before measuring.
+    requestAnimationFrame(() =>
+      feedbackRef.current?.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "nearest",
+      })
+    )
+  }, [result, current.id])
+
   function primary() {
-    if (practice && !result) return void (picked && check())
+    if (practice && !result) {
+      if (picked) {
+        revealing.current = current.id
+        void check()
+      }
+      return
+    }
     if (last) return submit()
     go(state.index + 1)
   }
@@ -355,7 +377,13 @@ function Runner() {
           </div>
         )}
 
-        {result && <Feedback answer={result} options={current.options} />}
+        {result && (
+          <Feedback
+            ref={feedbackRef}
+            answer={result}
+            options={current.options}
+          />
+        )}
       </section>
 
       <ErrorNote error={state.error} />
@@ -558,11 +586,11 @@ function Letter({
       aria-hidden
       className={
         "grid size-7 shrink-0 place-items-center rounded-full border text-xs font-bold transition-colors duration-150 " +
-        (on
-          ? "border-teal bg-teal text-white"
-          : "border-gray-300 bg-white text-gray-500") +
-        " " +
-        className
+        // A className (the reveal's green/red) replaces the default colours rather than fighting them.
+        (className ||
+          (on
+            ? "border-teal bg-teal text-white"
+            : "border-gray-300 bg-white text-gray-500"))
       }
     >
       {LETTERS[i]}
@@ -574,16 +602,20 @@ function Letter({
 function Feedback({
   answer,
   options,
+  ref,
 }: {
   answer: AttemptAnswer
   options: Question["options"]
+  ref?: React.Ref<HTMLDivElement>
 }) {
   const correct = options.findIndex((o) => o.id === answer.correctOptionId)
   return (
     <div
+      ref={ref}
       role="status"
       className={
-        "rise space-y-1.5 rounded-xl border px-4 py-3.5 text-sm " +
+        // Scroll margins clear the pinned status bar above and, on phones, the fixed controls below.
+        "rise scroll-mt-40 scroll-mb-28 space-y-1.5 rounded-xl border px-4 py-3.5 text-sm sm:scroll-mt-48 sm:scroll-mb-6 " +
         (answer.isCorrect
           ? "border-green-600/30 bg-lime-soft/50"
           : "border-red-200 bg-red-50")
