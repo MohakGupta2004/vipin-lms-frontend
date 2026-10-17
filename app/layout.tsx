@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Arimo } from "next/font/google"
 
 import "./globals.css"
@@ -12,6 +12,14 @@ const sans = Arimo({ subsets: ["latin"], variable: "--font-ui" })
 export const metadata: Metadata = {
   title: { default: "Vipin Garg — Finance Coach", template: "%s · Vipin Garg" },
   description: "Courses, notes and tests from finance coach Vipin Garg.",
+}
+
+// Fill the notch area on phones (paired with safe-area padding) and colour the browser bar.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 }
 
 export default function RootLayout({

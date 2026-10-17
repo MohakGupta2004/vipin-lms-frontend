@@ -142,15 +142,15 @@ export function AppShell({
     <SidebarProvider defaultOpen={readSidebarOpen()}>
       <AppSidebar user={user} pathname={pathname} onSignOut={signOut} />
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur-sm sm:px-6">
-          <SidebarTrigger className="-ml-1 text-muted-foreground" />
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:px-6">
+          <SidebarTrigger className="-ml-2 size-10 text-muted-foreground md:-ml-1 md:size-8" />
           <Separator orientation="vertical" className="data-vertical:h-4 data-vertical:self-center" />
-          <Link href={roleHome(user.role)} aria-label="Home" className="md:hidden">
+          <Link href={roleHome(user.role)} aria-label="Home" className="flex min-h-11 items-center md:hidden">
             <Brand className="[&>div]:size-7" />
           </Link>
           <span className="hidden truncate text-sm text-muted-foreground md:block">{pageName(user.role, pathname)}</span>
         </header>
-        <div className="mx-auto w-full max-w-[1120px] flex-1 space-y-10 px-5 py-9 sm:px-8 lg:px-12 lg:py-12">{children}</div>
+        <div className="mx-auto w-full max-w-[1120px] flex-1 space-y-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:space-y-10 sm:px-8 sm:py-9 lg:px-12 lg:py-12">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )
@@ -274,8 +274,8 @@ export function PageTitle({
   back?: { href: string; label: string }
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-border pb-7">
-      <div className="max-w-2xl space-y-2.5">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-border pb-5 sm:pb-7">
+      <div className="min-w-0 max-w-2xl space-y-2">
         {back && (
           <Link
             href={back.href}
@@ -285,7 +285,7 @@ export function PageTitle({
             {back.label}
           </Link>
         )}
-        <h1 className="display text-[2.375rem] leading-[1.05] text-heading sm:text-[2.875rem]">{title}</h1>
+        <h1 className="display text-[1.875rem] leading-[1.1] text-heading sm:text-[2.875rem]">{title}</h1>
         {subtitle && <p className="text-[15px] leading-relaxed text-muted-foreground">{subtitle}</p>}
       </div>
       {actions}

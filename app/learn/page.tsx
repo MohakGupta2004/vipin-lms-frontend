@@ -213,7 +213,7 @@ function LectureRow({ video, n }: { video: MyVideo; n: number }) {
       <span className="tnum w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
       <StatusMark state={state} />
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-[15px] text-heading", state === "done" && "text-gray-500")}>{video.title}</p>
+        <p className={cn("line-clamp-2 text-[15px] text-heading sm:line-clamp-1", state === "done" && "text-gray-500")}>{video.title}</p>
         <p
           className={cn(
             "mt-0.5 text-xs sm:hidden",

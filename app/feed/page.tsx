@@ -119,7 +119,7 @@ function Feed() {
             title="Flashcards"
             aside={
               flashcards.decks.length > 0 && (
-                <Link href="/flashcards" className="hover:text-heading hover:underline">
+                <Link href="/flashcards" className="-m-2 inline-block p-2 hover:text-heading hover:underline">
                   All decks
                 </Link>
               )
@@ -159,7 +159,7 @@ function Feed() {
                     className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
                   >
                     <div className="min-w-0">
-                      <p className="display truncate text-[1.25rem] leading-snug text-heading">{c.title}</p>
+                      <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem]">{c.title}</p>
                       {c.shortDescription && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{c.shortDescription}</p>}
                     </div>
                     {canTeach ? (

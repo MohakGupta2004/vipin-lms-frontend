@@ -71,7 +71,7 @@ export function CourseChips({
           <ToggleGroupItem
             key={c.id}
             value={c.id}
-            className="h-8 rounded-full border-border bg-white px-3.5 text-[13px] font-normal text-gray-600 hover:text-heading data-[pressed]:border-navy data-[pressed]:bg-navy data-[pressed]:text-white"
+            className="h-8 pointer-coarse:h-10 rounded-full border-border bg-white px-3.5 text-[13px] font-normal text-gray-600 hover:text-heading data-[pressed]:border-navy data-[pressed]:bg-navy data-[pressed]:text-white"
           >
             {c.title}
             {counts && <span className="tnum text-xs opacity-60">{c.n}</span>}
@@ -97,7 +97,7 @@ export function Segmented<T extends string>({
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as T)}>
       <div className="overflow-x-auto border-b border-border">
-        <TabsList variant="line" aria-label={label} className="h-10 gap-5 p-0">
+        <TabsList variant="line" aria-label={label} className="h-10 pointer-coarse:h-12 gap-5 p-0">
           {options.map((o) => (
             <TabsTrigger key={o.value} value={o.value} className="flex-none px-0 text-sm font-normal data-active:font-medium">
               {o.label}
@@ -120,7 +120,7 @@ export function Figures({ items }: { items: { label: string; value: React.ReactN
             <>
               <dt className="text-[13px] text-muted-foreground">{f.label}</dt>
               <dd className="mt-2 flex items-baseline gap-1.5">
-                <span className="display tnum text-[2rem] leading-none text-heading">{f.value}</span>
+                <span className="display tnum text-[1.75rem] sm:text-[2rem] leading-none text-heading">{f.value}</span>
                 {f.of !== undefined && <span className="tnum text-sm text-gray-400">of {f.of}</span>}
               </dd>
               {f.note && <p className="mt-1.5 text-xs text-gray-400">{f.note}</p>}
@@ -160,7 +160,7 @@ export function ResumeBand({ video }: { video: MyVideo }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] text-white/60">Continue watching</p>
-        <p className="display mt-0.5 truncate text-[1.375rem] leading-tight">{video.title}</p>
+        <p className="display mt-0.5 line-clamp-2 text-[1.125rem] leading-tight sm:line-clamp-1 sm:text-[1.375rem]">{video.title}</p>
         <p className="mt-1 truncate text-[13px] text-white/60">
           {video.courseTitle} · {video.lessonTitle}
         </p>
@@ -264,7 +264,7 @@ export function Empty({ icon: EmptyIcon, title, text, explore }: { icon: Icon; t
 export function SectionHead({ title, aside }: { title: string; aside?: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <h2 className="display text-[1.625rem] leading-tight text-heading">{title}</h2>
+      <h2 className="display text-[1.375rem] leading-tight sm:text-[1.625rem] text-heading">{title}</h2>
       {aside && <div className="shrink-0 text-sm text-muted-foreground">{aside}</div>}
     </div>
   )
