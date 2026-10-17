@@ -263,7 +263,7 @@ function Runner() {
               className="-mx-1.5 flex min-h-9 items-center gap-1 rounded-md px-1.5 text-left transition-colors active:bg-gray-100 sm:pointer-events-none sm:mx-0 sm:min-h-0 sm:px-0"
               aria-label={`Question ${state.index + 1} of ${total}. Show all questions`}
             >
-              <span className="tnum text-[15px] font-semibold whitespace-nowrap text-heading sm:text-base">
+              <span className="tnum text-sm font-semibold whitespace-nowrap text-heading sm:text-base">
                 Question {state.index + 1}
                 <span className="font-normal text-gray-500"> of {total}</span>
               </span>
@@ -326,9 +326,10 @@ function Runner() {
         {result && (
           <StatusBadge status={result.isCorrect ? "correct" : "wrong"} />
         )}
-        <p className="text-[17px] leading-[1.6] font-semibold text-pretty break-words whitespace-pre-line text-heading sm:text-lg sm:leading-relaxed">
-          {current.questionText}
-        </p>
+        <QuestionText
+          text={current.questionText}
+          className="text-base leading-[1.55] sm:text-lg sm:leading-relaxed"
+        />
 
         {result ? (
           <OptionReveal
@@ -348,7 +349,7 @@ function Runner() {
                 <label
                   key={o.id}
                   className={
-                    "flex min-h-14 cursor-pointer touch-manipulation items-center gap-3.5 rounded-xl border bg-white px-4 py-3 text-[15px] leading-snug transition-[background-color,border-color,box-shadow,transform] duration-150 select-none active:scale-[0.985] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal has-[:focus-visible]:ring-offset-2 " +
+                    "flex min-h-[3.25rem] cursor-pointer touch-manipulation items-center gap-3 rounded-xl border bg-white px-3.5 py-2.5 text-[15px] leading-[1.4] transition-[background-color,border-color,box-shadow,transform] duration-150 select-none active:scale-[0.985] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal has-[:focus-visible]:ring-offset-2 sm:min-h-14 sm:gap-3.5 sm:px-4 sm:py-3 " +
                     (on
                       ? "border-teal bg-mint/60 text-heading shadow-[inset_0_0_0_1px_hsl(var(--teal))]"
                       : "border-border text-gray-700 shadow-[0_1px_2px_rgba(10,37,64,0.04)] hover:border-teal/50 hover:bg-gray-50")
@@ -598,6 +599,37 @@ function Letter({
   )
 }
 
+/**
+ * The stem in semibold; any lines after it (I/II/III statements, a table of facts) in regular weight,
+ * each on its own line, so a long multi-statement question scans instead of reading as one bold block.
+ */
+function QuestionText({
+  text,
+  className,
+}: {
+  text: string
+  className: string
+}) {
+  const [stem, ...rest] = text.trim().split("\n")
+  const lines = rest.filter((l) => l.trim())
+  return (
+    <div
+      className={
+        "space-y-2.5 text-pretty break-words text-heading " + className
+      }
+    >
+      <p className="font-semibold tracking-[-0.005em]">{stem}</p>
+      {lines.length > 0 && (
+        <ul className="space-y-1.5 text-[0.9375em] text-gray-700">
+          {lines.map((l, i) => (
+            <li key={i}>{l}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 /** Practice: right or wrong, the right option if missed, and why. */
 function Feedback({
   answer,
@@ -656,7 +688,7 @@ function OptionReveal({
   selectedOptionId?: string | null
 }) {
   return (
-    <ul className="space-y-2.5 text-[15px] leading-snug">
+    <ul className="space-y-2.5 text-[15px] leading-[1.4]">
       {options.map((o, i) => {
         const correct = o.id === correctOptionId
         const wrongPick = !correct && o.id === selectedOptionId
@@ -664,7 +696,7 @@ function OptionReveal({
           <li
             key={o.id}
             className={
-              "flex min-h-14 items-center gap-3.5 rounded-xl border px-4 py-3 " +
+              "flex min-h-[3.25rem] items-center gap-3 rounded-xl border px-3.5 py-2.5 sm:min-h-14 sm:gap-3.5 sm:px-4 sm:py-3 " +
               (correct
                 ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700"
                 : wrongPick
@@ -886,9 +918,10 @@ export function PracticeReview({
               </span>
               <StatusBadge status={status} />
             </div>
-            <p className="text-base leading-snug font-semibold whitespace-pre-line text-heading">
-              {q.questionText}
-            </p>
+            <QuestionText
+              text={q.questionText}
+              className="text-base leading-[1.55]"
+            />
             {a ? (
               <>
                 <OptionReveal
