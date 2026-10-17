@@ -70,12 +70,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <AuthShell>
           <div className="space-y-1.5">
             <h1 className="display text-[2.25rem] leading-tight text-heading">
-              {isSignup ? "Create your account" : "Welcome back"}
+              {isSignup ? "Create your account" : "Sign In"}
             </h1>
             <p className="text-sm text-gray-500">
               {isSignup
                 ? "Sign up to start learning today."
-                : "Enter your details to access your courses."}
+                : ""}
             </p>
           </div>
 
