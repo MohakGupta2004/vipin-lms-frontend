@@ -71,7 +71,7 @@ function Explore() {
               aria-checked={freeOnly === o.v}
               onClick={() => setFreeOnly(o.v)}
               className={cn(
-                "rounded px-3 py-1.5 text-sm font-medium text-heading transition-colors",
+                "rounded px-3 py-1.5 pointer-coarse:py-2.5 text-sm font-medium text-heading transition-colors",
                 freeOnly === o.v ? "bg-teal text-white" : "hover:bg-accent"
               )}
             >

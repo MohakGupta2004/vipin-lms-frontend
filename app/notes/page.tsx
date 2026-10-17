@@ -118,7 +118,7 @@ function Notes() {
                             <FileTextIcon className="size-5" />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[15px] text-heading">{n.title}</span>
+                            <span className="line-clamp-2 text-[15px] text-heading sm:line-clamp-1">{n.title}</span>
                             <span className="tnum mt-0.5 flex items-center gap-2 truncate text-xs text-muted-foreground">
                               <span className="truncate">
                                 {showCourse && `${n.courseTitle} · `}

@@ -91,11 +91,19 @@ function QuizView() {
 
   const questions = quiz?.questions ?? []
   const practice = !!quiz && isPractice(quiz)
+  // Students finish back on the tests list, on the right tab, never the course page.
+  const testsHref = quiz ? `/practice?course=${quiz.courseId}&type=${quiz.type}` : "/practice"
 
   return (
     <>
       <PageTitle
-        back={quiz ? { href: `/courses/${quiz.courseId}`, label: courseTitle ?? "Back to course" } : undefined}
+        back={
+          quiz
+            ? isStudent
+              ? { href: testsHref, label: "Practice section" }
+              : { href: `/courses/${quiz.courseId}`, label: courseTitle ?? "Back to course" }
+            : undefined
+        }
         title={quiz?.title ?? "Test"}
         subtitle={quiz?.description}
         actions={
@@ -153,7 +161,7 @@ function QuizView() {
 
       {isStudent && quiz && run !== null && (
         <QuizSessionProvider key={run} quiz={quiz} onSaved={onSaved}>
-          <QuizPlayer onRestart={() => setRun((n) => (n ?? 0) + 1)} onExit={() => setRun(null)} />
+          <QuizPlayer onRestart={() => setRun((n) => (n ?? 0) + 1)} onExit={() => router.push(testsHref)} />
         </QuizSessionProvider>
       )}
 

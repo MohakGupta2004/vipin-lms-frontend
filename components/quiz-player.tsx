@@ -38,7 +38,7 @@ export function QuizPlayer({ onRestart, onExit }: { onRestart: () => void; onExi
             <ArrowCounterClockwiseIcon /> Practice again
           </Button>
           <Button variant="outline" onClick={onExit}>
-            Back to overview
+            Practice section
           </Button>
         </>
       }
@@ -429,7 +429,7 @@ function MockScore({ result, onRestart, onExit }: { result: MockResult; onRestar
           <ArrowCounterClockwiseIcon /> Retake test
         </Button>
         <Button variant="outline" onClick={onExit}>
-          Back to overview
+          Practice section
         </Button>
       </div>
     </div>

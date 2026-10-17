@@ -2,6 +2,7 @@
 
 import { CaretRightIcon, CheckCircleIcon, ListChecksIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
@@ -27,7 +28,10 @@ function PracticeAndPrepare() {
   const [quizzes, setQuizzes] = useState<MyQuiz[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [type, setType] = useState<QuizType | null>(null)
+  const requestedType = useSearchParams().get("type")
+  const [type, setType] = useState<QuizType | null>(
+    requestedType === "mock_test" || requestedType === "practice" ? requestedType : null
+  )
   const [courseId, setCourseId] = useCourseFilter(courses)
 
   useEffect(() => {

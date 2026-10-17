@@ -212,7 +212,7 @@ function Learn() {
   return (
     <div className="flex min-h-svh flex-col bg-white">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-navy px-4 text-white sm:px-6">
-        <Link href={roleHome(user.role)} aria-label="Home" className="shrink-0">
+        <Link href={roleHome(user.role)} aria-label="Home" className="flex min-h-11 shrink-0 items-center">
           <Brand onDark compact className="[&>span]:hidden sm:[&>span]:flex [&>div]:size-8" />
         </Link>
         <span aria-hidden className="hidden h-6 w-px bg-white/20 sm:block" />
