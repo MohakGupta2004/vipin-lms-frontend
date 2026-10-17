@@ -119,14 +119,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   <FieldLabel htmlFor="phone">Phone</FieldLabel>
                   <PhoneInput
                     id="phone"
-                    defaultCountry="IN"
+                    defaultCountry="CA"
                     international
                     value={phone}
                     onChange={(v) => {
                       setPhone(v)
                       setPhoneInvalid(false)
                     }}
-                    placeholder="98765 43210"
+                    placeholder="416 555 0123"
                     autoComplete="tel"
                     aria-invalid={phoneInvalid || undefined}
                     inputClassName="bg-white"
