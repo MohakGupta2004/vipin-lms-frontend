@@ -212,7 +212,7 @@ function CourseView() {
             <p className="font-semibold text-heading">You&apos;re previewing this course</p>
             <p className="tnum text-sm text-heading/80">
               {freeLessons} of {lessons.length} {lessons.length === 1 ? "lesson is" : "lessons are"} free to preview, along with any free videos and
-              tests. Ask your admin to enroll you to unlock everything.
+              tests.
             </p>
           </div>
         </div>
@@ -549,7 +549,8 @@ function LessonCard({
   // Previewers see whether the lesson has anything free; enrolled students only hear about a lesson that is shut.
   const access =
     tier === "free" ? (
-      hasFree ? <Badge variant="lime">Free preview</Badge> : <Badge variant="outline">Enroll to unlock</Badge>
+      // Nothing free: the lock in place of the lesson number is all a previewer sees.
+      hasFree && <Badge variant="lime">Free preview</Badge>
     ) : (
       !hasOpen && <Badge variant="outline">Not on your plan</Badge>
     )

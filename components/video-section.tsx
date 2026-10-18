@@ -820,7 +820,7 @@ export function VideoList({ videos, tier, linkQuery }: { videos: Video[]; tier?:
                   <LockedRow
                     key={v.id}
                     title={v.title}
-                    meta="Locked"
+                    meta="Video lecture"
                     hint={<LockHint courseTier={tier} tags={v.tiers} />}
                   />
                 ) : (

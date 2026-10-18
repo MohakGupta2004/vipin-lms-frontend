@@ -257,12 +257,12 @@ function Learn() {
             <PlayCircleIcon className="size-7" />
           </span>
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">{error ? "Can't open this course" : lockedCount > 0 ? (tier === "free" ? "Enroll to watch" : "Not on your plan") : "No videos yet"}</h1>
+            <h1 className="text-xl font-semibold">{error ? "Can't open this course" : lockedCount > 0 ? (tier === "free" ? "Locked" : "Not on your plan") : "No videos yet"}</h1>
             <p className="max-w-md text-sm text-muted-foreground">
               {error ??
                 (lockedCount > 0
                   ? tier === "free"
-                    ? `This course has ${lockedCount} ${lockedCount === 1 ? "lecture" : "lectures"} and none are free to preview. Ask your admin to enroll you.`
+                    ? `None of this course's ${lockedCount} ${lockedCount === 1 ? "lecture is" : "lectures are"} open to preview.`
                     : `This course has ${lockedCount} ${lockedCount === 1 ? "lecture" : "lectures"} but none are included in your plan. Ask your admin to upgrade you.`
                   : "Lectures will appear here once the instructor uploads them and they finish processing.")}
             </p>
@@ -439,9 +439,11 @@ function CourseContent({
                                   <span className="block text-sm leading-snug">
                                     {n}. {v.title}
                                   </span>
-                                  <span className="mt-1 block text-xs">
-                                    <LockHint courseTier={tier} tags={v.tiers} />
-                                  </span>
+                                  {tier !== "free" && (
+                                    <span className="mt-1 block text-xs">
+                                      <LockHint courseTier={tier} tags={v.tiers} />
+                                    </span>
+                                  )}
                                 </span>
                               </li>
                             )
