@@ -179,6 +179,10 @@ html { scroll-behavior: smooth; }
 
 input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
 button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
+/* Whole-card targets: phones have no hover, so the card answers the finger with a small press. A card whose
+   link is stretched over it (after:inset-0) marks that link .tap-link so pressing anywhere presses the card. */
+.tap { touch-action: manipulation; transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms, box-shadow 200ms, background-color 150ms; }
+.tap:active, .tap:has(.tap-link:active) { transform: scale(0.985); }
 :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .tnum { font-variant-numeric: tabular-nums; }
 /* Titles and key figures: Arimo, tightened and weighted for display sizes. */

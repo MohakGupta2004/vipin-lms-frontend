@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, LockIcon, PencilSimpleIcon, PlayCircleIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, PencilSimpleIcon, PlayCircleIcon, TrashIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
@@ -10,9 +10,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
-import { LockHint, TierBadge } from "@/components/tier-badge"
+import { LockHint, LockedRow, TierBadge } from "@/components/tier-badge"
 import { TierPicker } from "@/components/tier-picker"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import {
   DEFAULT_TIERS,
   MAX_VIDEO,
@@ -20,6 +21,7 @@ import {
   VIDEO_KINDS,
   VIDEO_KIND_LABEL,
   confirmVideo,
+  deleteVideo,
   getVideo,
   putVideoFile,
   requestVideoUpload,
@@ -81,6 +83,7 @@ export function VideoSection({
 }) {
   const [uploads, setUploads] = useState<LocalUpload[]>([])
   const [retrying, setRetrying] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   // The video whose title and description are being edited in place.
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -205,6 +208,21 @@ export function VideoSection({
     }
   }
 
+  async function remove(v: Video) {
+    if (!confirm(`Delete "${v.title}"? Students lose it and their progress on it. This can't be undone.`)) return
+    setError(null)
+    setDeleting(v.id)
+    try {
+      await deleteVideo(v.id)
+      setVideos((vs) => vs.filter((x) => x.id !== v.id))
+      if (editingId === v.id) setEditingId(null)
+    } catch (e) {
+      setError(errMsg(e))
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   return (
     <section className="space-y-5">
       <ErrorNote error={error} />
@@ -258,6 +276,8 @@ export function VideoSection({
                     retrying={retrying === v.id}
                     onRetry={() => retry(v)}
                     onEdit={() => setEditingId(v.id)}
+                    deleting={deleting === v.id}
+                    onDelete={() => remove(v)}
                   />
                 )
               )}
@@ -305,8 +325,9 @@ function RowShell({
     gray: "bg-gray-100 text-gray-500",
   }[tone]
   return (
-    <li className="pop rounded-md border border-border bg-white p-3 transition-colors duration-200 hover:border-teal/40">
-      <div className="flex items-center gap-3">
+    // Title first and in full, status and size under it; on phones the actions get their own row so nothing is squeezed.
+    <li className="pop relative touch-manipulation rounded-md border border-border bg-white p-3 transition-[border-color,transform] duration-150 hover:border-teal/40 has-[.tap-link:active]:scale-[0.985]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span
           className={
             "flex size-10 shrink-0 items-center justify-center rounded-md " +
@@ -315,16 +336,20 @@ function RowShell({
         >
           <FilmStripIcon className="size-5" />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 text-sm font-semibold text-heading sm:line-clamp-1">
+        <span className="min-w-0 flex-1 basis-40 space-y-1">
+          <span className="line-clamp-2 block text-sm font-semibold break-words text-heading">
             {title}
           </span>
-          <span className="tnum flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+          <span className="tnum flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {chip}
             {meta}
           </span>
         </span>
-        {chip}
-        {children}
+        {children && (
+          <span className="flex shrink-0 items-center justify-end gap-1 max-sm:w-full max-sm:border-t max-sm:border-border max-sm:pt-2">
+            {children}
+          </span>
+        )}
       </div>
       {bar}
     </li>
@@ -444,11 +469,15 @@ function VideoRow({
   retrying,
   onRetry,
   onEdit,
+  deleting,
+  onDelete,
 }: {
   v: Video
   retrying: boolean
   onRetry: () => void
   onEdit: () => void
+  deleting: boolean
+  onDelete: () => void
 }) {
   const meta = (
     <>
@@ -458,8 +487,21 @@ function VideoRow({
     </>
   )
   const edit = (
-    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${v.title}`} onClick={onEdit}>
+    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${v.title}`} onClick={onEdit} className="relative z-10">
       <PencilSimpleIcon />
+    </Button>
+  )
+  // Not offered while processing: the server refuses until transcoding has finished or failed.
+  const del = (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={`Delete ${v.title}`}
+      disabled={deleting}
+      onClick={onDelete}
+      className="relative z-10 hover:bg-destructive/10 hover:text-destructive"
+    >
+      {deleting ? <CircleNotchIcon className="animate-spin" /> : <TrashIcon />}
     </Button>
   )
 
@@ -478,11 +520,12 @@ function VideoRow({
         >
           <Link
             href={`/courses/${v.courseId}/learn?v=${v.id}`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "tap-link after:absolute after:inset-0 after:rounded-md")}
           >
             <PlayCircleIcon /> Play
           </Link>
           {edit}
+          {del}
         </RowShell>
       )
     case "processing":
@@ -535,6 +578,7 @@ function VideoRow({
             Retry
           </Button>
           {edit}
+          {del}
         </RowShell>
       )
     default:
@@ -547,7 +591,9 @@ function VideoRow({
             <span>The upload didn&apos;t finish. Upload the file again.</span>
           }
           chip={<Chip className="bg-gray-100 text-gray-600">Incomplete</Chip>}
-        />
+        >
+          {del}
+        </RowShell>
       )
   }
 }
@@ -662,7 +708,7 @@ function VideoUploadForm({
       <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
-        <Button type="submit" disabled={!file}>
+        <Button type="submit" disabled={!file} className="max-sm:flex-1">
           <CloudArrowUpIcon /> Start upload
         </Button>
         <Button type="button" variant="ghost" onClick={onClose}>
@@ -738,7 +784,7 @@ function VideoDetailsForm({
       <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving} className="max-sm:flex-1">
           {saving && <CircleNotchIcon className="animate-spin" />}
           Save video
         </Button>
@@ -755,7 +801,7 @@ function VideoDetailsForm({
  * hidden). Each row opens the player. Locked rows (not enrolled, or on a lower tier) only show the title and
  * why they are closed; `tier` is the student's tier in the course.
  */
-export function VideoList({ videos, tier }: { videos: Video[]; tier?: Tier }) {
+export function VideoList({ videos, tier, linkQuery }: { videos: Video[]; tier?: Tier; linkQuery?: string }) {
   const ready = videos.filter((v) => v.status === "ready")
   if (ready.length === 0) return null
   return (
@@ -770,32 +816,24 @@ export function VideoList({ videos, tier }: { videos: Video[]; tier?: Tier }) {
             </h3>
             <ul className="space-y-2">
               {group.map((v) => (
-                <li key={v.id}>
-                  {v.locked ? (
-                    <div className="flex items-center gap-3 rounded-md border border-dashed border-border bg-white/60 p-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                        <LockIcon className="size-4.5" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-heading/70">
-                          {v.title}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Locked
-                        </span>
-                      </span>
-                      <LockHint courseTier={tier} tags={v.tiers} />
-                    </div>
-                  ) : (
+                v.locked ? (
+                  <LockedRow
+                    key={v.id}
+                    title={v.title}
+                    meta="Locked"
+                    hint={<LockHint courseTier={tier} tags={v.tiers} />}
+                  />
+                ) : (
+                  <li key={v.id}>
                     <Link
-                      href={`/courses/${v.courseId}/learn?v=${v.id}`}
-                      className="group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
+                      href={`/courses/${v.courseId}/learn?v=${v.id}${linkQuery ? `&${linkQuery}` : ""}`}
+                      className="tap group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 hover:border-teal/40 hover:shadow-sm active:border-teal/40"
                     >
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
                         <PlayCircleIcon className="size-5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-heading">
+                        <span className="line-clamp-2 block text-sm font-semibold break-words text-heading">
                           {v.title}
                         </span>
                         <span className="text-xs text-muted-foreground">
@@ -805,8 +843,8 @@ export function VideoList({ videos, tier }: { videos: Video[]; tier?: Tier }) {
                       {v.tiers.includes("free") && <Badge variant="lime">Preview</Badge>}
                       <ArrowRightIcon className="size-4 shrink-0 text-heading/50 transition-transform duration-200 group-hover/row:translate-x-1" />
                     </Link>
-                  )}
-                </li>
+                  </li>
+                )
               ))}
             </ul>
           </section>

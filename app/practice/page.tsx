@@ -133,7 +133,7 @@ function QuizRow({ quiz: q, showCourse }: { quiz: MyQuiz; showCourse: boolean })
   const tried = q.attemptCount > 0
   const time = isMock ? (q.timeLimitSec ? `${Math.round(q.timeLimitSec / 60) || 1} min` : "Untimed") : "Self-paced"
   return (
-    <TableRow className="group relative">
+    <TableRow className="group relative touch-manipulation active:bg-gray-100">
       <TableCell className="max-w-0 py-3.5 pl-5 whitespace-normal">
         {/* The title link covers the row, so the whole row opens the test. A locked test only shows its title. */}
         {q.locked ? (

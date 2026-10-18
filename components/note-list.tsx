@@ -1,12 +1,12 @@
 "use client"
 
-import { ArrowRightIcon, FileTextIcon, LockIcon, PencilSimpleIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, FileTextIcon, PencilSimpleIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
 import { NoteForm } from "@/components/note-form"
 import { Badge } from "@/components/ui/badge"
-import { LockHint, TierBadge } from "@/components/tier-badge"
+import { LockHint, LockedRow, TierBadge } from "@/components/tier-badge"
 import { Button } from "@/components/ui/button"
 import { deleteNote, type Note, type Tier } from "@/lib/api"
 
@@ -40,43 +40,30 @@ export function NoteList({
         n.id === editingId ? (
           <li key={n.id}>{editor}</li>
         ) : n.locked ? (
-          <li
+          <LockedRow
             key={n.id}
-            className="flex items-center gap-3 rounded-md border border-border bg-gray-50 p-3"
-            aria-label={`${n.title}, locked`}
-          >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-              <LockIcon className="size-4.5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-gray-600">
-                {n.title}
-              </span>
-              <span className="tnum flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                {size(n)}
-                <LockHint courseTier={tier} tags={n.tiers} className="sm:hidden" />
-              </span>
-            </span>
-            <LockHint courseTier={tier} tags={n.tiers} className="max-sm:hidden" />
-          </li>
+            title={n.title}
+            meta={size(n)}
+            hint={<LockHint courseTier={tier} tags={n.tiers} />}
+          />
         ) : (
           <li
             key={n.id}
-            className="group/row flex items-center gap-1 rounded-md border border-border bg-white pr-2 transition-all duration-200 hover:border-teal/40 hover:shadow-sm"
+            className="tap group/row flex items-center gap-1 rounded-md border border-border bg-white pr-2 hover:border-teal/40 hover:shadow-sm"
           >
             <button
               type="button"
               onClick={() => onOpen(n)}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-3 text-left"
+              className="tap-link flex min-w-0 flex-1 items-center gap-3 self-stretch rounded-md p-3 text-left"
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
                 <FileTextIcon className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-heading">
+                <span className="line-clamp-2 block text-sm font-semibold break-words text-heading">
                   {n.title}
                 </span>
-                <span className="tnum flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="tnum flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {size(n)}
                   {onEdit ? <TierBadge tags={n.tiers} /> : n.tiers.includes("free") && <Badge variant="lime">Free preview</Badge>}
                 </span>

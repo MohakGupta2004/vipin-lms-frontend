@@ -185,7 +185,7 @@ function CourseRow({ course: c }: { course: CourseProgress }) {
     </span>
   )
   return (
-    <TableRow className="group relative">
+    <TableRow className="group relative touch-manipulation active:bg-gray-100">
       <TableCell className="max-w-0 py-4 pl-5">
         {/* The title link covers the row, so the whole row opens the course's videos. */}
         <Link href={`/learn?course=${c.courseId}`} className="block truncate text-[15px] text-heading after:absolute after:inset-0">

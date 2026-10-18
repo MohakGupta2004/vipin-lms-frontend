@@ -237,13 +237,13 @@ export function QuizBuilder({
               `${questions.length} question${questions.length === 1 ? "" : "s"}`
             )}
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-sm:w-full">
             {onCancel && (
               <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
                 Cancel
               </Button>
             )}
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="max-sm:flex-1">
               {saving && <CircleNotchIcon className="animate-spin" />}
               {editing ? "Save test" : "Create test"}
             </Button>

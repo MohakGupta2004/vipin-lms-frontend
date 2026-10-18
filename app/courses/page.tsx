@@ -127,23 +127,27 @@ function Courses() {
         )}
         <div className="grid gap-6 md:grid-cols-2">
         {courses.map((c, i) => (
-          <Card key={c.id} className="rise group gap-5 transition-all duration-200 hover:border-teal/40" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+          <Card key={c.id} className="rise tap group relative gap-5 hover:border-teal/40 hover:shadow-sm" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
             <CardContent className="flex h-full flex-col gap-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
                   {c.isFree && <Badge variant="lime">Free</Badge>}
                 </div>
-                <Link
-                  href={`/courses/${c.id}`}
-                  aria-label={`${c.instructorId === me.id ? "Manage" : "View"} ${c.title}`}
+                <span
+                  aria-hidden
                   className="flex size-8 shrink-0 items-center justify-center rounded-full border border-heading/40 text-heading transition-colors duration-200 group-hover:border-teal group-hover:bg-teal group-hover:text-white"
                 >
                   <ArrowRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
+                </span>
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl leading-snug font-semibold text-heading">{c.title}</h2>
+                <h2 className="text-xl leading-snug font-semibold text-heading">
+                  {/* Stretched over the card, so a tap anywhere opens the course; the controls below sit above it. */}
+                  <Link href={`/courses/${c.id}`} className="tap-link break-words after:absolute after:inset-0 after:rounded-xl">
+                    {c.title}
+                  </Link>
+                </h2>
                 {c.shortDescription && <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">{c.shortDescription}</p>}
               </div>
               <dl className="grid gap-x-6 gap-y-2 border-t border-border pt-4 text-xs sm:grid-cols-2">
@@ -163,11 +167,11 @@ function Courses() {
                   <dt className="text-muted-foreground">Course ID</dt>
                   <dd className="flex items-center gap-1 font-mono text-[11px] text-heading">
                     <span className="truncate">{c.id}</span>
-                    <CopyButton text={c.id} label="Copy course ID" />
+                    <span className="relative z-10"><CopyButton text={c.id} label="Copy course ID" /></span>
                   </dd>
                 </div>
               </dl>
-              <div className="mt-auto flex flex-wrap gap-2">
+              <div className="relative z-10 mt-auto flex flex-wrap gap-2">
                 <Link href={`/courses/${c.id}`} className={buttonVariants({ size: "sm" })}>
                   {c.instructorId === me.id ? "Manage" : "View"}
                   <ArrowRightIcon />
@@ -363,7 +367,7 @@ function CreateCourse({
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />
             <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className="max-sm:flex-1">
                 {saving && <CircleNotchIcon className="animate-spin" />}
                 Create course
               </Button>
