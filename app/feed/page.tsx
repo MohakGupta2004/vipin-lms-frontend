@@ -156,7 +156,7 @@ function Feed() {
                 <li key={c.id}>
                   <Link
                     href={courseHref(c.id)}
-                    className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
+                    className="group grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
                   >
                     <div className="min-w-0">
                       <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem]">{c.title}</p>
@@ -327,7 +327,7 @@ function NewPost({ courses, onPosted }: { courses: Course[]; onPosted: () => voi
             <Textarea id="plinks" className="min-h-14" value={links} onChange={(e) => setLinks(e.target.value)} />
           </Field>
           <ErrorNote error={error} />
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
             {saving && <CircleNotchIcon className="animate-spin" />}
             Post
           </Button>

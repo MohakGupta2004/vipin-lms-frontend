@@ -46,9 +46,11 @@ const LETTERS = "ABCDEFGHIJ"
 export function QuizPlayer({
   onRestart,
   onExit,
+  exitLabel = "Practice section",
 }: {
   onRestart: () => void
   onExit: () => void
+  exitLabel?: string
 }) {
   const { quiz, practice, state } = useQuizSession()
   if (state.status !== "finished") return <Runner />
@@ -58,6 +60,7 @@ export function QuizPlayer({
         result={state.mockResult}
         onRestart={onRestart}
         onExit={onExit}
+        exitLabel={exitLabel}
       />
     )
   return (
@@ -70,7 +73,7 @@ export function QuizPlayer({
             <ArrowCounterClockwiseIcon /> Practice again
           </Button>
           <Button variant="outline" onClick={onExit}>
-            Practice section
+            {exitLabel}
           </Button>
         </>
       }
@@ -90,6 +93,8 @@ function Runner() {
     go,
     pick,
     check,
+    retry,
+    reveal,
     finish,
   } = useQuizSession()
   const total = questions.length
@@ -97,6 +102,17 @@ function Runner() {
   const picked = state.picked[current.id]
   const result = practice ? state.checked[current.id] : undefined
   const submitting = state.status === "submitting"
+  // A wrong answer keeps the correct option hidden until the student asks, so they can try again.
+  const showAnswer = !!result && (result.isCorrect || !!state.revealed[current.id])
+  const canRetry = !!result && !showAnswer && !submitting
+  const optionsRef = useRef<HTMLDivElement>(null)
+
+  // Try again, optionally straight onto another option (tapping it in the revealed list).
+  function tryAgain(optionId?: string) {
+    retry()
+    if (optionId) pick(optionId)
+    requestAnimationFrame(() => optionsRef.current?.querySelector<HTMLInputElement>(optionId ? "input:checked" : "input")?.focus({ preventScroll: true }))
+  }
 
   // Asking before a submit that can't be undone (or a practice finish with gaps) happens in a dialog.
   const [asking, setAsking] = useState(false)
@@ -164,6 +180,8 @@ function Runner() {
         : LETTERS.indexOf(e.key.toUpperCase())
       if (n >= 0 && n < current.options.length) {
         pick(current.options[n].id)
+      } else if (e.key.toLowerCase() === "r" && canRetry) {
+        tryAgain()
       } else if (e.key === "ArrowRight" && el.tagName !== "INPUT") {
         go(state.index + 1)
       } else if (e.key === "ArrowLeft" && el.tagName !== "INPUT") {
@@ -334,11 +352,13 @@ function Runner() {
         {result ? (
           <OptionReveal
             options={current.options}
-            correctOptionId={result.correctOptionId}
+            correctOptionId={showAnswer ? result.correctOptionId : undefined}
             selectedOptionId={result.selectedOptionId}
+            onPick={canRetry ? tryAgain : undefined}
           />
         ) : (
           <div
+            ref={optionsRef}
             className="space-y-2.5"
             role="radiogroup"
             aria-label={`Answers to question ${state.index + 1}`}
@@ -383,6 +403,9 @@ function Runner() {
             ref={feedbackRef}
             answer={result}
             options={current.options}
+            showAnswer={showAnswer}
+            onRetry={() => tryAgain()}
+            onReveal={reveal}
           />
         )}
       </section>
@@ -634,10 +657,16 @@ function QuestionText({
 function Feedback({
   answer,
   options,
+  showAnswer,
+  onRetry,
+  onReveal,
   ref,
 }: {
   answer: AttemptAnswer
   options: Question["options"]
+  showAnswer: boolean
+  onRetry: () => void
+  onReveal: () => void
   ref?: React.Ref<HTMLDivElement>
 }) {
   const correct = options.findIndex((o) => o.id === answer.correctOptionId)
@@ -666,9 +695,22 @@ function Feedback({
         )}
         {answer.isCorrect
           ? "Correct"
-          : `Not quite. The right answer is ${LETTERS[correct] ?? "marked in green"}.`}
+          : showAnswer
+            ? `Not quite. The right answer is ${LETTERS[correct] ?? "marked in green"}.`
+            : "Not quite. Tap another option to try again, or show the answer."}
       </p>
-      {answer.explanation && (
+      {!answer.isCorrect && !showAnswer && (
+        <div className="flex flex-col gap-2 pt-1.5 sm:flex-row">
+          <Button size="lg" className="w-full sm:h-9 sm:w-auto sm:text-sm" onClick={onRetry}>
+            <ArrowCounterClockwiseIcon /> Try again
+            <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] sm:inline">R</kbd>
+          </Button>
+          <Button variant="outline" size="lg" className="w-full bg-white sm:h-9 sm:w-auto sm:text-sm" onClick={onReveal}>
+            Show answer
+          </Button>
+        </div>
+      )}
+      {showAnswer && answer.explanation && (
         <p className="leading-relaxed whitespace-pre-line text-gray-700">
           {answer.explanation}
         </p>
@@ -677,26 +719,36 @@ function Feedback({
   )
 }
 
-/** Options with the correct one in green and a wrong pick in red. */
+/**
+ * Options with the correct one in green and a wrong pick in red. With onPick (a wrong practice answer still
+ * hidden), every other option stays tappable and picks itself for another try.
+ */
 function OptionReveal({
   options,
   correctOptionId,
   selectedOptionId,
+  onPick,
 }: {
   options: Question["options"]
   correctOptionId?: string
   selectedOptionId?: string | null
+  onPick?: (optionId: string) => void
 }) {
   return (
     <ul className="space-y-2.5 text-[15px] leading-[1.4]">
       {options.map((o, i) => {
         const correct = o.id === correctOptionId
         const wrongPick = !correct && o.id === selectedOptionId
+        const retryable = !!onPick && !wrongPick
         return (
           <li
             key={o.id}
+            onClick={retryable ? () => onPick(o.id) : undefined}
             className={
               "flex min-h-[3.25rem] items-center gap-3 rounded-xl border px-3.5 py-2.5 sm:min-h-14 sm:gap-3.5 sm:px-4 sm:py-3 " +
+              (retryable
+                ? "cursor-pointer touch-manipulation bg-white text-gray-700 transition-[background-color,border-color,transform] duration-150 select-none active:scale-[0.985] hover:border-teal/50 hover:bg-gray-50 "
+                : "") +
               (correct
                 ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700"
                 : wrongPick
@@ -756,10 +808,12 @@ function MockScore({
   result,
   onRestart,
   onExit,
+  exitLabel,
 }: {
   result: MockResult
   onRestart: () => void
   onExit: () => void
+  exitLabel: string
 }) {
   const pct = result.total ? Math.round((result.score / result.total) * 100) : 0
   return (
@@ -809,7 +863,7 @@ function MockScore({
           <ArrowCounterClockwiseIcon /> Retake test
         </Button>
         <Button variant="outline" onClick={onExit}>
-          Practice section
+          {exitLabel}
         </Button>
       </div>
     </div>

@@ -719,6 +719,10 @@ export const setVideoCompletion = (videoId: string, completed: boolean) =>
   json<{ completed: boolean }>("PUT", `/videos/${id(videoId)}/completion`, { body: { completed } })
 
 /** Re-queues transcoding of a failed video; the uploaded file is reused. */
+/** Owner only. 409 while the video is still processing; its files are removed from storage afterwards. */
+export const deleteVideo = (videoId: string) =>
+  json<string>("DELETE", `/videos/${id(videoId)}`)
+
 export const retryVideo = async (videoId: string) =>
   (await json<{ video: Video }>("POST", `/videos/${id(videoId)}/retry`)).video
 

@@ -29,6 +29,8 @@ type State = {
   picked: Record<string, string>
   /** Practice only: questionId -> graded answer, filled in as each one is checked. */
   checked: Record<string, AttemptAnswer>
+  /** Practice only: questions whose correct answer is on show (answered right, or the student asked). */
+  revealed: Record<string, true>
   checking: boolean
   status: Status
   mockResult: MockResult | null
@@ -40,6 +42,8 @@ type State = {
 type Action =
   | { type: "go"; index: number }
   | { type: "pick"; questionId: string; optionId: string }
+  | { type: "retry"; questionId: string }
+  | { type: "reveal"; questionId: string }
   | { type: "checking" }
   | { type: "checked"; answer: AttemptAnswer }
   | { type: "submitting" }
@@ -50,6 +54,7 @@ const initial: State = {
   index: 0,
   picked: {},
   checked: {},
+  revealed: {},
   checking: false,
   status: "answering",
   mockResult: null,
@@ -65,10 +70,28 @@ function reducer(state: State, action: Action): State {
       // A checked practice answer is final; nothing changes once the test is submitted.
       if (state.status !== "answering" || state.checking || state.checked[action.questionId]) return state
       return { ...state, picked: { ...state.picked, [action.questionId]: action.optionId } }
+    case "retry": {
+      // Only a wrong, still hidden answer can be retried.
+      const a = state.checked[action.questionId]
+      if (state.status !== "answering" || !a || a.isCorrect || state.revealed[action.questionId]) return state
+      const checked = { ...state.checked }
+      const picked = { ...state.picked }
+      delete checked[action.questionId]
+      delete picked[action.questionId]
+      return { ...state, checked, picked }
+    }
+    case "reveal":
+      if (state.status !== "answering" || !state.checked[action.questionId]) return state
+      return { ...state, revealed: { ...state.revealed, [action.questionId]: true } }
     case "checking":
       return { ...state, checking: true, error: null }
     case "checked":
-      return { ...state, checking: false, checked: { ...state.checked, [action.answer.questionId]: action.answer } }
+      return {
+        ...state,
+        checking: false,
+        checked: { ...state.checked, [action.answer.questionId]: action.answer },
+        revealed: action.answer.isCorrect ? { ...state.revealed, [action.answer.questionId]: true } : state.revealed,
+      }
     case "submitting":
       return { ...state, status: "submitting", error: null }
     case "finished":
@@ -92,6 +115,10 @@ type QuizSession = {
   pick: (optionId: string) => void
   /** Practice: reveal whether the current pick is right. */
   check: () => Promise<void>
+  /** Practice: clear a wrong answer so the question can be tried again. */
+  retry: () => void
+  /** Practice: give up on a wrong answer and show the correct one. */
+  reveal: () => void
   /** Mock: submit for marks. Practice: save the session and open the review. */
   finish: () => Promise<void>
 }
@@ -144,6 +171,9 @@ export function QuizSessionProvider({
     }
   }, [practice, quiz.id, current, state.picked, state.checked])
 
+  const retry = useCallback(() => current && dispatch({ type: "retry", questionId: current.id }), [current])
+  const reveal = useCallback(() => current && dispatch({ type: "reveal", questionId: current.id }), [current])
+
   const finish = useCallback(async () => {
     if (state.status !== "answering" || busy.current) return
     busy.current = true
@@ -195,8 +225,8 @@ export function QuizSessionProvider({
   const done = practice ? Object.keys(state.checked).length : Object.keys(state.picked).length
 
   const value = useMemo<QuizSession>(
-    () => ({ quiz, questions, practice, state, current, done, remaining, go, pick, check, finish }),
-    [quiz, questions, practice, state, current, done, remaining, go, pick, check, finish]
+    () => ({ quiz, questions, practice, state, current, done, remaining, go, pick, check, retry, reveal, finish }),
+    [quiz, questions, practice, state, current, done, remaining, go, pick, check, retry, reveal, finish]
   )
 
   return <QuizSessionContext value={value}>{children}</QuizSessionContext>

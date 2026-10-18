@@ -426,7 +426,7 @@ function PdfImport({
           />
 
           <ErrorNote error={error} />
-          <Button type="submit" disabled={!!saving || chosen.length === 0}>
+          <Button type="submit" disabled={!!saving || chosen.length === 0} className="max-sm:w-full">
             {saving && <CircleNotchIcon className="animate-spin" />}
             {saving
               ? `Creating ${saving[0]} of ${saving[1]}…`

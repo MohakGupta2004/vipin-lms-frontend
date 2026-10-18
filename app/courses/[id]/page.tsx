@@ -2,8 +2,8 @@
 
 import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { DeckSummary } from "@/components/flashcard-links"
@@ -56,7 +56,9 @@ const slugOk = "[a-z0-9]+(-[a-z0-9]+)*"
 export default function CoursePage() {
   return (
     <AppShell>
-      <CourseView />
+      <Suspense>
+        <CourseView />
+      </Suspense>
     </AppShell>
   )
 }
@@ -65,6 +67,7 @@ function CourseView() {
   const user = useUser()!
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
+  const fromExplore = useSearchParams().get("from") === "explore"
   const valid = UUID_RE.test(id)
   const [course, setCourse] = useState<CourseT | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -133,7 +136,8 @@ function CourseView() {
   const tier: Tier = course?.tier ?? "free"
   const playable = videos.filter((v) => v.status === "ready" && !v.locked).length
   const freeLessons = lessons.filter((l) => !l.locked).length
-  const learnHref = `/courses/${id}/learn`
+  const learnHref = `/courses/${id}/learn?from=course${fromExplore ? "&via=explore" : ""}`
+  const linkQuery = fromExplore ? "from=course&via=explore" : "from=course"
   // Each lesson card manages its own slice of the course's videos.
   const setLessonVideos = (lessonId: string) => (fn: (v: Video[]) => Video[]) =>
     setVideos((all) => [...all.filter((v) => v.lessonId !== lessonId), ...fn(all.filter((v) => v.lessonId === lessonId))])
@@ -149,7 +153,13 @@ function CourseView() {
   return (
     <>
       <PageTitle
-        back={user.role === "admin" ? { href: "/courses", label: "All courses" } : { href: "/feed", label: user.role === "student" ? "Dashboard" : "My classroom" }}
+        back={
+          user.role === "admin"
+            ? { href: "/courses", label: "All courses" }
+            : fromExplore || preview
+              ? { href: "/explore", label: "Explore courses" }
+              : { href: "/feed", label: user.role === "student" ? "Dashboard" : "My classroom" }
+        }
         title={course?.title ?? "Course"}
         subtitle={
           isOwner
@@ -158,13 +168,14 @@ function CourseView() {
         }
         actions={
           isOwner ? (
-            <div className="flex flex-wrap items-center gap-2">
+            // Phones: "Add lesson" across the top, the rest in a tidy two-column grid.
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               {readyVideos > 0 && (
                 <Link href={learnHref} className={buttonVariants({ variant: "outline" })}>
                   <PlayCircleIcon /> Preview player
                 </Link>
               )}
-              <Select aria-label="Course status" className="h-9 w-36" value={course.status} onChange={(e) => onStatus(e.target.value as CourseStatus)}>
+              <Select aria-label="Course status" className="h-9 w-full sm:w-36" value={course.status} onChange={(e) => onStatus(e.target.value as CourseStatus)}>
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
@@ -175,14 +186,14 @@ function CourseView() {
               <Button variant="destructive" onClick={onDelete}>
                 <TrashIcon /> Delete
               </Button>
-              <Button onClick={() => setMode(mode === "lesson" ? null : "lesson")}>
+              <Button className="col-span-2 max-sm:order-first" onClick={() => setMode(mode === "lesson" ? null : "lesson")}>
                 <PlusIcon /> Add lesson
               </Button>
             </div>
           ) : (
             canSeeLessons &&
             playable > 0 && (
-              <Link href={learnHref} className={buttonVariants({ variant: "navy", size: "lg" })}>
+              <Link href={learnHref} className={buttonVariants({ variant: "navy", size: "lg" }) + " max-sm:w-full"}>
                 <PlayCircleIcon /> {preview ? "Watch free preview" : "Start learning"}
               </Link>
             )
@@ -193,7 +204,7 @@ function CourseView() {
       <ErrorNote error={error} />
 
       {preview && canSeeLessons && (
-        <div className="rise flex flex-wrap items-center gap-4 rounded-lg border border-secondary bg-lime-soft/50 p-5" style={{ "--i": 1 } as React.CSSProperties}>
+        <div className="rise flex flex-wrap items-center gap-4 rounded-lg border border-secondary bg-lime-soft/50 p-4 sm:p-5" style={{ "--i": 1 } as React.CSSProperties}>
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-navy">
             <LockOpenIcon className="size-5" />
           </span>
@@ -296,6 +307,7 @@ function CourseView() {
         lessons.map((l, i) => (
           <LessonCard
             key={l.id}
+            linkQuery={linkQuery}
             open={openIds.has(l.id)}
             setOpen={(v) =>
               setOpenIds((cur) => {
@@ -312,6 +324,7 @@ function CourseView() {
             videos={videos.filter((v) => v.lessonId === l.id)}
             setVideos={setLessonVideos(l.id)}
             deck={deckOf(l.id)}
+            courseDeck={deckOf(null)}
             onDeckChange={setDeckOf(l.id)}
             tier={tier}
             onChange={(fn) => patchLesson(l.id, fn)}
@@ -331,7 +344,7 @@ function CourseView() {
             {isOwner ? (
               <FlashcardDeckPanel courseId={id} lessonId={null} deck={deckOf(null)} onChange={setDeckOf(null)} />
             ) : (
-              <DeckSummary deck={deckOf(null)} tier={tier} />
+              <DeckSummary deck={deckOf(null)} tier={tier} title="Course-wide flashcards" />
             )}
           </div>
         </section>
@@ -410,7 +423,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
           </label>
           <div className="space-y-3 sm:col-span-2">
             <ErrorNote error={error} />
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving} className="max-sm:w-full">
               {saving && <CircleNotchIcon className="animate-spin" />}
               Save changes
             </Button>
@@ -458,7 +471,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
             <FieldLabel htmlFor="lcontent">Short description</FieldLabel>
             <Textarea id="lcontent" maxLength={50000} value={content} onChange={(e) => setContent(e.target.value)} />
           </Field>
-          <div className="flex gap-6 text-sm text-gray-700">
+          <div className="flex flex-col gap-3 text-sm text-gray-700 sm:flex-row sm:gap-6">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isPublished} onChange={(e) => setPublished(e.target.checked)} />
               Published (visible to students)
@@ -469,7 +482,7 @@ function NewLesson({ courseId, onCreated }: { courseId: string; onCreated: () =>
             </label>
           </div>
           <ErrorNote error={error} />
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving} className="max-sm:w-full">
             {saving && <CircleNotchIcon className="animate-spin" />}
             Create lesson
           </Button>
@@ -490,8 +503,10 @@ function LessonCard({
   onChange,
   onDeleted,
   deck,
+  courseDeck,
   onDeckChange,
   tier,
+  linkQuery,
 }: {
   open: boolean
   setOpen: (v: boolean | ((c: boolean) => boolean)) => void
@@ -503,9 +518,12 @@ function LessonCard({
   onChange: (fn: (l: Lesson) => Lesson) => void
   onDeleted: () => void
   deck: FlashcardDeck | null
+  /** The course-wide deck, shown to students in a lesson that has no deck of its own. */
+  courseDeck: FlashcardDeck | null
   onDeckChange: (deck: FlashcardDeck | null) => void
   /** The viewer's tier in the course. Free = not enrolled: only free items open. */
   tier: Tier
+  linkQuery: string
 }) {
   const [preview, setPreview] = useState<Note | null>(null)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
@@ -513,7 +531,32 @@ function LessonCard({
   const [panel, setPanel] = useState<"quiz" | "video-offline" | "video-meet" | "edit" | null>(null)
   const notes = lesson.notes ?? []
   const locked = !!lesson.locked
+  const free = (x: { tiers: readonly string[] }) => x.tiers.includes("free")
+  // What a viewer who isn't the owner can do in this lesson: some of it may be free (or open on their plan) even when the lesson itself is locked.
+  const hasFree =
+    lesson.isFree ||
+    notes.some(free) ||
+    videos.some((v) => v.status === "ready" && free(v)) ||
+    quizzes.some(free) ||
+    (deck?.freeCardCount ?? 0) > 0
+  const hasOpen =
+    !locked ||
+    notes.some((n) => !n.locked) ||
+    videos.some((v) => v.status === "ready" && !v.locked) ||
+    quizzes.some((q) => !q.locked) ||
+    (deck?.accessibleCardCount ?? 0) > 0
+  const showLock = isOwner ? locked : tier === "free" ? !hasFree : !hasOpen
+  // Previewers see whether the lesson has anything free; enrolled students only hear about a lesson that is shut.
+  const access =
+    tier === "free" ? (
+      hasFree ? <Badge variant="lime">Free preview</Badge> : <Badge variant="outline">Enroll to unlock</Badge>
+    ) : (
+      !hasOpen && <Badge variant="outline">Not on your plan</Badge>
+    )
   const setNotes = (fn: (n: Note[]) => Note[]) => onChange((l) => ({ ...l, notes: fn(l.notes ?? []) }))
+  // Students get the lesson's own deck, else the course-wide one; with neither the Flashcards section is left out.
+  const hasCards = (d: FlashcardDeck | null): d is FlashcardDeck => !!d && d.cardCount > 0
+  const studyDeck = hasCards(deck) ? deck : hasCards(courseDeck) ? courseDeck : null
 
   useEffect(() => {
     listQuizzes(lesson.id).then(setQuizzes).catch((e) => setError(errMsg(e)))
@@ -558,15 +601,15 @@ function LessonCard({
       className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200"
       style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
     >
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+      <div className="flex flex-col gap-3 p-4 transition-colors has-[>button:active]:bg-gray-50 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open_}
           aria-controls={`lesson-${lesson.id}`}
-          className="group flex w-full min-w-0 items-center gap-3 rounded-md text-left sm:flex-1 sm:gap-4"
+          className="group flex w-full min-w-0 touch-manipulation items-center gap-3 rounded-md text-left sm:flex-1 sm:gap-4"
         >
-          {locked ? (
+          {showLock ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Locked">
               <LockIcon className="size-4.5" />
             </span>
@@ -577,6 +620,14 @@ function LessonCard({
           )}
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 block text-base font-semibold break-words text-heading sm:truncate sm:text-lg">{lesson.title}</span>
+            {/* A student's access badge lives inside the button, so tapping anywhere on the header opens the lesson. */}
+            {!isOwner && access && <span className="mt-1.5 flex">{access}</span>}
+            {isOwner && (!lesson.isPublished || lesson.isFree) && (
+              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                {!lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
+                {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
+              </span>
+            )}
             <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap text-muted-foreground">
               <span className="flex items-center gap-1.5"><FileTextIcon className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
               <span className="flex items-center gap-1.5"><ListChecksIcon className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
@@ -585,30 +636,25 @@ function LessonCard({
           </span>
           <CaretDownIcon className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
         </button>
-        <div className="flex flex-wrap items-center gap-2 empty:hidden max-sm:pl-14">
-          {isOwner && !lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
-          {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
-          {locked && <Badge variant="outline">{tier === "free" ? "Enroll to unlock" : "Not on your plan"}</Badge>}
-          {isOwner && (
-            <>
-              <Button variant="outline" size="sm" onClick={togglePublished}>
-                {lesson.isPublished ? <EyeSlashIcon /> : <EyeIcon />}
-                {lesson.isPublished ? "Unpublish" : "Publish"}
-              </Button>
-              <Button variant="ghost" size="icon-sm" aria-label={`Edit ${lesson.title}`} onClick={() => { setOpen(true); setPanel(panel === "edit" ? null : "edit") }}>
-                <PencilSimpleIcon />
-              </Button>
-              <Button variant="ghost" size="icon-sm" aria-label={`Delete ${lesson.title}`} className="hover:bg-destructive/10 hover:text-destructive" onClick={removeLesson}>
-                <TrashIcon />
-              </Button>
-            </>
-          )}
-        </div>
+        {isOwner && (
+          <div className="flex shrink-0 items-center gap-1 max-sm:pl-14">
+            <Button variant="outline" size="sm" onClick={togglePublished}>
+              {lesson.isPublished ? <EyeSlashIcon /> : <EyeIcon />}
+              {lesson.isPublished ? "Unpublish" : "Publish"}
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${lesson.title}`} onClick={() => { setOpen(true); setPanel(panel === "edit" ? null : "edit") }}>
+              <PencilSimpleIcon />
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label={`Delete ${lesson.title}`} className="hover:bg-destructive/10 hover:text-destructive" onClick={removeLesson}>
+              <TrashIcon />
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="expand" data-open={open_} id={`lesson-${lesson.id}`}>
         <div>
-          <div className="space-y-6 border-t border-border bg-gray-50/60 p-5 sm:p-6">
+          <div className="space-y-6 border-t border-border bg-gray-50/60 p-4 sm:p-6">
             {lesson.content && (
               <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>
             )}
@@ -624,7 +670,7 @@ function LessonCard({
               />
             )}
 
-            {!isOwner && <VideoList videos={videos} tier={tier} />}
+            {!isOwner && <VideoList videos={videos} tier={tier} linkQuery={linkQuery} />}
             {isOwner && (
               <VideoSection
                 lessonId={lesson.id}
@@ -635,7 +681,7 @@ function LessonCard({
               />
             )}
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 xl:grid-cols-3">
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
                   <StackIcon className="size-4 text-teal" /> Notes
@@ -664,7 +710,7 @@ function LessonCard({
                     No tests yet.
                   </p>
                 )}
-                <QuizList quizzes={quizzes} tier={tier} owner={isOwner} />
+                <QuizList quizzes={quizzes} tier={tier} owner={isOwner} linkQuery={linkQuery} />
                 {isOwner && (
                   <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
                     <PlusIcon /> Create test
@@ -679,16 +725,22 @@ function LessonCard({
                 )}
               </section>
 
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-                  <CardsIcon className="size-4 text-teal" /> Flashcards
-                </h3>
-                {isOwner ? (
-                  <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
-                ) : (
-                  <DeckSummary deck={deck} tier={tier} />
-                )}
-              </section>
+              {(isOwner || studyDeck) && (
+                <section className="space-y-3">
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+                    <CardsIcon className="size-4 text-teal" /> Flashcards
+                  </h3>
+                  {isOwner ? (
+                    <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
+                  ) : (
+                    <DeckSummary
+                      deck={studyDeck}
+                      tier={tier}
+                      title={studyDeck === deck ? `${lesson.title} flashcards` : "Course-wide flashcards"}
+                    />
+                  )}
+                </section>
+              )}
             </div>
           </div>
         </div>
@@ -733,7 +785,7 @@ function EditLesson({ lesson, onSaved }: { lesson: Lesson; onSaved: (l: Lesson) 
         Free preview
       </label>
       <ErrorNote error={error} />
-      <Button type="submit" disabled={saving}>
+      <Button type="submit" disabled={saving} className="max-sm:w-full">
         {saving && <CircleNotchIcon className="animate-spin" />}
         Save lesson
       </Button>

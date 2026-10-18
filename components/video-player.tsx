@@ -161,6 +161,9 @@ export function VideoPlayer({
         import("hls.js"),
         import("artplayer-plugin-hls-control"),
       ])
+      // Phones: the control bar has no room for picture-in-picture or the quality button (quality stays in
+      // settings), and without them fullscreen no longer falls off the right edge.
+      const narrow = window.matchMedia("(max-width: 640px)").matches
       return new ArtplayerCtor({
         container: container.current!,
         url,
@@ -172,7 +175,7 @@ export function VideoPlayer({
         playbackRate: true,
         aspectRatio: false,
         hotkey: true,
-        pip: true,
+        pip: !narrow,
         fullscreen: true,
         fullscreenWeb: false,
         miniProgressBar: true,
@@ -184,7 +187,7 @@ export function VideoPlayer({
         moreVideoAttr: { preload: "auto" },
         plugins: [
           hlsControl({
-            quality: { control: true, setting: true, getName: (l) => `${(l as { height: number }).height}p`, title: "Quality", auto: "Auto" },
+            quality: { control: !narrow, setting: true, getName: (l) => `${(l as { height: number }).height}p`, title: "Quality", auto: "Auto" },
           }),
         ],
         controls: [

@@ -126,15 +126,15 @@ function LearnYourWay() {
               ]}
             />
 
+            {inCourse.length === 0 && <Empty icon={sections[0].icon} title="No recordings yet" text="Recordings will show up here once they are shared." />}
             {sections.map((sec) => {
               const groups = groupsOf(sec.kind)
               const total = inCourse.filter((v) => v.kind === sec.kind).length
+              if (total === 0) return null
               return (
                 <section key={sec.kind} aria-label={sec.title} className="space-y-4">
                   <SectionHead title={sec.title} aside={<span className="tnum">{total} {total === 1 ? "recording" : "recordings"}</span>} />
-                  {total === 0 ? (
-                    <Empty icon={sec.icon} title={sec.emptyTitle} text={sec.empty} />
-                  ) : groups.length === 0 ? (
+                  {groups.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       No {show === "done" ? "completed" : show === "started" ? "in-progress" : "unstarted"} lectures here.
                     </p>
@@ -196,20 +196,23 @@ function LectureRow({ video, n }: { video: MyVideo; n: number }) {
   const duration = video.progress?.durationSec
   if (video.locked && !video.isFree)
     return (
-      <div className="flex items-center gap-4 bg-gray-50 px-5 py-3.5" aria-label={`${video.title}, locked`}>
-        <span className="tnum w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
+      <div className="flex items-start gap-4 bg-gray-50 px-5 py-3.5" aria-label={`${video.title}, locked`}>
+        <span className="tnum mt-1 w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
           <LockIcon className="size-3.5" />
         </span>
-        <p className="min-w-0 flex-1 truncate text-[15px] text-gray-600">
-          {video.title}
-          <span className="ml-2 text-xs text-muted-foreground">{VIDEO_KIND_LABEL[video.kind]}</span>
-        </p>
-        <LockHint tags={video.tiers} />
+        {/* Title first and in full; the reason it's locked wraps underneath, never beside it. */}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="line-clamp-2 text-[15px] break-words text-gray-600">{video.title}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {VIDEO_KIND_LABEL[video.kind]}
+            <LockHint tags={video.tiers} />
+          </div>
+        </div>
       </div>
     )
   return (
-    <Link href={playerHref(video)} className="group flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-gray-50">
+    <Link href={playerHref(video)} className="group flex touch-manipulation items-center gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100">
       <span className="tnum w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
       <StatusMark state={state} />
       <div className="min-w-0 flex-1">

@@ -105,7 +105,10 @@ function Learn() {
   const user = useUser()!
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-  const requested = useSearchParams().get("v")
+  const params = useSearchParams()
+  const requested = params.get("v")
+  const fromCourse = params.get("from") === "course"
+  const via = params.get("via")
   const valid = UUID_RE.test(id)
 
   const [course, setCourse] = useState<Course | null>(null)
@@ -117,8 +120,15 @@ function Learn() {
   const [lastWatched] = useState(() => readList(lastKey)[0] ?? null)
   const [sidebar, setSidebar] = useState(true)
   const [upNext, setUpNext] = useState<{ from: string; to: string } | null>(null)
-  // Students come here from Learn Your Way, so "back" returns them to this course's videos there.
-  const backHref = user.role === "student" ? `/learn?course=${id}` : `/courses/${id}`
+  // Opened from the course page (or Explore through it), "back" returns there; otherwise students came from
+  // Learn Your Way, so it returns them to this course's videos there.
+  const backHref = fromCourse
+    ? `/courses/${id}${via === "explore" ? "?from=explore" : ""}`
+    : user.role === "student"
+      ? `/learn?course=${id}`
+      : `/courses/${id}`
+  // Tests opened here come back to the player, which keeps its own way back.
+  const quizQuery = `from=learn${fromCourse ? `&via=${via === "explore" ? "explore" : "course"}` : ""}`
 
   useEffect(() => {
     if (!valid) return
@@ -216,7 +226,7 @@ function Learn() {
           <Brand onDark compact className="[&>span]:hidden sm:[&>span]:flex [&>div]:size-8" />
         </Link>
         <span aria-hidden className="hidden h-6 w-px bg-white/20 sm:block" />
-        <Link href={`/courses/${id}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-secondary sm:text-base">
+        <Link href={`/courses/${id}${via === "explore" ? "?from=explore" : ""}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-secondary sm:text-base">
           {course?.title ?? "Course"}
         </Link>
         {preview && <Badge variant="lime" className="shrink-0">Free preview</Badge>}
@@ -298,6 +308,7 @@ function Learn() {
               totalLectures={flat.length}
               totalSections={sections.length}
               isOwner={user.role !== "student" && course?.instructorId === user.id}
+              quizQuery={quizQuery}
               setNotes={(fn) =>
                 setSections((ss) =>
                   ss.map((s) => (s.lesson.id === section!.lesson.id ? { ...s, lesson: { ...s.lesson, notes: fn(s.lesson.notes ?? []) } } : s))
@@ -435,16 +446,30 @@ function CourseContent({
                               </li>
                             )
                           return (
-                            <li key={v.id} className={cn("relative flex items-start gap-3 px-4 py-3 transition-colors", active ? "bg-mint" : "hover:bg-gray-50")}>
+                            <li
+                              key={v.id}
+                              className={cn(
+                                "relative flex touch-manipulation items-start gap-3 px-4 py-3 transition-colors",
+                                active ? "bg-mint" : "hover:bg-gray-50 has-[button:active]:bg-gray-100"
+                              )}
+                            >
                               {active && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-teal" />}
-                              <input
-                                type="checkbox"
-                                className="mt-0.5 size-4 shrink-0 cursor-pointer"
-                                checked={checked}
-                                onChange={() => onToggleDone(v)}
-                                aria-label={`Mark "${v.title}" ${checked ? "not complete" : "complete"}`}
-                              />
-                              <button type="button" onClick={() => onSelect(v)} aria-current={active ? "true" : undefined} className="min-w-0 flex-1 text-left">
+                              {/* The checkbox sits above the row's stretched button with its own finger-sized target. */}
+                              <label className="relative z-10 -m-2.5 flex shrink-0 cursor-pointer p-2.5">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 size-4 cursor-pointer"
+                                  checked={checked}
+                                  onChange={() => onToggleDone(v)}
+                                  aria-label={`Mark "${v.title}" ${checked ? "not complete" : "complete"}`}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => onSelect(v)}
+                                aria-current={active ? "true" : undefined}
+                                className="min-w-0 flex-1 text-left after:absolute after:inset-0"
+                              >
                                 <span className={cn("block text-sm leading-snug text-heading", active && "font-semibold")}>
                                   {n}. {v.title}
                                 </span>
@@ -535,6 +560,7 @@ function LectureTabs({
   totalLectures,
   totalSections,
   isOwner,
+  quizQuery,
   setNotes,
   content,
   next,
@@ -548,6 +574,7 @@ function LectureTabs({
   totalLectures: number
   totalSections: number
   isOwner: boolean
+  quizQuery: string
   /** Updates this lesson's notes after the owner shares, edits or deletes one. */
   setNotes: (fn: (n: Note[]) => Note[]) => void
   content: React.ReactNode
@@ -685,7 +712,7 @@ function LectureTabs({
               </p>
             )}
             {quizzes?.length === 0 && <Empty>No tests for this lecture.</Empty>}
-            {quizzes && <QuizList quizzes={quizzes} tier={course.tier ?? "free"} owner={isOwner} />}
+            {quizzes && <QuizList quizzes={quizzes} tier={course.tier ?? "free"} owner={isOwner} linkQuery={quizQuery} />}
           </div>
         )}
         {tab === "flashcards" && (
@@ -695,20 +722,28 @@ function LectureTabs({
                 <CircleNotchIcon className="size-4 animate-spin" /> Loading…
               </p>
             )}
-            {decks && (
-              <>
-                <section className="space-y-3">
-                  <h2 className="text-sm font-medium text-heading">This lesson</h2>
-                  <DeckSummary deck={decks.find((d) => d.lessonId === lesson.id) ?? null} tier={course.tier ?? "free"} />
-                </section>
-                {decks.some((d) => d.lessonId === null && d.cardCount > 0) && (
-                  <section className="space-y-3">
-                    <h2 className="text-sm font-medium text-heading">Whole course</h2>
-                    <DeckSummary deck={decks.find((d) => d.lessonId === null) ?? null} tier={course.tier ?? "free"} />
-                  </section>
-                )}
-              </>
-            )}
+            {decks && (() => {
+              // Only decks with cards show; with none at all there is one plain empty line.
+              const lessonDeck = decks.find((d) => d.lessonId === lesson.id && d.cardCount > 0) ?? null
+              const courseDeck = decks.find((d) => d.lessonId === null && d.cardCount > 0) ?? null
+              if (!lessonDeck && !courseDeck) return <Empty>No flashcards for this lecture.</Empty>
+              return (
+                <>
+                  {lessonDeck && (
+                    <section className="space-y-3">
+                      <h2 className="text-sm font-medium text-heading">This lesson</h2>
+                      <DeckSummary deck={lessonDeck} tier={course.tier ?? "free"} title={`${lesson.title} flashcards`} />
+                    </section>
+                  )}
+                  {courseDeck && (
+                    <section className="space-y-3">
+                      <h2 className="text-sm font-medium text-heading">Whole course</h2>
+                      <DeckSummary deck={courseDeck} tier={course.tier ?? "free"} title="Course-wide flashcards" />
+                    </section>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )}
       </div>

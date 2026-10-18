@@ -1,12 +1,12 @@
 "use client"
 
-import { ArrowRightIcon, FileTextIcon, LockIcon, NotePencilIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, FileTextIcon, NotePencilIcon } from "@phosphor-icons/react/dist/ssr"
 import { Suspense, useEffect, useMemo, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { CourseChips, Empty, Loading, SectionHead, useCourseFilter } from "@/components/learning"
 import { PdfPreview } from "@/components/pdf-preview"
-import { LockHint } from "@/components/tier-badge"
+import { LockHint, LockedRow } from "@/components/tier-badge"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -95,32 +95,26 @@ function Notes() {
                     {shown.map((n) => (
                       <li key={n.id}>
                         {n.locked ? (
-                          <div className="flex w-full items-center gap-3 bg-gray-50 px-5 py-4" aria-label={`${n.title}, locked`}>
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                              <LockIcon className="size-4.5" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[15px] text-gray-600">{n.title}</span>
-                              <span className="tnum mt-0.5 block truncate text-xs text-muted-foreground">
-                                {showCourse && `${n.courseTitle} · `}
-                                {n.lessonTitle} · {(n.sizeBytes / 1024).toFixed(0)} KB
-                              </span>
-                            </span>
-                            <LockHint tags={n.tiers} />
-                          </div>
+                          <LockedRow
+                            as="div"
+                            className="rounded-none border-0 px-5 py-4"
+                            title={n.title}
+                            meta={`${showCourse ? `${n.courseTitle} · ` : ""}${n.lessonTitle} · ${(n.sizeBytes / 1024).toFixed(0)} KB`}
+                            hint={<LockHint tags={n.tiers} />}
+                          />
                         ) : (
                         <button
                           type="button"
                           onClick={() => setPreview(n)}
-                          className="group flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-150 hover:bg-gray-50"
+                          className="group flex w-full touch-manipulation items-center gap-3 px-5 py-4 text-left transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100"
                         >
                           <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover:bg-teal group-hover:text-white">
                             <FileTextIcon className="size-5" />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="line-clamp-2 text-[15px] text-heading sm:line-clamp-1">{n.title}</span>
-                            <span className="tnum mt-0.5 flex items-center gap-2 truncate text-xs text-muted-foreground">
-                              <span className="truncate">
+                            <span className="tnum mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              <span className="min-w-0 truncate">
                                 {showCourse && `${n.courseTitle} · `}
                                 {n.lessonTitle} · {(n.sizeBytes / 1024).toFixed(0)} KB
                               </span>

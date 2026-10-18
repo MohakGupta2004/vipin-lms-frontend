@@ -46,7 +46,7 @@ const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
   ],
   instructor: [
     { href: "/feed", label: "My classroom", icon: NewspaperIcon },
-    { href: "/explore", label: "Explore", icon: CompassIcon },
+    { href: "/explore", label: "Explore courses", icon: CompassIcon },
   ],
   student: [
     { href: "/feed", label: "Dashboard", icon: SquaresFourIcon },
@@ -55,7 +55,7 @@ const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
     { href: "/flashcards", label: "Flashcards", icon: CardsIcon },
     { href: "/notes", label: "Notes", icon: NotePencilIcon },
     { href: "/progress", label: "Track Your Progress", icon: ChartLineUpIcon },
-    { href: "/explore", label: "Explore", icon: CompassIcon },
+    { href: "/explore", label: "Explore courses", icon: CompassIcon },
   ],
 }
 

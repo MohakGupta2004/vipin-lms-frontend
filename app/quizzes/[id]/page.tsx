@@ -6,8 +6,8 @@ import {
   PencilSimpleIcon,
   TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -35,7 +35,9 @@ import {
 export default function QuizPage() {
   return (
     <AppShell>
-      <QuizView />
+      <Suspense>
+        <QuizView />
+      </Suspense>
     </AppShell>
   )
 }
@@ -44,6 +46,9 @@ function QuizView() {
   const user = useUser()!
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
+  const params = useSearchParams()
+  const from = params.get("from")
+  const via = params.get("via")
   const valid = UUID_RE.test(id)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [attempts, setAttempts] = useState<QuizAttempt[]>([])
@@ -113,6 +118,21 @@ function QuizView() {
     ? `/practice?course=${quiz.courseId}&type=${quiz.type}`
     : "/practice"
 
+  // Where "back" leads for a student: the course (and on to Explore) or the player they came from, else the tests list.
+  const studentBack = !quiz
+    ? undefined
+    : from === "course"
+      ? {
+          href: `/courses/${quiz.courseId}${via === "explore" ? "?from=explore" : ""}`,
+          label: courseTitle ?? "Back to course",
+        }
+      : from === "learn"
+        ? {
+            href: `/courses/${quiz.courseId}/learn${via === "explore" ? "?from=course&via=explore" : via === "course" ? "?from=course" : ""}`,
+            label: "Course player",
+          }
+        : { href: testsHref, label: "Practice section" }
+
   return (
     <>
       {/* Mid-test on a phone the runner's status bar carries the title; the screen belongs to the question. */}
@@ -123,7 +143,7 @@ function QuizView() {
           back={
             quiz
               ? isStudent
-                ? { href: testsHref, label: "Practice section" }
+                ? studentBack
                 : {
                     href: `/courses/${quiz.courseId}`,
                     label: courseTitle ?? "Back to course",
@@ -135,10 +155,10 @@ function QuizView() {
           actions={
             owner &&
             quiz && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                 <Select
                   aria-label="Test status"
-                  className="h-9 w-36"
+                  className="col-span-2 h-9 w-full sm:w-36"
                   value={quiz.status}
                   onChange={(e) => onStatus(e.target.value as QuizStatus)}
                 >
@@ -205,7 +225,8 @@ function QuizView() {
         <QuizSessionProvider key={run} quiz={quiz} onSaved={onSaved}>
           <QuizPlayer
             onRestart={() => setRun((n) => (n ?? 0) + 1)}
-            onExit={() => router.push(testsHref)}
+            onExit={() => router.push((studentBack ?? { href: testsHref }).href)}
+            exitLabel={studentBack?.label}
           />
         </QuizSessionProvider>
       )}

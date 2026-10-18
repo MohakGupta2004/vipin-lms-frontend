@@ -1,13 +1,15 @@
 "use client"
 
-import { CardsIcon, CaretRightIcon, LockIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, CardsIcon, CaretRightIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
 import { Bar } from "@/components/learning"
+import { LockedRow } from "@/components/tier-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import type { FlashcardDeck, Tier } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 export const deckHref = (deckId: string) => `/flashcards/study?deck=${deckId}`
 export const mixHref = (courseId?: string | null) => `/flashcards/study?mix=1${courseId ? `&course=${courseId}` : ""}`
@@ -52,25 +54,19 @@ export function DeckRows({ decks, showCourse }: { decks: FlashcardDeck[]; showCo
           const pct = d.cardCount ? Math.round((d.myMastered / d.cardCount) * 100) : 0
           if (d.locked)
             return (
-              <li key={d.id} className="flex items-center gap-3 bg-gray-50 px-5 py-4" aria-label={`${deckName(d)}, locked`}>
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                  <LockIcon className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] text-gray-600">{deckName(d)}</p>
-                  <p className="tnum mt-0.5 truncate text-xs text-muted-foreground">
-                    {showCourse && `${d.courseTitle} · `}
-                    {d.cardCount} {d.cardCount === 1 ? "card" : "cards"}
-                  </p>
-                </div>
-                <Badge variant="outline">Not on your plan</Badge>
-              </li>
+              <LockedRow
+                key={d.id}
+                className="rounded-none border-0 px-5 py-4"
+                title={deckName(d)}
+                meta={`${showCourse ? `${d.courseTitle} · ` : ""}${d.cardCount} ${d.cardCount === 1 ? "card" : "cards"}`}
+                hint={<Badge variant="outline">Not on your plan</Badge>}
+              />
             )
           return (
             <li key={d.id}>
               <Link
                 href={deckHref(d.id)}
-                className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
+                className="group grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
               >
                 <div className="min-w-0">
                   <p className="truncate text-[15px] text-heading">{deckName(d)}</p>
@@ -98,7 +94,7 @@ export function DeckRows({ decks, showCourse }: { decks: FlashcardDeck[]; showCo
  * A deck as non-owners see it on a course page: its size and a link to study it. Only the cards the viewer's
  * `tier` can study open; a deck with none shows why it is locked.
  */
-export function DeckSummary({ deck, tier }: { deck: FlashcardDeck | null; tier?: Tier }) {
+export function DeckSummary({ deck, tier, title }: { deck: FlashcardDeck | null; tier?: Tier; title?: string }) {
   if (!deck || deck.cardCount === 0) {
     return (
       <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
@@ -108,26 +104,39 @@ export function DeckSummary({ deck, tier }: { deck: FlashcardDeck | null; tier?:
   }
   const open = deck.accessibleCardCount
   const partial = open < deck.cardCount
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-white p-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+  const body = (
+    <>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500 transition-colors group-hover/row:bg-teal group-hover/row:text-white">
         <CardsIcon className="size-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="tnum block text-sm font-semibold text-heading">
-          {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
+        <span className="line-clamp-2 block text-sm font-semibold break-words text-heading">
+          {title ?? `${deck.cardCount} ${deck.cardCount === 1 ? "card" : "cards"}`}
         </span>
-        <span className="block text-xs text-muted-foreground">
+        <span className="tnum block text-xs text-muted-foreground">
+          {title && `${deck.cardCount} ${deck.cardCount === 1 ? "card" : "cards"} · `}
           {partial ? `${open} of ${deck.cardCount} open on your plan` : deck.myReviewed > 0 ? `${deck.myMastered} mastered` : "Not studied yet"}
         </span>
       </span>
-      {open > 0 ? (
-        <Link href={deckHref(deck.id)} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          Study
-        </Link>
-      ) : (
+    </>
+  )
+  // The whole card opens the deck; a deck with nothing open only says why.
+  if (open === 0)
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-gray-50 p-3">
+        {body}
         <Badge variant="outline">{tier === "free" ? "Enroll to unlock" : "Not on your plan"}</Badge>
-      )}
-    </div>
+      </div>
+    )
+  return (
+    <Link
+      href={deckHref(deck.id)}
+      className="tap group/row flex items-center gap-3 rounded-md border border-border bg-white p-3 hover:border-teal/40 hover:shadow-sm active:border-teal/40"
+    >
+      {body}
+      <span className={cn(buttonVariants({ variant: "outline", size: "sm" }), "pointer-events-none shrink-0")}>
+        Study <ArrowRightIcon />
+      </span>
+    </Link>
   )
 }

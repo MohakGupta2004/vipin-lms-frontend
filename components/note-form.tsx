@@ -107,7 +107,7 @@ export function NoteForm({
       <TierPicker value={tiers} onChange={setTiers} />
       <ErrorNote error={error} />
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving} className="max-sm:flex-1">
           {saving && <CircleNotchIcon className="animate-spin" />}
           {editing ? "Save note" : "Upload"}
         </Button>
