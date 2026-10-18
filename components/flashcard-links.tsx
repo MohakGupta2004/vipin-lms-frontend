@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, CardsIcon, CaretRightIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, CardsIcon, CaretRightIcon, LockIcon, ShuffleIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
 import { Bar } from "@/components/learning"
@@ -125,7 +125,11 @@ export function DeckSummary({ deck, tier, title }: { deck: FlashcardDeck | null;
     return (
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-gray-50 p-3">
         {body}
-        <Badge variant="outline">{tier === "free" ? "Enroll to unlock" : "Not on your plan"}</Badge>
+        {tier === "free" ? (
+          <LockIcon className="size-4.5 shrink-0 text-gray-500" aria-label="Locked" />
+        ) : (
+          <Badge variant="outline">Not on your plan</Badge>
+        )}
       </div>
     )
   return (

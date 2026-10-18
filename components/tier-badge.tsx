@@ -15,9 +15,10 @@ export function TierBadge({ tags, className }: { tags: readonly ContentTier[] | 
 }
 
 /**
- * Why a locked item is closed. Someone who isn't enrolled (courseTier "free") is told to enroll;
- * an enrolled student on a lower tier is told which tiers have it. Leave courseTier out in hubs,
- * where every course is one the student is enrolled in.
+ * Why a locked item is closed. Someone previewing a course they aren't enrolled in (courseTier "free") gets
+ * nothing: the lock icon says it all, and plan names mean nothing to them yet. An enrolled student on a lower
+ * tier is told which tiers have it. Leave courseTier out in hubs, where every course is one the student is
+ * enrolled in.
  */
 export function LockHint({
   courseTier,
@@ -28,14 +29,7 @@ export function LockHint({
   tags: readonly ContentTier[] | null | undefined
   className?: string
 }) {
-  if (courseTier === "free") {
-    return (
-      <span className={className ?? "inline-flex flex-wrap items-center gap-1.5"}>
-        <Badge variant="outline">Enroll to unlock</Badge>
-        <TierBadge tags={tags} />
-      </span>
-    )
-  }
+  if (courseTier === "free") return null
   return (
     <Badge variant="outline" className={className}>
       <LockIcon data-icon="inline-start" />
@@ -73,7 +67,7 @@ export function LockedRow({
       <span className="min-w-0 flex-1 space-y-1">
         <span className="line-clamp-2 block text-sm font-semibold break-words text-gray-600">{title}</span>
         <span className="tnum flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">{meta}</span>
-        <span className="flex flex-wrap items-center gap-1.5">{hint}</span>
+        <span className="flex flex-wrap items-center gap-1.5 empty:hidden">{hint}</span>
       </span>
     </Tag>
   )
