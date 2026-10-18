@@ -10,6 +10,7 @@ import { getVideoStream, saveVideoProgress, setVideoCompletion } from "@/lib/api
 
 const SAVE_EVERY_MS = 15_000
 const REFRESH_BEFORE_MS = 90_000 // re-sign the stream this long before the URL expires
+const SKIP_SEC = 10 // a double-tap on either side of the video jumps this far, like YouTube
 
 const PREV_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>`
 const NEXT_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>`
@@ -50,6 +51,9 @@ export function VideoPlayer({
   const refresh = useRef<(() => void) | null>(null)
   const cb = useRef({ onEnded, onPrev, onNext })
   const [layer, setLayer] = useState<HTMLElement | null>(null)
+  // The side a double-tap just skipped on; `n` restarts the flash on every tap.
+  const [skip, setSkip] = useState<{ side: "back" | "fwd"; n: number } | null>(null)
+  const skipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Keyed by video so switching videos clears it without a reset effect.
   const [failure, setFailure] = useState<{ videoId: string; message: string } | null>(null)
   const error = failure?.videoId === videoId ? failure.message : null
@@ -164,7 +168,9 @@ export function VideoPlayer({
       // Phones: the control bar has no room for picture-in-picture or the quality button (quality stays in
       // settings), and without them fullscreen no longer falls off the right edge.
       const narrow = window.matchMedia("(max-width: 640px)").matches
-      return new ArtplayerCtor({
+      // Phones: a double-tap skips instead of toggling play (handled below); desktop keeps double-click fullscreen.
+      ArtplayerCtor.MOBILE_DBCLICK_PLAY = false
+      const a = new ArtplayerCtor({
         container: container.current!,
         url,
         type: "m3u8",
@@ -183,7 +189,7 @@ export function VideoPlayer({
         playsInline: true,
         autoOrientation: true,
         fastForward: true,
-        lock: true,
+        lock: false,
         moreVideoAttr: { preload: "auto" },
         plugins: [
           hlsControl({
@@ -221,12 +227,27 @@ export function VideoPlayer({
           },
         },
       })
+      // YouTube-style double-tap: the left third skips back, the right third skips forward, the middle plays/pauses.
+      a.on("dblclick", (e) => {
+        if (!ArtplayerCtor.utils.isMobile) return
+        const box = a.template.$player.getBoundingClientRect()
+        const x = ((e as MouseEvent).clientX - box.left) / box.width
+        if (x > 1 / 3 && x < 2 / 3) return void a.toggle()
+        const side = x <= 1 / 3 ? "back" : "fwd"
+        if (side === "back") a.backward = SKIP_SEC
+        else a.forward = SKIP_SEC
+        setSkip((cur) => ({ side, n: (cur?.n ?? 0) + 1 }))
+        clearTimeout(skipTimer.current)
+        skipTimer.current = setTimeout(() => setSkip(null), 650)
+      })
+      return a
     }
   }, [videoId])
 
   // Destroy once, on unmount (declared after the effect above so its final save runs first).
   useEffect(
     () => () => {
+      clearTimeout(skipTimer.current)
       ;(art.current?.hls as Hls | undefined)?.destroy()
       art.current?.destroy(false)
       art.current = null
@@ -241,6 +262,21 @@ export function VideoPlayer({
     <div className="relative isolate size-full bg-black" aria-label={`Video player: ${title}`} role="region">
       <div ref={container} className="size-full" />
       {layer && overlay && createPortal(<div className="pointer-events-auto absolute inset-0">{overlay}</div>, layer)}
+      {layer &&
+        skip &&
+        createPortal(
+          <div
+            key={skip.n}
+            aria-hidden
+            className={
+              "pop pointer-events-none absolute inset-y-0 flex w-2/5 items-center justify-center bg-white/15 text-sm font-semibold text-white " +
+              (skip.side === "back" ? "left-0 rounded-r-[50%]" : "right-0 rounded-l-[50%]")
+            }
+          >
+            {skip.side === "back" ? `« ${SKIP_SEC} seconds` : `${SKIP_SEC} seconds »`}
+          </div>,
+          layer
+        )}
       {error && (
         <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/85 p-6 text-center text-white">
           <p className="text-base font-semibold">This video can&apos;t be played right now.</p>
