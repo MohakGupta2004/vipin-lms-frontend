@@ -1,6 +1,7 @@
 "use client"
 
-import { ArrowLeftIcon, ArrowRightIcon, CaretDownIcon, CircleNotchIcon, LockIcon, PlayCircleIcon, SidebarSimpleIcon, SkipForwardIcon, TrophyIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowLeftIcon, ArrowRightIcon, CardsIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, InfoIcon, ListBulletsIcon, ListChecksIcon, LockIcon, PlayCircleIcon, SidebarSimpleIcon, SkipForwardIcon, TrophyIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
@@ -220,8 +221,8 @@ function Learn() {
   )
 
   return (
-    <div className="flex min-h-svh flex-col bg-white">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-navy px-4 text-white sm:px-6">
+    <div className="flex min-h-svh flex-col bg-white phone-landscape:bg-black">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-navy px-4 text-white sm:px-6 phone-landscape:hidden">
         <Link href={roleHome(user.role)} aria-label="Home" className="flex min-h-11 shrink-0 items-center">
           <Brand onDark compact className="[&>span]:hidden sm:[&>span]:flex [&>div]:size-8" />
         </Link>
@@ -276,8 +277,10 @@ function Learn() {
       {!loading && !error && current && (
         <div className="flex flex-1">
           <main className="min-w-0 flex-1">
-            <div className="bg-black">
-              <div className="mx-auto aspect-video w-full max-w-[calc((100svh-8rem)*16/9)]">
+            {/* Phones: the video stays pinned under the header while the tabs scroll beneath it, and turning
+                the phone sideways hands it the whole screen. */}
+            <div className="sticky top-14 z-20 bg-black lg:static phone-landscape:static phone-landscape:h-svh">
+              <div className="mx-auto aspect-video w-full max-w-[calc((100svh-8rem)*16/9)] phone-landscape:aspect-auto phone-landscape:h-full phone-landscape:max-w-none">
                 <VideoPlayer
                   videoId={current.id}
                   title={current.title}
@@ -607,12 +610,13 @@ function LectureTabs({
       .catch(() => setDecks([]))
   }, [wantDecks, course.id])
 
-  const tabs: { key: Tab; label: string; className?: string }[] = [
-    { key: "content", label: "Course content", className: "lg:hidden" },
-    { key: "overview", label: "Overview" },
-    { key: "notes", label: `Notes${notes.length ? ` (${notes.length})` : ""}` },
-    { key: "quizzes", label: `Tests${quizzes?.length ? ` (${quizzes.length})` : ""}` },
-    { key: "flashcards", label: "Flashcards" },
+  // Phones get an icon and a short name per tab so all five fit without scrolling sideways.
+  const tabs: { key: Tab; label: string; short: string; icon: Icon; className?: string }[] = [
+    { key: "content", label: "Course content", short: "Lectures", icon: ListBulletsIcon, className: "lg:hidden" },
+    { key: "overview", label: "Overview", short: "About", icon: InfoIcon },
+    { key: "notes", label: `Notes${notes.length ? ` (${notes.length})` : ""}`, short: "Notes", icon: FileTextIcon },
+    { key: "quizzes", label: `Tests${quizzes?.length ? ` (${quizzes.length})` : ""}`, short: "Tests", icon: ListChecksIcon },
+    { key: "flashcards", label: "Flashcards", short: "Cards", icon: CardsIcon },
   ]
   const overviewActive = tab === "overview"
 
@@ -662,17 +666,18 @@ function LectureTabs({
   )
 
   return (
-    <div>
-      <div role="tablist" aria-label="Lecture" className="flex gap-6 overflow-x-auto border-b border-border px-4 sm:px-8">
+    <div className="phone-landscape:hidden">
+      <div role="tablist" aria-label="Lecture" className="grid grid-cols-5 border-b border-border sm:px-4 lg:flex lg:gap-6 lg:px-8">
         {tabs.map((t) => (
           <button
             key={t.key}
             role="tab"
             type="button"
             aria-selected={tab === t.key}
+            aria-label={t.label}
             onClick={() => setTab(t.key)}
             className={cn(
-              "-mb-px shrink-0 border-b-2 border-transparent py-3.5 text-sm font-semibold whitespace-nowrap text-muted-foreground transition-colors hover:text-heading",
+              "-mb-px flex min-w-0 touch-manipulation flex-col items-center gap-1 border-b-2 border-transparent pt-2.5 pb-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-heading active:bg-gray-50 sm:flex-row sm:justify-center sm:gap-2 sm:py-3.5 sm:text-sm lg:shrink-0 lg:justify-start",
               tab === t.key && "border-heading text-heading",
               // On large screens the hidden "content" tab falls back to Overview.
               t.key === "overview" && tab === "content" && "lg:border-heading lg:text-heading",
@@ -680,7 +685,9 @@ function LectureTabs({
               t.className
             )}
           >
-            {t.label}
+            <t.icon className="size-5 shrink-0 sm:size-4 lg:hidden" aria-hidden />
+            <span className="max-w-full truncate sm:hidden">{t.short}</span>
+            <span className="hidden truncate sm:inline">{t.label}</span>
           </button>
         ))}
       </div>

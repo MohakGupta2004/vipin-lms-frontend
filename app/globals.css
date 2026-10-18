@@ -4,6 +4,8 @@
 
 
 @custom-variant dark (&:is(.dark *));
+/* A phone turned sideways: the video player takes the whole screen, like YouTube. */
+@custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 500px));
 
 @theme inline {
     --font-heading: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
