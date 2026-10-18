@@ -409,7 +409,7 @@ function CourseContent({
               className="flex w-full items-start gap-3 bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100"
             >
               <span className="min-w-0 flex-1">
-                <span className="flex items-start gap-1.5 text-sm leading-snug font-semibold text-heading">
+                <span className="flex min-w-0 items-start gap-1.5 text-sm leading-snug font-semibold [overflow-wrap:anywhere] text-heading">
                   {allLocked && <LockIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-label="Locked" />}
                   Section {i + 1}: {s.lesson.title}
                 </span>
@@ -439,7 +439,7 @@ function CourseContent({
                               <li key={v.id} className="flex items-start gap-3 px-4 py-3 text-muted-foreground">
                                 <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
                                 <span className="min-w-0 flex-1">
-                                  <span className="block text-sm leading-snug">
+                                  <span className="block text-sm leading-snug [overflow-wrap:anywhere]">
                                     {n}. {v.title}
                                   </span>
                                   {tier !== "free" && (
@@ -475,7 +475,7 @@ function CourseContent({
                                 aria-current={active ? "true" : undefined}
                                 className="min-w-0 flex-1 text-left after:absolute after:inset-0"
                               >
-                                <span className={cn("block text-sm leading-snug text-heading", active && "font-semibold")}>
+                                <span className={cn("block text-sm leading-snug [overflow-wrap:anywhere] text-heading", active && "font-semibold")}>
                                   {n}. {v.title}
                                 </span>
                                 <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -520,7 +520,7 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
     <div className="flex size-full items-center justify-center bg-black/80 p-6 backdrop-blur-[2px]">
       <div className="pop w-full max-w-sm text-center text-white">
         <p className="text-xs font-medium text-white/60">Up next</p>
-        <p className="mt-2 text-lg leading-snug font-semibold text-balance">{video.title}</p>
+        <p className="mt-2 text-lg leading-snug font-semibold text-balance [overflow-wrap:anywhere]">{video.title}</p>
         {sectionTitle && <p className="mt-1 truncate text-sm text-white/60">{sectionTitle}</p>}
         <button
           type="button"
@@ -626,8 +626,9 @@ function LectureTabs({
         <p className="tnum text-xs font-medium text-teal">
           Section {sectionNo} · Lecture {lectureNo} of {totalLectures}
         </p>
-        <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">{video.title}</h1>
-        <p className="text-sm text-muted-foreground">{lesson.title}</p>
+        {/* Long titles (often file names with no spaces) wrap anywhere instead of pushing the page sideways. */}
+        <h1 className="text-2xl leading-tight font-semibold [overflow-wrap:anywhere] sm:text-3xl">{video.title}</h1>
+        <p className="text-sm [overflow-wrap:anywhere] text-muted-foreground">{lesson.title}</p>
       </div>
       {video.description && (
         <div className="space-y-2">
