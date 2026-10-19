@@ -1,6 +1,21 @@
 "use client"
 
-import { ArrowLeftIcon, BookOpenTextIcon, CardsIcon, CaretUpDownIcon, ChartLineUpIcon, CompassIcon, ListChecksIcon, NewspaperIcon, NotePencilIcon, PlayCircleIcon, SignOutIcon, SquaresFourIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  ArrowLeftIcon,
+  BookOpenTextIcon,
+  CardsIcon,
+  CaretUpDownIcon,
+  ChartLineUpIcon,
+  CompassIcon,
+  DotsThreeCircleIcon,
+  ListChecksIcon,
+  NewspaperIcon,
+  NotePencilIcon,
+  PlayCircleIcon,
+  SignOutIcon,
+  SquaresFourIcon,
+  UsersIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -36,33 +51,98 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { roleHome, useUser } from "@/hooks/use-user"
-import { ApiError, TIER_LABEL, TIER_ORDER, getMe, isSessionFresh, listMyCourses, logout, markSessionVerified, saveUser, type Role, type Tier, type User } from "@/lib/api"
+import { cn } from "@/lib/utils"
+import {
+  ApiError,
+  TIER_LABEL,
+  TIER_ORDER,
+  getMe,
+  isSessionFresh,
+  listMyCourses,
+  logout,
+  markSessionVerified,
+  saveUser,
+  type Role,
+  type Tier,
+  type User,
+} from "@/lib/api"
 
-const NAV: Record<Role, { href: string; label: string; icon: Icon }[]> = {
+// `short` names the destination in the phone tab bar, where a label gets one word.
+const NAV: Record<
+  Role,
+  { href: string; label: string; short: string; icon: Icon }[]
+> = {
   admin: [
-    { href: "/courses", label: "All courses", icon: BookOpenTextIcon },
-    { href: "/feed", label: "My courses", icon: NewspaperIcon },
-    { href: "/enrollments", label: "Enrollments", icon: UsersIcon },
+    {
+      href: "/courses",
+      label: "All courses",
+      short: "Courses",
+      icon: BookOpenTextIcon,
+    },
+    { href: "/feed", label: "My courses", short: "Mine", icon: NewspaperIcon },
+    {
+      href: "/enrollments",
+      label: "Enrollments",
+      short: "Enrollments",
+      icon: UsersIcon,
+    },
   ],
   instructor: [
-    { href: "/feed", label: "My classroom", icon: NewspaperIcon },
-    { href: "/explore", label: "Explore courses", icon: CompassIcon },
+    {
+      href: "/feed",
+      label: "My classroom",
+      short: "Classroom",
+      icon: NewspaperIcon,
+    },
+    {
+      href: "/explore",
+      label: "Explore courses",
+      short: "Explore",
+      icon: CompassIcon,
+    },
   ],
   student: [
-    { href: "/feed", label: "Dashboard", icon: SquaresFourIcon },
-    { href: "/learn", label: "Learn Your Way", icon: PlayCircleIcon },
-    { href: "/practice", label: "Practice & Prepare", icon: ListChecksIcon },
-    { href: "/flashcards", label: "Flashcards", icon: CardsIcon },
-    { href: "/notes", label: "Notes", icon: NotePencilIcon },
-    { href: "/progress", label: "Track Your Progress", icon: ChartLineUpIcon },
-    { href: "/explore", label: "Explore courses", icon: CompassIcon },
+    { href: "/feed", label: "Dashboard", short: "Home", icon: SquaresFourIcon },
+    {
+      href: "/learn",
+      label: "Learn Your Way",
+      short: "Learn",
+      icon: PlayCircleIcon,
+    },
+    {
+      href: "/practice",
+      label: "Practice & Prepare",
+      short: "Practice",
+      icon: ListChecksIcon,
+    },
+    {
+      href: "/flashcards",
+      label: "Flashcards",
+      short: "Cards",
+      icon: CardsIcon,
+    },
+    { href: "/notes", label: "Notes", short: "Notes", icon: NotePencilIcon },
+    {
+      href: "/progress",
+      label: "Track Your Progress",
+      short: "Progress",
+      icon: ChartLineUpIcon,
+    },
+    {
+      href: "/explore",
+      label: "Explore courses",
+      short: "Explore",
+      icon: CompassIcon,
+    },
   ],
 }
 
 // The server is the source of truth for who is signed in and their role.
 // The cached profile in local storage lets the page render instantly; it is periodically verified and refreshed in the background.
 function useVerifiedSession(userId: string | undefined) {
-  const [verifiedFor, setVerifiedFor] = useState<string | null>(() => userId ?? null)
+  const [verifiedFor, setVerifiedFor] = useState<string | null>(
+    () => userId ?? null
+  )
 
   useEffect(() => {
     if (!userId) return
@@ -92,9 +172,12 @@ function useVerifiedSession(userId: string | undefined) {
     }
 
     // Keep session active in the background by refreshing/verifying every 4 minutes (well before 14m expiry)
-    const interval = setInterval(() => {
-      verify()
-    }, 4 * 60 * 1000)
+    const interval = setInterval(
+      () => {
+        verify()
+      },
+      4 * 60 * 1000
+    )
 
     return () => {
       cancelled = true
@@ -142,15 +225,39 @@ export function AppShell({
     <SidebarProvider defaultOpen={readSidebarOpen()}>
       <AppSidebar user={user} pathname={pathname} onSignOut={signOut} />
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:px-6">
-          <SidebarTrigger className="-ml-2 size-10 text-muted-foreground md:-ml-1 md:size-8" />
-          <Separator orientation="vertical" className="data-vertical:h-4 data-vertical:self-center" />
-          <Link href={roleHome(user.role)} aria-label="Home" className="flex min-h-11 items-center md:hidden">
-            <Brand className="[&>div]:size-7" />
+        {/* The bar's height grows by the notch inset, so its 3.5rem row is never squeezed. On phones it is a
+            translucent material that the page scrolls under; scroll-bar keeps it clear until content meets it,
+            then the brand gives way to the compact page title, as on iOS. */}
+        <header className="material scroll-bar sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b border-black/[0.06] bg-background/75 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150 sm:px-6 md:border-border md:bg-background/90">
+          <SidebarTrigger className="-ml-1 hidden size-8 text-muted-foreground md:flex" />
+          <Separator
+            orientation="vertical"
+            className="hidden md:block data-vertical:h-4 data-vertical:self-center"
+          />
+          <Link
+            href={roleHome(user.role)}
+            aria-label="Home"
+            className="scroll-brand flex min-h-11 items-center md:hidden"
+          >
+            <Brand className="[&>div]:size-8 [&>span]:hidden" />
           </Link>
-          <span className="hidden truncate text-sm text-muted-foreground md:block">{pageName(user.role, pathname)}</span>
+          <span
+            aria-hidden="true"
+            className="scroll-title pointer-events-none absolute inset-x-16 bottom-0 flex h-14 items-center justify-center md:hidden"
+          >
+            <span className="truncate text-[17px] font-semibold tracking-[-0.01em] text-heading">
+              {pageName(user.role, pathname)}
+            </span>
+          </span>
+          <span className="hidden truncate text-sm text-muted-foreground md:block">
+            {pageName(user.role, pathname)}
+          </span>
+          <AccountButton user={user} />
         </header>
-        <div className="mx-auto w-full max-w-[1120px] flex-1 space-y-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:space-y-10 sm:px-8 sm:py-9 lg:px-12 lg:py-12">{children}</div>
+        <div className="stagger mx-auto w-full max-w-[1120px] flex-1 space-y-8 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:space-y-10 sm:px-8 sm:py-9 lg:px-12 lg:py-12">
+          {children}
+        </div>
+        <TabBar role={user.role} pathname={pathname} />
       </SidebarInset>
     </SidebarProvider>
   )
@@ -162,11 +269,141 @@ function readSidebarOpen() {
   return !document.cookie.split("; ").includes("sidebar_state=false")
 }
 
+/** Phones: the avatar opens the full menu (every page, the account and sign out) as a sheet. */
+function AccountButton({ user }: { user: User }) {
+  const { setOpenMobile } = useSidebar()
+  return (
+    <button
+      type="button"
+      aria-label="Open menu"
+      onClick={() => setOpenMobile(true)}
+      className="-mr-1.5 ml-auto flex size-11 items-center justify-center rounded-full transition-transform duration-150 ease-(--ease-out) active:scale-90 md:hidden"
+    >
+      <Avatar className="size-8 shadow-[0_0_0_2px_white,0_2px_8px_-2px_rgba(16,42,67,0.35)]">
+        <AvatarFallback className="bg-gradient-to-br from-[#2a5a85] to-navy text-[13px] font-semibold text-white">
+          {user.firstName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+    </button>
+  )
+}
+
+// The tab the bar showed last. The shell remounts with every page, so this is how the selection pill
+// knows where it is coming from and can glide to the new tab instead of jumping.
+let lastTab = -1
+
+const FOCUSED = /^\/(quizzes\/|flashcards\/study)/
+
+/**
+ * Phones: the main destinations float under the thumb in a glass capsule, like a native tab bar. Up to
+ * five fit; with more, the first four stay and "More" opens the full menu. Hidden from md, where the
+ * sidebar takes over.
+ */
+function TabBar({ role, pathname }: { role: Role; pathname: string }) {
+  const { setOpenMobile } = useSidebar()
+  const nav = NAV[role]
+  const overflow = nav.length > 5
+  const tabs = overflow ? nav.slice(0, 4) : nav
+  const count = tabs.length + (overflow ? 1 : 0)
+  const tabIdx = tabs.findIndex((t) => pathname.startsWith(t.href))
+  const activeIdx =
+    tabIdx >= 0
+      ? tabIdx
+      : overflow && nav.some((t) => pathname.startsWith(t.href))
+        ? count - 1
+        : -1
+
+  // Start the pill where it was on the previous page, then let it travel on the next frame.
+  const [pill, setPill] = useState(() => (lastTab >= 0 ? lastTab : activeIdx))
+  useEffect(() => {
+    lastTab = activeIdx
+    const raf = requestAnimationFrame(() => setPill(activeIdx))
+    return () => cancelAnimationFrame(raf)
+  }, [activeIdx])
+
+  const item =
+    "group relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] rounded-full py-1.5 text-[10px] font-semibold tracking-[0.01em] transition-colors duration-200"
+  const icon =
+    "size-[24px] transition-transform duration-200 ease-(--ease-out) group-active:scale-[0.82]"
+  // Focused tasks (a test in progress, a study session) own the bottom of the screen with their own
+  // controls; the dock steps aside, as iOS hides the tab bar on a pushed full-screen task.
+  if (FOCUSED.test(pathname)) return null
+  return (
+    <>
+      {/* Scroll edge: content fades into the page colour before it reaches the dock, so only a soft
+        wash, not readable text, ever sits behind the glass. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-[calc(8.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-background from-55% to-transparent md:hidden"
+      />
+      <nav
+        aria-label="Main"
+        className="tab-bar fixed inset-x-3 bottom-[max(0.625rem,env(safe-area-inset-bottom))] z-30 md:hidden"
+      >
+        <div className="glass relative flex rounded-full p-1">
+          <div className="pointer-events-none absolute inset-1">
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 rounded-full bg-navy/[0.07] transition-[transform,opacity] duration-500 ease-(--ease-drawer)"
+              style={{
+                width: `${100 / count}%`,
+                transform: `translateX(${Math.max(pill, 0) * 100}%)`,
+                opacity: pill < 0 ? 0 : 1,
+              }}
+            />
+          </div>
+          {tabs.map(({ href, short, icon: TabIcon }, i) => {
+            const active = i === activeIdx
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(item, active ? "text-primary" : "text-gray-500")}
+              >
+                <TabIcon
+                  weight={active ? "fill" : "regular"}
+                  className={icon}
+                />
+                <span className="max-w-full truncate">{short}</span>
+              </Link>
+            )
+          })}
+          {overflow && (
+            <button
+              type="button"
+              onClick={() => setOpenMobile(true)}
+              className={cn(
+                item,
+                activeIdx === count - 1 ? "text-primary" : "text-gray-500"
+              )}
+            >
+              <DotsThreeCircleIcon
+                weight={activeIdx === count - 1 ? "fill" : "regular"}
+                className={icon}
+              />
+              <span>More</span>
+            </button>
+          )}
+        </div>
+      </nav>
+    </>
+  )
+}
+
 function pageName(role: Role, pathname: string) {
   return NAV[role].find((n) => pathname.startsWith(n.href))?.label ?? ""
 }
 
-function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: string; onSignOut: () => void }) {
+function AppSidebar({
+  user,
+  pathname,
+  onSignOut,
+}: {
+  user: User
+  pathname: string
+  onSignOut: () => void
+}) {
   const { isMobile, setOpenMobile } = useSidebar()
   // A student's tier is per course; the sidebar shows the highest one they hold.
   const [tier, setTier] = useState<Tier | null>(null)
@@ -174,7 +411,10 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
     if (user.role !== "student") return
     listMyCourses(100, 0)
       .then((cs) => {
-        const best = cs.map((c) => c.tier).filter((t): t is Tier => !!t).sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
+        const best = cs
+          .map((c) => c.tier)
+          .filter((t): t is Tier => !!t)
+          .sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
         setTier(best ?? null)
       })
       .catch(() => {})
@@ -182,7 +422,12 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-2">
-        <Link href={roleHome(user.role)} aria-label="Home" className="flex items-center" onClick={() => setOpenMobile(false)}>
+        <Link
+          href={roleHome(user.role)}
+          aria-label="Home"
+          className="flex items-center"
+          onClick={() => setOpenMobile(false)}
+        >
           <Brand className="[&>div]:size-8 group-data-[collapsible=icon]:[&>span]:hidden" />
         </Link>
       </SidebarHeader>
@@ -198,10 +443,19 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
                     <SidebarMenuButton
                       isActive={active}
                       tooltip={label}
-                      className="h-9 text-[14px] data-active:bg-white data-active:shadow-[0_1px_2px_rgba(16,42,67,0.08),0_0_0_1px_rgba(16,42,67,0.06)] [&_svg]:size-[18px]"
-                      render={<Link href={href} aria-current={active ? "page" : undefined} onClick={() => setOpenMobile(false)} />}
+                      className="h-9 text-[14px] pointer-coarse:h-11 pointer-coarse:text-[15px] data-active:bg-white data-active:shadow-[0_1px_2px_rgba(16,42,67,0.08),0_0_0_1px_rgba(16,42,67,0.06)] [&_svg]:size-[18px]"
+                      render={
+                        <Link
+                          href={href}
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => setOpenMobile(false)}
+                        />
+                      }
                     >
-                      <NavIcon weight={active ? "fill" : "regular"} className={active ? "text-primary" : "text-gray-500"} />
+                      <NavIcon
+                        weight={active ? "fill" : "regular"}
+                        className={active ? "text-primary" : "text-gray-500"}
+                      />
                       <span>{label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -218,7 +472,10 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <SidebarMenuButton size="lg" className="data-popup-open:bg-sidebar-accent">
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-popup-open:bg-sidebar-accent"
+                  >
                     <Avatar className="size-8">
                       <AvatarFallback className="bg-navy text-[13px] font-medium text-white">
                         {user.firstName.charAt(0).toUpperCase()}
@@ -229,21 +486,36 @@ function AppSidebar({ user, pathname, onSignOut }: { user: User; pathname: strin
                         <span className="truncate">
                           {user.firstName} {user.lastName}
                         </span>
-                        {tier && <Badge variant="lime" className="h-4 shrink-0 px-1.5 text-[10px]">{TIER_LABEL[tier]}</Badge>}
+                        {tier && (
+                          <Badge
+                            variant="lime"
+                            className="h-4 shrink-0 px-1.5 text-[10px]"
+                          >
+                            {TIER_LABEL[tier]}
+                          </Badge>
+                        )}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground capitalize">{user.role}</span>
+                      <span className="truncate text-xs text-muted-foreground capitalize">
+                        {user.role}
+                      </span>
                     </span>
                     <CaretUpDownIcon className="ml-auto text-gray-400" />
                   </SidebarMenuButton>
                 }
               />
-              <DropdownMenuContent side={isMobile ? "top" : "right"} align="end" className="w-60">
+              <DropdownMenuContent
+                side={isMobile ? "top" : "right"}
+                align="end"
+                className="w-60"
+              >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
                     <span className="block truncate text-sm font-medium text-heading">
                       {user.firstName} {user.lastName}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
@@ -266,16 +538,19 @@ export function PageTitle({
   subtitle,
   actions,
   back,
+  eyebrow,
 }: {
   title: string
+  /** A small caps line above the title, like the date over iOS's Today view. */
+  eyebrow?: string
   subtitle?: string
   actions?: React.ReactNode
   /** The parent page, shown as a link above the title. */
   back?: { href: string; label: string }
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-border pb-5 sm:pb-7">
-      <div className="min-w-0 max-w-2xl space-y-2">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-1 sm:border-b sm:border-border sm:pb-7">
+      <div className="max-w-2xl min-w-0 space-y-2">
         {back && (
           <Link
             href={back.href}
@@ -285,8 +560,19 @@ export function PageTitle({
             {back.label}
           </Link>
         )}
-        <h1 className="display text-[1.875rem] leading-[1.1] text-heading sm:text-[2.875rem]">{title}</h1>
-        {subtitle && <p className="text-[15px] leading-relaxed text-muted-foreground">{subtitle}</p>}
+        {eyebrow && (
+          <p className="text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+            {eyebrow}
+          </p>
+        )}
+        <h1 className="display text-[2rem] leading-[1.1] font-bold text-heading sm:text-[2.875rem] sm:font-semibold">
+          {title}
+        </h1>
+        {subtitle && (
+          <p className="text-[15px] leading-snug text-muted-foreground sm:leading-relaxed">
+            {subtitle}
+          </p>
+        )}
       </div>
       {actions}
     </header>
@@ -296,10 +582,14 @@ export function PageTitle({
 export function ErrorNote({ error }: { error: string | null }) {
   if (!error) return null
   return (
-    <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    <p
+      role="alert"
+      className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+    >
       {error}
     </p>
   )
 }
 
-export const errMsg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong")
+export const errMsg = (e: unknown) =>
+  e instanceof Error ? e.message : "Something went wrong"

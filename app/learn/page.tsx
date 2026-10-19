@@ -17,6 +17,7 @@ import {
   clock,
   playerHref,
   useCourseFilter,
+  videoTitle,
   watchState,
   type WatchState,
 } from "@/components/learning"
@@ -113,16 +114,16 @@ function LearnYourWay() {
 
           {resume && <ResumeBand video={resume} />}
 
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             <Segmented<Show>
               label="Show"
               value={show}
               onChange={setShow}
               options={[
-                { value: "all", label: "All lectures", count: inCourse.length },
-                { value: "started", label: "In progress", count: count("started") },
-                { value: "new", label: "Not started", count: count("new") },
-                { value: "done", label: "Completed", count: count("done") },
+                { value: "all", label: "All lectures", short: "All", count: inCourse.length },
+                { value: "started", label: "In progress", short: "Started", count: count("started") },
+                { value: "new", label: "Not started", short: "New", count: count("new") },
+                { value: "done", label: "Completed", short: "Done", count: count("done") },
               ]}
             />
 
@@ -145,14 +146,14 @@ function LearnYourWay() {
                       return (
                         <div key={g.courseId} className="space-y-4">
                           {(!courseId || courses.length === 1) && (
-                            <div className="flex items-baseline justify-between gap-4">
-                              <h3 className="text-[15px] font-medium text-heading">{g.courseTitle}</h3>
-                              <span className="tnum text-sm text-muted-foreground">
+                            <div className="flex items-baseline justify-between gap-4 px-1 sm:px-0">
+                              <h3 className="min-w-0 truncate text-[12px] font-semibold tracking-[0.05em] text-muted-foreground uppercase sm:text-[15px] sm:font-medium sm:tracking-normal sm:text-heading sm:normal-case">{g.courseTitle}</h3>
+                              <span className="tnum shrink-0 text-[13px] text-muted-foreground sm:text-sm">
                                 {watched} of {all.length} watched
                               </span>
                             </div>
                           )}
-                          <div className="space-y-4">
+                          <div className="space-y-3 sm:space-y-4">
                             {g.lessons.map((l) => (
                               <LessonBlock key={l.id} lesson={l} number={number} />
                             ))}
@@ -174,8 +175,8 @@ function LearnYourWay() {
 function LessonBlock({ lesson, number }: { lesson: Lesson; number: Map<string, number> }) {
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <CardHeader className="flex flex-row items-baseline justify-between gap-4 border-b border-border bg-muted/60 px-5 py-3">
-        <CardTitle className="font-sans text-[15px] font-medium text-heading">{lesson.title}</CardTitle>
+      <CardHeader className="flex flex-row items-baseline justify-between gap-4 border-b border-border px-4 py-3 [.border-b]:pb-3 sm:bg-muted/60 sm:px-5">
+        <CardTitle className="font-sans text-[15px] font-semibold text-heading sm:font-medium">{lesson.title}</CardTitle>
         <span className="tnum text-xs text-muted-foreground">
           {lesson.videos.length} {lesson.videos.length === 1 ? "lecture" : "lectures"}
         </span>
@@ -196,14 +197,14 @@ function LectureRow({ video, n }: { video: MyVideo; n: number }) {
   const duration = video.progress?.durationSec
   if (video.locked && !video.isFree)
     return (
-      <div className="flex items-start gap-4 bg-gray-50 px-5 py-3.5" aria-label={`${video.title}, locked`}>
-        <span className="tnum mt-1 w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
+      <div className="flex items-start gap-3 bg-gray-50 px-4 py-3.5 sm:gap-4 sm:px-5" aria-label={`${videoTitle(video.title)}, locked`}>
+        <span className="tnum mt-1 hidden w-5 shrink-0 text-right text-[13px] text-gray-400 sm:block">{n}</span>
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
           <LockIcon className="size-3.5" />
         </span>
         {/* Title first and in full; the reason it's locked wraps underneath, never beside it. */}
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="line-clamp-2 text-[15px] break-words text-gray-600">{video.title}</p>
+          <p className="line-clamp-2 text-[15px] leading-snug [overflow-wrap:anywhere] text-gray-600">{videoTitle(video.title)}</p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             {VIDEO_KIND_LABEL[video.kind]}
             <LockHint tags={video.tiers} />
@@ -212,18 +213,19 @@ function LectureRow({ video, n }: { video: MyVideo; n: number }) {
       </div>
     )
   return (
-    <Link href={playerHref(video)} className="group flex touch-manipulation items-center gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100">
-      <span className="tnum w-5 shrink-0 text-right text-[13px] text-gray-400">{n}</span>
+    <Link href={playerHref(video)} className="group flex touch-manipulation items-center gap-3 px-4 py-3.5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:gap-4 sm:px-5">
+      <span className="tnum hidden w-5 shrink-0 text-right text-[13px] text-gray-400 sm:block">{n}</span>
       <StatusMark state={state} />
       <div className="min-w-0 flex-1">
-        <p className={cn("line-clamp-2 text-[15px] text-heading sm:line-clamp-1", state === "done" && "text-gray-500")}>{video.title}</p>
+        <p className={cn("line-clamp-2 text-[15px] leading-snug font-medium [overflow-wrap:anywhere] text-heading sm:line-clamp-1 sm:font-normal", state === "done" && "text-gray-500")}>{videoTitle(video.title)}</p>
         <p
           className={cn(
-            "mt-0.5 text-xs sm:hidden",
+            "tnum mt-1 text-[13px] sm:hidden",
             state === "started" ? "text-primary" : state === "done" ? "text-teal" : "text-muted-foreground"
           )}
         >
           {label(state, pct, video)}
+          {duration ? <span className="text-muted-foreground"> · {clock(duration)}</span> : null}
         </p>
       </div>
       <div className="hidden w-36 shrink-0 items-center gap-3 sm:flex">

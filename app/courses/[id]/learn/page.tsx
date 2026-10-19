@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeftIcon, ArrowRightIcon, CardsIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, InfoIcon, ListBulletsIcon, ListChecksIcon, LockIcon, PlayCircleIcon, SidebarSimpleIcon, SkipForwardIcon, TrophyIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowLeftIcon, ArrowRightIcon, CardsIcon, CaretDownIcon, CaretLeftIcon, CircleNotchIcon, FileTextIcon, InfoIcon, ListBulletsIcon, ListChecksIcon, LockIcon, PlayCircleIcon, SidebarSimpleIcon, SkipForwardIcon, TrophyIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
@@ -15,6 +15,7 @@ import { LockHint } from "@/components/tier-badge"
 import { PdfPreview } from "@/components/pdf-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { videoTitle } from "@/components/learning"
 import { VideoPlayer } from "@/components/video-player"
 import { roleHome, useUser } from "@/hooks/use-user"
 import {
@@ -222,12 +223,24 @@ function Learn() {
 
   return (
     <div className="flex min-h-svh flex-col bg-white phone-landscape:bg-black">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-navy px-4 text-white sm:px-6 phone-landscape:hidden">
-        <Link href={roleHome(user.role)} aria-label="Home" className="flex min-h-11 shrink-0 items-center">
-          <Brand onDark compact className="[&>span]:hidden sm:[&>span]:flex [&>div]:size-8" />
+      {/* Phones: a slim black bar that runs into the video, so header and player read as one dark unit and
+          the picture gets the room. Back sits top-left as on iOS; the course title is centred. */}
+      <header className="sticky top-0 z-30 flex h-[calc(3rem+env(safe-area-inset-top))] items-center gap-1 bg-black px-1.5 pt-[env(safe-area-inset-top)] text-white sm:h-14 sm:gap-4 sm:bg-navy sm:px-6 sm:pt-0 phone-landscape:hidden">
+        <Link
+          href={backHref}
+          aria-label="Back"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full transition-[opacity,transform] duration-150 ease-(--ease-out) active:scale-90 active:opacity-50 sm:hidden"
+        >
+          <CaretLeftIcon weight="bold" className="size-5" />
+        </Link>
+        <Link href={roleHome(user.role)} aria-label="Home" className="hidden min-h-11 shrink-0 items-center sm:flex">
+          <Brand onDark compact className="[&>div]:size-8" />
         </Link>
         <span aria-hidden className="hidden h-6 w-px bg-white/20 sm:block" />
-        <Link href={`/courses/${id}${via === "explore" ? "?from=explore" : ""}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-secondary sm:text-base">
+        <Link
+          href={`/courses/${id}${via === "explore" ? "?from=explore" : ""}`}
+          className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold tracking-[-0.01em] hover:text-secondary sm:text-left sm:text-base sm:tracking-normal"
+        >
           {course?.title ?? "Course"}
         </Link>
         {preview && <Badge variant="lime" className="shrink-0">Free preview</Badge>}
@@ -242,8 +255,8 @@ function Learn() {
           {sidebar ? <SidebarSimpleIcon /> : <SidebarSimpleIcon />}
           Course content
         </Button>
-        <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "sm", className: "text-white hover:bg-white/10 hover:text-white" })}>
-          <ArrowLeftIcon /> <span className="hidden sm:inline">Back to course</span>
+        <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "sm", className: "hidden text-white hover:bg-white/10 hover:text-white sm:inline-flex" })}>
+          <ArrowLeftIcon /> Back to course
         </Link>
       </header>
 
@@ -276,14 +289,14 @@ function Learn() {
 
       {!loading && !error && current && (
         <div className="flex flex-1">
-          <main className="min-w-0 flex-1">
+          <main className="min-w-0 flex-1 max-sm:bg-[#0b1724]">
             {/* Phones: the video stays pinned under the header while the tabs scroll beneath it, and turning
                 the phone sideways hands it the whole screen. */}
-            <div className="sticky top-14 z-20 bg-black lg:static phone-landscape:static phone-landscape:h-svh">
-              <div className="mx-auto aspect-video w-full max-w-[calc((100svh-8rem)*16/9)] phone-landscape:aspect-auto phone-landscape:h-full phone-landscape:max-w-none">
+            <div className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-20 bg-black sm:top-14 lg:static phone-landscape:static phone-landscape:h-svh">
+              <div className="stage mx-auto aspect-video w-full max-w-[calc((100svh-8rem)*16/9)] phone-landscape:aspect-auto phone-landscape:h-full phone-landscape:max-w-none">
                 <VideoPlayer
                   videoId={current.id}
-                  title={current.title}
+                  title={videoTitle(current.title)}
                   onEnded={onEnded}
                   onPrev={prev && (() => go(prev))}
                   onNext={next && (() => go(next))}
@@ -406,10 +419,10 @@ function CourseContent({
               type="button"
               onClick={() => onToggleSection(s.lesson.id)}
               aria-expanded={open}
-              className="flex w-full items-start gap-3 bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100"
+              className="flex w-full items-start gap-3 bg-white px-4 py-3.5 text-left transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:bg-gray-50 sm:hover:bg-gray-100"
             >
               <span className="min-w-0 flex-1">
-                <span className="flex min-w-0 items-start gap-1.5 text-sm leading-snug font-semibold [overflow-wrap:anywhere] text-heading">
+                <span className="flex min-w-0 items-start gap-1.5 text-[15px] leading-snug font-semibold [overflow-wrap:anywhere] text-heading sm:text-sm">
                   {allLocked && <LockIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-label="Locked" />}
                   Section {i + 1}: {s.lesson.title}
                 </span>
@@ -417,7 +430,7 @@ function CourseContent({
                   {finished} / {s.videos.length} {s.videos.length === 1 ? "lecture" : "lectures"}
                 </span>
               </span>
-              <CaretDownIcon className={cn("mt-0.5 size-4 shrink-0 text-heading/70 transition-transform duration-300", open && "rotate-180")} />
+              <CaretDownIcon weight="bold" className={cn("mt-1 size-3.5 shrink-0 text-heading/40 transition-transform duration-300 ease-(--ease-out)", open && "rotate-180")} />
             </button>
             <div className="expand" data-open={open}>
               <div>
@@ -440,7 +453,7 @@ function CourseContent({
                                 <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
                                 <span className="min-w-0 flex-1">
                                   <span className="block text-sm leading-snug [overflow-wrap:anywhere]">
-                                    {n}. {v.title}
+                                    {n}. {videoTitle(v.title)}
                                   </span>
                                   {tier !== "free" && (
                                     <span className="mt-1 block text-xs">
@@ -455,10 +468,9 @@ function CourseContent({
                               key={v.id}
                               className={cn(
                                 "relative flex touch-manipulation items-start gap-3 px-4 py-3 transition-colors",
-                                active ? "bg-mint" : "hover:bg-gray-50 has-[button:active]:bg-gray-100"
+                                active ? "bg-primary/[0.06]" : "hover:bg-gray-50 has-[button:active]:bg-gray-100"
                               )}
                             >
-                              {active && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-teal" />}
                               {/* The checkbox sits above the row's stretched button with its own finger-sized target. */}
                               <label className="relative z-10 -m-2.5 flex shrink-0 cursor-pointer p-2.5">
                                 <input
@@ -466,7 +478,7 @@ function CourseContent({
                                   className="mt-0.5 size-4 cursor-pointer"
                                   checked={checked}
                                   onChange={() => onToggleDone(v)}
-                                  aria-label={`Mark "${v.title}" ${checked ? "not complete" : "complete"}`}
+                                  aria-label={`Mark "${videoTitle(v.title)}" ${checked ? "not complete" : "complete"}`}
                                 />
                               </label>
                               <button
@@ -475,12 +487,12 @@ function CourseContent({
                                 aria-current={active ? "true" : undefined}
                                 className="min-w-0 flex-1 text-left after:absolute after:inset-0"
                               >
-                                <span className={cn("block text-sm leading-snug [overflow-wrap:anywhere] text-heading", active && "font-semibold")}>
-                                  {n}. {v.title}
+                                <span className={cn("block text-[15px] leading-snug [overflow-wrap:anywhere] text-heading sm:text-sm", active && "font-semibold text-primary")}>
+                                  {n}. {videoTitle(v.title)}
                                 </span>
-                                <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <PlayCircleIcon className="size-3.5" />
-                                  {active ? "Playing" : "Video"}
+                                <span className={cn("mt-1 flex items-center gap-1.5 text-xs", active ? "font-medium text-primary" : "text-muted-foreground")}>
+                                  {active ? <span aria-hidden className="eq"><i /><i /><i /></span> : <PlayCircleIcon className="size-3.5" />}
+                                  {active ? "Now playing" : "Video"}
                                   {preview && <Badge variant="lime" className="ml-1 h-4 px-1.5 text-[10px]">Free</Badge>}
                                 </span>
                               </button>
@@ -520,12 +532,12 @@ function UpNext({ video, sectionTitle, onPlay, onCancel }: { video: Video; secti
     <div className="flex size-full items-center justify-center bg-black/80 p-6 backdrop-blur-[2px]">
       <div className="pop w-full max-w-sm text-center text-white">
         <p className="text-xs font-medium text-white/60">Up next</p>
-        <p className="mt-2 text-lg leading-snug font-semibold text-balance [overflow-wrap:anywhere]">{video.title}</p>
+        <p className="mt-2 text-lg leading-snug font-semibold text-balance [overflow-wrap:anywhere]">{videoTitle(video.title)}</p>
         {sectionTitle && <p className="mt-1 truncate text-sm text-white/60">{sectionTitle}</p>}
         <button
           type="button"
           onClick={onPlay}
-          aria-label={`Play now: ${video.title}`}
+          aria-label={`Play now: ${videoTitle(video.title)}`}
           className="group relative mx-auto mt-5 flex size-16 items-center justify-center rounded-full"
         >
           <svg viewBox="0 0 60 60" className="absolute inset-0 -rotate-90" aria-hidden>
@@ -622,18 +634,18 @@ function LectureTabs({
 
   const overview = (
     <div className="max-w-3xl space-y-6">
-      <div className="space-y-2">
-        <p className="tnum text-xs font-medium text-teal">
+      <div className="space-y-1.5">
+        <p className="tnum text-[12px] font-semibold tracking-[0.05em] text-teal uppercase">
           Section {sectionNo} · Lecture {lectureNo} of {totalLectures}
         </p>
         {/* Long titles (often file names with no spaces) wrap anywhere instead of pushing the page sideways. */}
-        <h1 className="text-2xl leading-tight font-semibold [overflow-wrap:anywhere] sm:text-3xl">{video.title}</h1>
-        <p className="text-sm [overflow-wrap:anywhere] text-muted-foreground">{lesson.title}</p>
+        <h1 className="display text-[1.375rem] leading-snug font-bold [overflow-wrap:anywhere] sm:text-3xl sm:leading-tight sm:font-semibold">{videoTitle(video.title)}</h1>
+        <p className="text-[15px] [overflow-wrap:anywhere] text-muted-foreground">{lesson.title}</p>
       </div>
       {video.description && (
         <div className="space-y-2">
-          <h2 className="text-base font-semibold">About this lecture</h2>
-          <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{video.description}</p>
+          <h2 className="text-[17px] font-semibold">About this lecture</h2>
+          <p className="max-w-[70ch] text-[15px] leading-[1.6] whitespace-pre-wrap text-gray-700">{video.description}</p>
         </div>
       )}
       {lesson.content && <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>}
@@ -641,34 +653,42 @@ function LectureTabs({
         <button
           type="button"
           onClick={onNext}
-          className="group flex w-full max-w-md items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-teal/40 hover:bg-gray-50"
+          className="tap group flex w-full max-w-md items-center gap-3.5 rounded-2xl bg-gray-50 p-3.5 text-left ring-1 ring-black/[0.04] hover:bg-gray-100 sm:rounded-lg"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-            <SkipForwardIcon className="size-5" />
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-navy text-white shadow-[0_4px_12px_-4px_rgba(16,42,67,0.5)]">
+            <SkipForwardIcon weight="fill" className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-xs text-muted-foreground">Next lecture</span>
-            <span className="block truncate text-sm font-semibold text-heading">{next.title}</span>
+            <span className="block text-[12px] font-medium text-muted-foreground">Up next</span>
+            <span className="mt-0.5 line-clamp-2 block text-[15px] leading-snug font-semibold [overflow-wrap:anywhere] text-heading">{videoTitle(next.title)}</span>
           </span>
-          <ArrowRightIcon className="size-4 text-heading/50 transition-transform group-hover:translate-x-1" />
+          <ArrowRightIcon className="size-4 shrink-0 text-heading/40 transition-transform group-hover:translate-x-1 group-active:translate-x-1" />
         </button>
       )}
-      <dl className="grid max-w-md grid-cols-2 gap-4 border-t border-border pt-6">
-        <div>
-          <dt className="text-xs text-muted-foreground">Sections</dt>
-          <dd className="tnum text-2xl font-semibold text-heading">{totalSections}</dd>
+      <dl className="flex max-w-md divide-x divide-border border-t border-border pt-5">
+        <div className="flex-1 pr-4">
+          <dt className="text-[13px] text-muted-foreground">Sections</dt>
+          <dd className="display tnum mt-0.5 text-[1.375rem] text-heading">{totalSections}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Lectures</dt>
-          <dd className="tnum text-2xl font-semibold text-heading">{totalLectures}</dd>
+        <div className="flex-1 pl-4">
+          <dt className="text-[13px] text-muted-foreground">Lectures</dt>
+          <dd className="display tnum mt-0.5 text-[1.375rem] text-heading">{totalLectures}</dd>
         </div>
       </dl>
     </div>
   )
 
   return (
-    <div className="phone-landscape:hidden">
-      <div role="tablist" aria-label="Lecture" className="grid grid-cols-5 border-b border-border sm:px-4 lg:flex lg:gap-6 lg:px-8">
+    <div className="min-h-[70svh] bg-white max-sm:relative max-sm:z-10 max-sm:rounded-t-[22px] max-sm:shadow-[0_-1px_0_rgba(255,255,255,0.06)] phone-landscape:hidden">
+      <div role="tablist" aria-label="Lecture" className="relative grid grid-cols-5 border-b border-border pt-1.5 sm:px-4 sm:pt-0 lg:flex lg:gap-6 lg:px-8">
+        {/* Phones: one short indicator glides between tabs instead of an underline blinking from tab to tab. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-[-1px] left-0 flex w-1/5 justify-center transition-transform duration-300 ease-(--ease-drawer) sm:hidden"
+          style={{ transform: `translateX(${Math.max(0, tabs.findIndex((t) => t.key === tab)) * 100}%)` }}
+        >
+          <span className="h-[3px] w-8 rounded-full bg-heading" />
+        </span>
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -678,8 +698,8 @@ function LectureTabs({
             aria-label={t.label}
             onClick={() => setTab(t.key)}
             className={cn(
-              "-mb-px flex min-w-0 touch-manipulation flex-col items-center gap-1 border-b-2 border-transparent pt-2.5 pb-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-heading active:bg-gray-50 sm:flex-row sm:justify-center sm:gap-2 sm:py-3.5 sm:text-sm lg:shrink-0 lg:justify-start",
-              tab === t.key && "border-heading text-heading",
+              "-mb-px flex min-w-0 touch-manipulation flex-col items-center gap-1 border-b-2 border-transparent pt-2.5 pb-2 text-[11px] font-semibold text-muted-foreground transition-[color,opacity] duration-150 hover:text-heading active:opacity-60 sm:flex-row sm:justify-center sm:gap-2 sm:py-3.5 sm:text-sm lg:shrink-0 lg:justify-start",
+              tab === t.key && "text-heading sm:border-heading",
               // On large screens the hidden "content" tab falls back to Overview.
               t.key === "overview" && tab === "content" && "lg:border-heading lg:text-heading",
               t.key === "content" && tab === "content" && "lg:border-transparent",
@@ -693,7 +713,7 @@ function LectureTabs({
         ))}
       </div>
 
-      <div className={cn(tab === "content" ? "lg:px-8 lg:py-8" : "px-4 py-8 sm:px-8")}>
+      <div className={cn(tab === "content" ? "lg:px-8 lg:py-8" : "px-4 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-8")}>
         {tab === "content" && (
           <>
             <div className="lg:hidden">{content}</div>

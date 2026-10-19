@@ -84,6 +84,7 @@ function Feed() {
   return (
     <>
       <PageTitle
+        eyebrow={canTeach ? undefined : new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
         title={canTeach ? "My courses" : `${greeting}, ${user.firstName}`}
         subtitle={canTeach ? "Courses you own and the updates you have shared." : undefined}
       />
@@ -156,7 +157,7 @@ function Feed() {
                 <li key={c.id}>
                   <Link
                     href={courseHref(c.id)}
-                    className="group grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-5 py-4 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem]"
+                    className="group relative grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-4 pr-10 pl-5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem] sm:pr-5"
                   >
                     <div className="min-w-0">
                       <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem]">{c.title}</p>
@@ -174,7 +175,7 @@ function Feed() {
                     ) : (
                       <span />
                     )}
-                    <CaretRightIcon className="hidden size-4 text-gray-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-heading sm:block" />
+                    <CaretRightIcon weight="bold" className="absolute top-1/2 right-4 size-3.5 -translate-y-1/2 text-gray-300 transition-transform duration-150 group-active:translate-x-0.5 sm:static sm:size-4 sm:translate-y-0 sm:group-hover:translate-x-0.5 sm:group-hover:text-heading" />
                   </Link>
                 </li>
               )
@@ -191,7 +192,7 @@ function Feed() {
         {loading && <Loading rows={2} />}
         {!loading && posts.length === 0 && <p className="text-sm text-muted-foreground">No updates yet.</p>}
         {posts.length > 0 && (
-          <ol className="divide-y divide-border border-y border-border">
+          <ol className="divide-y divide-border rounded-xl bg-card px-4 shadow-[0_1px_2px_rgba(16,42,67,0.04),0_4px_16px_-6px_rgba(16,42,67,0.08)] md:rounded-none md:border-y md:border-border md:bg-transparent md:px-0 md:shadow-none">
             {posts.map((p) => (
               <li key={p.id} className="flex gap-4 py-5">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-navy text-[13px] font-medium text-white">

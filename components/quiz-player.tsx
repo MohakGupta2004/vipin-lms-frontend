@@ -6,6 +6,7 @@ import {
   ArrowRightIcon,
   CaretDownIcon,
   CheckCircleIcon,
+  CheckIcon,
   CircleNotchIcon,
   ClockIcon,
   MinusCircleIcon,
@@ -16,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react"
 
 import { ErrorNote } from "@/components/app-shell"
+import { cn } from "@/lib/utils"
 import { useQuizSession } from "@/components/quiz-session"
 import {
   AlertDialog,
@@ -269,10 +271,10 @@ function Runner() {
       </AlertDialog>
 
       {/* Status bar, pinned under the app header (h-14 + safe area). Phones: an edge-to-edge app bar with the progress as its bottom edge. */}
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 bg-white/95 px-4 pt-2.5 pb-3 backdrop-blur-md sm:mx-0 sm:rounded-2xl sm:border sm:border-border sm:px-5 sm:py-4 sm:shadow-[0_2px_12px_-4px_rgba(10,37,64,0.12)]">
+      <div className="material sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 -mt-3 bg-background/85 px-4 pt-2 pb-3 backdrop-blur-xl backdrop-saturate-150 sm:mx-0 sm:mt-0 sm:bg-white/95 sm:rounded-2xl sm:border sm:border-border sm:px-5 sm:py-4 sm:shadow-[0_2px_12px_-4px_rgba(10,37,64,0.12)]">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-xs text-muted-foreground sm:hidden">
+            <p className="truncate text-[12px] font-medium text-muted-foreground sm:hidden">
               {quiz.title}
             </p>
             <button
@@ -281,7 +283,7 @@ function Runner() {
               className="-mx-1.5 flex min-h-9 items-center gap-1 rounded-md px-1.5 text-left transition-colors active:bg-gray-100 sm:pointer-events-none sm:mx-0 sm:min-h-0 sm:px-0"
               aria-label={`Question ${state.index + 1} of ${total}. Show all questions`}
             >
-              <span className="tnum text-sm font-semibold whitespace-nowrap text-heading sm:text-base">
+              <span className="tnum text-[17px] font-semibold tracking-[-0.01em] whitespace-nowrap text-heading sm:text-base sm:tracking-normal">
                 Question {state.index + 1}
                 <span className="font-normal text-gray-500"> of {total}</span>
               </span>
@@ -329,7 +331,7 @@ function Runner() {
           aria-valuenow={done}
         >
           <div
-            className="h-full bg-teal transition-[width] duration-500 ease-out sm:rounded-full"
+            className="h-full rounded-r-full bg-teal transition-[width] duration-500 ease-(--ease-out) sm:rounded-full"
             style={{ width: `${total ? (done / total) * 100 : 0}%` }}
           />
         </div>
@@ -342,11 +344,13 @@ function Runner() {
         className="rise space-y-5 sm:rounded-2xl sm:border sm:border-border sm:bg-white sm:p-7 sm:shadow-[0_1px_2px_rgba(10,37,64,0.05)]"
       >
         {result && (
-          <StatusBadge status={result.isCorrect ? "correct" : "wrong"} />
+          <span className="max-sm:hidden">
+            <StatusBadge status={result.isCorrect ? "correct" : "wrong"} />
+          </span>
         )}
         <QuestionText
           text={current.questionText}
-          className="text-base leading-[1.55] sm:text-lg sm:leading-relaxed"
+          className="text-[17px] leading-[1.45] tracking-[-0.01em] sm:text-lg sm:leading-relaxed sm:tracking-normal"
         />
 
         {result ? (
@@ -359,7 +363,7 @@ function Runner() {
         ) : (
           <div
             ref={optionsRef}
-            className="space-y-2.5"
+            className={GROUP}
             role="radiogroup"
             aria-label={`Answers to question ${state.index + 1}`}
           >
@@ -368,12 +372,13 @@ function Runner() {
               return (
                 <label
                   key={o.id}
-                  className={
-                    "flex min-h-[3.25rem] cursor-pointer touch-manipulation items-center gap-3 rounded-xl border bg-white px-3.5 py-2.5 text-[15px] leading-[1.4] transition-[background-color,border-color,box-shadow,transform] duration-150 select-none active:scale-[0.985] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal has-[:focus-visible]:ring-offset-2 sm:min-h-14 sm:gap-3.5 sm:px-4 sm:py-3 " +
-                    (on
-                      ? "border-teal bg-mint/60 text-heading shadow-[inset_0_0_0_1px_hsl(var(--teal))]"
-                      : "border-border text-gray-700 shadow-[0_1px_2px_rgba(10,37,64,0.04)] hover:border-teal/50 hover:bg-gray-50")
-                  }
+                  className={cn(
+                    ROW,
+                    "cursor-pointer touch-manipulation select-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal has-[:focus-visible]:ring-inset sm:has-[:focus-visible]:ring-offset-2 sm:has-[:focus-visible]:ring-inset-0",
+                    on
+                      ? "text-heading max-sm:bg-teal/[0.06] sm:border-teal sm:bg-mint/60 sm:shadow-[inset_0_0_0_1px_hsl(var(--teal))]"
+                      : "text-gray-800 max-sm:active:bg-gray-100 sm:border-border sm:text-gray-700 sm:shadow-[0_1px_2px_rgba(10,37,64,0.04)] sm:hover:border-teal/50 sm:hover:bg-gray-50 sm:active:scale-[0.985]"
+                  )}
                 >
                   <input
                     type="radio"
@@ -384,14 +389,13 @@ function Runner() {
                     disabled={submitting || state.checking}
                   />
                   <Letter i={i} on={on} />
-                  <span
-                    className={
-                      "min-w-0 flex-1 break-words whitespace-pre-line " +
-                      (on ? "font-medium" : "")
-                    }
-                  >
-                    {o.optionText}
-                  </span>
+                  <span className={cn("min-w-0 flex-1 break-words whitespace-pre-line", on && "font-medium")}>{o.optionText}</span>
+                  {/* Phones: the iOS selection mark, trailing. */}
+                  <CheckIcon
+                    weight="bold"
+                    aria-hidden
+                    className={cn("size-[18px] shrink-0 text-teal transition-[opacity,transform] duration-200 ease-(--ease-out) sm:hidden", on ? "scale-100 opacity-100" : "scale-50 opacity-0")}
+                  />
                 </label>
               )
             })}
@@ -413,11 +417,11 @@ function Runner() {
       <ErrorNote error={state.error} />
 
       {/* Phones: the controls stay in thumb reach at the bottom of the screen. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-2.5 border-t border-border/70 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:static sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+      <div className="material fixed inset-x-0 bottom-0 z-30 flex items-center gap-2.5 border-t border-black/[0.06] bg-white/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl backdrop-saturate-150 sm:static sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         <Button
           variant="outline"
           size="lg"
-          className="size-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-5 sm:text-sm"
+          className="size-[50px] shrink-0 rounded-full border-0 bg-gray-100 px-0 hover:bg-gray-200 disabled:opacity-40 sm:h-10 sm:w-auto sm:rounded-md sm:border sm:bg-white sm:px-5 sm:text-sm"
           onClick={() => go(state.index - 1)}
           disabled={state.index === 0}
           aria-label="Previous question"
@@ -429,7 +433,7 @@ function Runner() {
             <Button
               variant="ghost"
               size="lg"
-              className="shrink-0 px-4 sm:h-10 sm:text-sm"
+              className="h-[50px] shrink-0 rounded-full px-4 text-[17px] font-medium text-teal hover:bg-teal/10 sm:h-10 sm:rounded-md sm:text-sm sm:text-heading"
               onClick={() => (last ? submit() : go(state.index + 1))}
               disabled={submitting || state.checking}
             >
@@ -438,7 +442,7 @@ function Runner() {
           )}
           <Button
             size="lg"
-            className="flex-1 sm:h-10 sm:flex-none sm:px-5 sm:text-sm"
+            className="h-[50px] flex-1 rounded-[14px] text-[17px] disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-100 sm:h-10 sm:flex-none sm:rounded-md sm:px-5 sm:text-sm"
             onClick={primary}
             disabled={
               submitting || state.checking || (practice && !result && !picked)
@@ -460,7 +464,7 @@ function Runner() {
       </div>
 
       {/* Room for the fixed bar on phones so the last option never hides under it. */}
-      <div aria-hidden className="h-16 sm:hidden" />
+      <div aria-hidden className="h-20 sm:hidden" />
 
       <nav
         aria-label="All questions"
@@ -614,7 +618,7 @@ function Letter({
         (className ||
           (on
             ? "border-teal bg-teal text-white"
-            : "border-gray-300 bg-white text-gray-500"))
+            : "border-transparent bg-gray-100 text-gray-500 sm:border-gray-300 sm:bg-white"))
       }
     >
       {LETTERS[i]}
@@ -676,42 +680,46 @@ function Feedback({
       role="status"
       className={
         // Scroll margins clear the pinned status bar above and, on phones, the fixed controls below.
-        "rise scroll-mt-40 scroll-mb-28 space-y-1.5 rounded-xl border px-4 py-3.5 text-sm sm:scroll-mt-48 sm:scroll-mb-6 " +
+        "rise scroll-mt-40 scroll-mb-28 space-y-2 rounded-2xl px-4 py-4 text-[15px] sm:scroll-mt-48 sm:scroll-mb-6 sm:rounded-xl sm:border sm:text-sm " +
+        "max-sm:bg-white max-sm:shadow-[0_1px_2px_rgba(16,42,67,0.04)] " +
         (answer.isCorrect
-          ? "border-green-600/30 bg-lime-soft/50"
-          : "border-red-200 bg-red-50")
+          ? "sm:border-green-600/30 sm:bg-lime-soft/50"
+          : "sm:border-red-200 sm:bg-red-50")
       }
     >
       <p
         className={
-          "flex items-center gap-2 font-semibold " +
-          (answer.isCorrect ? "text-green-700" : "text-red-700")
+          "flex items-start gap-2 text-[17px] leading-snug font-semibold tracking-[-0.01em] sm:text-sm sm:tracking-normal " +
+          (answer.isCorrect ? "text-green-700" : "text-red-600 sm:text-red-700")
         }
       >
         {answer.isCorrect ? (
-          <CheckCircleIcon className="size-4" />
+          <CheckCircleIcon weight="fill" className="mt-px size-[18px] shrink-0" />
         ) : (
-          <XCircleIcon className="size-4" />
+          <XCircleIcon weight="fill" className="mt-px size-[18px] shrink-0" />
         )}
         {answer.isCorrect
           ? "Correct"
           : showAnswer
-            ? `Not quite. The right answer is ${LETTERS[correct] ?? "marked in green"}.`
-            : "Not quite. Tap another option to try again, or show the answer."}
+            ? `Not quite. The answer is ${LETTERS[correct] ?? "marked in green"}.`
+            : "Not quite"}
       </p>
       {!answer.isCorrect && !showAnswer && (
-        <div className="flex flex-col gap-2 pt-1.5 sm:flex-row">
-          <Button size="lg" className="w-full sm:h-9 sm:w-auto sm:text-sm" onClick={onRetry}>
+        <p className="text-[15px] leading-snug text-muted-foreground sm:hidden">Pick another option to try again, or see the answer.</p>
+      )}
+      {!answer.isCorrect && !showAnswer && (
+        <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:pt-1">
+          <Button className="h-11 w-full rounded-full border-0 bg-teal/10 text-[15px] text-teal hover:bg-teal/15 sm:h-9 sm:w-auto sm:rounded-md sm:bg-navy sm:text-sm sm:text-white sm:hover:bg-[#1b3b5a]" onClick={onRetry}>
             <ArrowCounterClockwiseIcon /> Try again
             <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] sm:inline">R</kbd>
           </Button>
-          <Button variant="outline" size="lg" className="w-full bg-white sm:h-9 sm:w-auto sm:text-sm" onClick={onReveal}>
+          <Button variant="outline" className="h-11 w-full rounded-full border-0 bg-gray-100 text-[15px] hover:bg-gray-200 sm:h-9 sm:w-auto sm:rounded-md sm:border sm:border-heading/30 sm:bg-white sm:text-sm" onClick={onReveal}>
             Show answer
           </Button>
         </div>
       )}
       {showAnswer && answer.explanation && (
-        <p className="leading-relaxed whitespace-pre-line text-gray-700">
+        <p className="text-[15px] leading-[1.55] whitespace-pre-line text-gray-700 sm:text-sm">
           {answer.explanation}
         </p>
       )}
@@ -735,7 +743,7 @@ function OptionReveal({
   onPick?: (optionId: string) => void
 }) {
   return (
-    <ul className="space-y-2.5 text-[15px] leading-[1.4]">
+    <ul className={GROUP}>
       {options.map((o, i) => {
         const correct = o.id === correctOptionId
         const wrongPick = !correct && o.id === selectedOptionId
@@ -744,17 +752,16 @@ function OptionReveal({
           <li
             key={o.id}
             onClick={retryable ? () => onPick(o.id) : undefined}
-            className={
-              "flex min-h-[3.25rem] items-center gap-3 rounded-xl border px-3.5 py-2.5 sm:min-h-14 sm:gap-3.5 sm:px-4 sm:py-3 " +
-              (retryable
-                ? "cursor-pointer touch-manipulation bg-white text-gray-700 transition-[background-color,border-color,transform] duration-150 select-none active:scale-[0.985] hover:border-teal/50 hover:bg-gray-50 "
-                : "") +
-              (correct
-                ? "border-green-600/30 bg-lime-soft/60 font-medium text-green-700"
+            className={cn(
+              ROW,
+              retryable &&
+                "cursor-pointer touch-manipulation select-none max-sm:active:bg-gray-100 sm:bg-white sm:text-gray-700 sm:hover:border-teal/50 sm:hover:bg-gray-50 sm:active:scale-[0.985]",
+              correct
+                ? "font-medium text-heading max-sm:bg-green-600/[0.07] sm:border-green-600/40 sm:bg-[#e9f6ee] sm:text-green-800"
                 : wrongPick
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-border text-gray-500")
-            }
+                  ? "text-heading max-sm:bg-red-600/[0.06] sm:border-red-300 sm:bg-[#fdeeee] sm:text-red-700"
+                  : "text-gray-500 sm:border-border"
+            )}
           >
             <Letter
               i={i}
@@ -768,18 +775,29 @@ function OptionReveal({
             />
             <span className="min-w-0 flex-1 break-words whitespace-pre-line">
               {o.optionText}
+              {o.id === selectedOptionId && (
+                <span className={cn("mt-1 block text-[12px] font-medium", correct ? "text-green-700" : wrongPick ? "text-red-600" : "text-muted-foreground")}>
+                  Your answer
+                </span>
+              )}
             </span>
-            {o.id === selectedOptionId && (
-              <span className="shrink-0 text-xs font-semibold">
-                Your answer
-              </span>
-            )}
+            {correct && <CheckCircleIcon weight="fill" aria-label="Correct" className="size-[22px] shrink-0 text-green-600 sm:hidden" />}
+            {wrongPick && <XCircleIcon weight="fill" aria-label="Wrong" className="size-[22px] shrink-0 text-red-500 sm:hidden" />}
           </li>
         )
       })}
     </ul>
   )
 }
+
+/**
+ * Answer list. Phones: one inset grouped list (white, rounded, hairline separators), like an iOS settings
+ * group. Larger screens: separate outlined cards.
+ */
+const GROUP =
+  "text-[16px] leading-[1.4] max-sm:divide-y max-sm:divide-black/[0.06] max-sm:overflow-hidden max-sm:rounded-[14px] max-sm:bg-white max-sm:shadow-[0_1px_2px_rgba(16,42,67,0.04)] sm:space-y-2.5 sm:text-[15px]"
+const ROW =
+  "flex min-h-[3.25rem] items-center gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow,transform] duration-150 ease-(--ease-out) sm:min-h-14 sm:gap-3.5 sm:rounded-xl sm:border sm:bg-white"
 
 type ReviewStatus = "correct" | "wrong" | "skipped"
 
