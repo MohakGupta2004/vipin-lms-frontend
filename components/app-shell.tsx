@@ -252,7 +252,7 @@ export function AppShell({
           <span className="hidden truncate text-sm text-muted-foreground md:block">
             {pageName(user.role, pathname)}
           </span>
-          <AccountButton user={user} />
+          <AccountButton user={user} onSignOut={signOut} />
         </header>
         <div className="stagger mx-auto w-full max-w-[1120px] flex-1 space-y-8 px-4 pt-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:space-y-10 sm:px-8 sm:py-9 lg:px-12 lg:py-12">
           {children}
@@ -269,22 +269,48 @@ function readSidebarOpen() {
   return !document.cookie.split("; ").includes("sidebar_state=false")
 }
 
-/** Phones: the avatar opens the full menu (every page, the account and sign out) as a sheet. */
-function AccountButton({ user }: { user: User }) {
-  const { setOpenMobile } = useSidebar()
+/** Phones: the avatar opens the account menu (who is signed in, sign out); pages live in the dock. */
+function AccountButton({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   return (
-    <button
-      type="button"
-      aria-label="Open menu"
-      onClick={() => setOpenMobile(true)}
-      className="-mr-1.5 ml-auto flex size-11 items-center justify-center rounded-full transition-transform duration-150 ease-(--ease-out) active:scale-90 md:hidden"
-    >
-      <Avatar className="size-8 shadow-[0_0_0_2px_white,0_2px_8px_-2px_rgba(16,42,67,0.35)]">
-        <AvatarFallback className="bg-gradient-to-br from-[#2a5a85] to-navy text-[13px] font-semibold text-white">
-          {user.firstName.charAt(0).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-    </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label="Account"
+            className="-mr-1.5 ml-auto flex size-11 items-center justify-center rounded-full transition-transform duration-150 ease-(--ease-out) active:scale-90 md:hidden"
+          />
+        }
+      >
+        <Avatar className="size-8 shadow-[0_0_0_2px_white,0_2px_8px_-2px_rgba(16,42,67,0.35)]">
+          <AvatarFallback className="bg-gradient-to-br from-[#2a5a85] to-navy text-[13px] font-semibold text-white">
+            {user.firstName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="end" sideOffset={6} className="w-64 rounded-2xl p-1.5">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2 font-normal">
+            <Avatar className="size-10">
+              <AvatarFallback className="bg-gradient-to-br from-[#2a5a85] to-navy text-[15px] font-semibold text-white">
+                {user.firstName.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="grid min-w-0 leading-tight">
+              <span className="truncate text-[15px] font-semibold text-heading">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="truncate text-[13px] text-muted-foreground">{user.email}</span>
+            </span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSignOut} className="min-h-11 rounded-xl px-2 text-[15px] text-red-600 focus:text-red-600 [&_svg]:text-red-600">
+          <SignOutIcon />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
