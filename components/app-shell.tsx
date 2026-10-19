@@ -7,8 +7,7 @@ import {
   CaretUpDownIcon,
   ChartLineUpIcon,
   CompassIcon,
-  DotsThreeCircleIcon,
-  ListChecksIcon,
+    ListChecksIcon,
   NewspaperIcon,
   NotePencilIcon,
   PlayCircleIcon,
@@ -305,6 +304,23 @@ function AccountButton({ user, onSignOut }: { user: User; onSignOut: () => void 
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        {offDock(user.role).length > 0 && (
+          <>
+            <DropdownMenuGroup>
+              {offDock(user.role).map(({ href, label, icon: PageIcon }) => (
+                <DropdownMenuItem
+                  key={href}
+                  render={<Link href={href} />}
+                  className="min-h-11 rounded-xl px-2 text-[15px] text-heading [&_svg]:size-[18px] [&_svg]:text-gray-500"
+                >
+                  <PageIcon />
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={onSignOut} className="min-h-11 rounded-xl px-2 text-[15px] text-red-600 focus:text-red-600 [&_svg]:text-red-600">
           <SignOutIcon />
           Sign out
@@ -320,24 +336,26 @@ let lastTab = -1
 
 const FOCUSED = /^\/(quizzes\/|flashcards\/study)/
 
+/** The dock holds five at most: the first four pages, then Explore. */
+function dockTabs(role: Role) {
+  const nav = NAV[role]
+  if (nav.length <= 5) return nav
+  const explore = nav.find((n) => n.href === "/explore")
+  return explore ? [...nav.slice(0, 4), explore] : nav.slice(0, 5)
+}
+
+/** Pages that don't fit in the dock; the account menu lists them so every page stays reachable on phones. */
+const offDock = (role: Role) => NAV[role].filter((n) => !dockTabs(role).includes(n))
+
 /**
  * Phones: the main destinations float under the thumb in a glass capsule, like a native tab bar. Up to
  * five fit; with more, the first four stay and "More" opens the full menu. Hidden from md, where the
  * sidebar takes over.
  */
 function TabBar({ role, pathname }: { role: Role; pathname: string }) {
-  const { setOpenMobile } = useSidebar()
-  const nav = NAV[role]
-  const overflow = nav.length > 5
-  const tabs = overflow ? nav.slice(0, 4) : nav
-  const count = tabs.length + (overflow ? 1 : 0)
-  const tabIdx = tabs.findIndex((t) => pathname.startsWith(t.href))
-  const activeIdx =
-    tabIdx >= 0
-      ? tabIdx
-      : overflow && nav.some((t) => pathname.startsWith(t.href))
-        ? count - 1
-        : -1
+  const tabs = dockTabs(role)
+  const count = tabs.length
+  const activeIdx = tabs.findIndex((t) => pathname.startsWith(t.href))
 
   // Start the pill where it was on the previous page, then let it travel on the next frame.
   const [pill, setPill] = useState(() => (lastTab >= 0 ? lastTab : activeIdx))
@@ -395,22 +413,6 @@ function TabBar({ role, pathname }: { role: Role; pathname: string }) {
               </Link>
             )
           })}
-          {overflow && (
-            <button
-              type="button"
-              onClick={() => setOpenMobile(true)}
-              className={cn(
-                item,
-                activeIdx === count - 1 ? "text-primary" : "text-gray-500"
-              )}
-            >
-              <DotsThreeCircleIcon
-                weight={activeIdx === count - 1 ? "fill" : "regular"}
-                className={icon}
-              />
-              <span>More</span>
-            </button>
-          )}
         </div>
       </nav>
     </>
