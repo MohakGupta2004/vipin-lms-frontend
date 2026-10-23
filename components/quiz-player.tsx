@@ -40,11 +40,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import type { AttemptAnswer, MockResult, Question, Quiz } from "@/lib/api"
+import type { AttemptAnswer, Question, Quiz } from "@/lib/api"
 
 const LETTERS = "ABCDEFGHIJ"
 
-/** The test in progress, then the mock score or the practice review. Must sit inside <QuizSessionProvider>. */
+/** The test in progress, then the mock score with its answers, or the practice review. Must sit inside <QuizSessionProvider>. */
 export function QuizPlayer({
   onRestart,
   onExit,
@@ -56,15 +56,29 @@ export function QuizPlayer({
 }) {
   const { quiz, practice, state } = useQuizSession()
   if (state.status !== "finished") return <Runner />
-  if (!practice && state.mockResult)
+  if (!practice && state.mockResult) {
+    const r = state.mockResult
     return (
-      <MockScore
-        result={state.mockResult}
-        onRestart={onRestart}
-        onExit={onExit}
-        exitLabel={exitLabel}
+      <MockReview
+        quiz={quiz}
+        score={r.score}
+        total={r.total}
+        passed={r.passed}
+        passPercent={r.passPercent}
+        answers={r.answers ?? []}
+        actions={
+          <>
+            <Button onClick={onRestart}>
+              <ArrowCounterClockwiseIcon /> Retake test
+            </Button>
+            <Button variant="outline" onClick={onExit}>
+              {exitLabel}
+            </Button>
+          </>
+        }
       />
     )
+  }
   return (
     <PracticeReview
       quiz={quiz}
@@ -829,19 +843,75 @@ function StatusBadge({ status }: { status: ReviewStatus }) {
   )
 }
 
-/** Mock test result: marks only, never the answers. */
-function MockScore({
-  result,
-  onRestart,
-  onExit,
-  exitLabel,
+type ReviewRow = {
+  q: Question
+  i: number
+  a: AttemptAnswer | undefined
+  status: ReviewStatus
+}
+
+/** Every question of the quiz with its graded answer, if any. Picking nothing (or leaving it out) counts as skipped. */
+function reviewRows(quiz: Quiz, answers: AttemptAnswer[]): ReviewRow[] {
+  const byQ = new Map(answers.map((a) => [a.questionId, a]))
+  return (quiz.questions ?? []).map((q, i) => {
+    const a = byQ.get(q.id)
+    const status: ReviewStatus = !a?.selectedOptionId
+      ? "skipped"
+      : a.isCorrect
+        ? "correct"
+        : "wrong"
+    return { q, i, a, status }
+  })
+}
+
+function countRows(rows: ReviewRow[]) {
+  const n = (s: ReviewStatus) => rows.filter((r) => r.status === s).length
+  return { correct: n("correct"), wrong: n("wrong"), skipped: n("skipped") }
+}
+
+/** The correct / wrong / skipped tally, for the dark result cards. */
+function Tally({ counts }: { counts: ReturnType<typeof countRows> }) {
+  return (
+    <div className="tnum flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/80">
+      <span className="flex items-center gap-1.5">
+        <CheckCircleIcon className="size-4 text-secondary" /> {counts.correct}{" "}
+        correct
+      </span>
+      <span className="flex items-center gap-1.5">
+        <XCircleIcon className="size-4 text-red-300" /> {counts.wrong} wrong
+      </span>
+      <span className="flex items-center gap-1.5">
+        <MinusCircleIcon className="size-4 text-white/50" /> {counts.skipped}{" "}
+        skipped
+      </span>
+    </div>
+  )
+}
+
+/**
+ * A finished mock test: the marks, how many were right, wrong and skipped, then every question with
+ * the student's answer, the correct one and the explanation.
+ */
+export function MockReview({
+  quiz,
+  score,
+  total,
+  passed,
+  passPercent,
+  answers,
+  actions,
 }: {
-  result: MockResult
-  onRestart: () => void
-  onExit: () => void
-  exitLabel: string
+  quiz: Quiz
+  score: number
+  total: number
+  passed: boolean
+  passPercent: number
+  answers: AttemptAnswer[]
+  actions?: React.ReactNode
 }) {
-  const pct = result.total ? Math.round((result.score / result.total) * 100) : 0
+  const rows = reviewRows(quiz, answers)
+  const counts = countRows(rows)
+  const pct = total ? Math.round((score / total) * 100) : 0
   return (
     <div className="space-y-4">
       <Card className="pop overflow-hidden bg-navy">
@@ -849,22 +919,24 @@ function MockScore({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-1">
               <div className="text-sm text-white/75">Your score</div>
-              <div className="tnum text-6xl font-semibold text-white">
-                {result.score}
-                <span className="text-3xl text-white/60">/{result.total}</span>
+              <div className="tnum text-5xl font-semibold text-white sm:text-6xl">
+                {score}
+                <span className="text-2xl text-white/60 sm:text-3xl">
+                  /{total}
+                </span>
               </div>
             </div>
             <Badge
-              variant={result.passed ? "lime" : "secondary"}
+              variant={passed ? "lime" : "secondary"}
               className="h-7 px-3 text-xs"
             >
-              {result.passed ? "Passed" : "Not passed"}
+              {passed ? "Passed" : "Not passed"}
             </Badge>
           </div>
           <div className="space-y-2">
             <div className="tnum flex justify-between text-sm text-white/80">
               <span>{pct}%</span>
-              <span>Pass mark {result.passPercent}%</span>
+              <span>Pass mark {passPercent}%</span>
             </div>
             <div className="relative h-2 rounded-full bg-white/15">
               <div
@@ -874,24 +946,33 @@ function MockScore({
               <div
                 aria-hidden
                 className="absolute -inset-y-1 w-0.5 rounded-full bg-white"
-                style={{ left: `${result.passPercent}%` }}
+                style={{ left: `${passPercent}%` }}
               />
             </div>
           </div>
+          {rows.length > 0 && <Tally counts={counts} />}
         </CardContent>
       </Card>
-      <p className="text-sm text-gray-600">
-        Mock test answers stay hidden, like in the real exam. Revise the lesson
-        and try again to improve your score.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onRestart}>
-          <ArrowCounterClockwiseIcon /> Retake test
-        </Button>
-        <Button variant="outline" onClick={onExit}>
-          {exitLabel}
-        </Button>
-      </div>
+
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+
+      {rows.length > 0 && (
+        <section aria-labelledby="mock-review-title" className="space-y-4 pt-2">
+          <div className="space-y-1">
+            <h2
+              id="mock-review-title"
+              className="text-lg font-semibold text-heading"
+            >
+              Answers and explanations
+            </h2>
+            <p className="text-sm text-gray-600">
+              See where you went wrong, then retake the test to improve your
+              score.
+            </p>
+          </div>
+          <ReviewList rows={rows} mock />
+        </section>
+      )}
     </div>
   )
 }
@@ -906,26 +987,8 @@ export function PracticeReview({
   answers: AttemptAnswer[]
   actions?: React.ReactNode
 }) {
-  const [filter, setFilter] = useState<ReviewStatus | "all">("all")
-  const byQ = new Map(answers.map((a) => [a.questionId, a]))
-  const rows = (quiz.questions ?? []).map((q, i) => {
-    const a = byQ.get(q.id)
-    const status: ReviewStatus = !a
-      ? "skipped"
-      : a.isCorrect
-        ? "correct"
-        : "wrong"
-    return { q, i, a, status }
-  })
-  const count = (s: ReviewStatus) => rows.filter((r) => r.status === s).length
-  const shown =
-    filter === "all" ? rows : rows.filter((r) => r.status === filter)
-  const filters: { key: ReviewStatus | "all"; label: string; n: number }[] = [
-    { key: "all", label: "All", n: rows.length },
-    { key: "wrong", label: "Wrong", n: count("wrong") },
-    { key: "correct", label: "Correct", n: count("correct") },
-    { key: "skipped", label: "Skipped", n: count("skipped") },
-  ]
+  const rows = reviewRows(quiz, answers)
+  const counts = countRows(rows)
 
   return (
     <div className="space-y-4">
@@ -934,32 +997,42 @@ export function PracticeReview({
           <div className="space-y-1">
             <div className="text-sm text-white/75">Practice review</div>
             <div className="tnum text-5xl font-semibold text-white">
-              {count("correct")}
+              {counts.correct}
               <span className="text-2xl text-white/60">
                 {" "}
                 of {rows.length} right
               </span>
             </div>
           </div>
-          <div className="tnum flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/80">
-            <span className="flex items-center gap-1.5">
-              <CheckCircleIcon className="size-4 text-secondary" />{" "}
-              {count("correct")} correct
-            </span>
-            <span className="flex items-center gap-1.5">
-              <XCircleIcon className="size-4 text-red-300" /> {count("wrong")}{" "}
-              wrong
-            </span>
-            <span className="flex items-center gap-1.5">
-              <MinusCircleIcon className="size-4 text-white/50" />{" "}
-              {count("skipped")} skipped
-            </span>
-          </div>
+          <Tally counts={counts} />
         </CardContent>
       </Card>
 
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
 
+      <ReviewList rows={rows} />
+    </div>
+  )
+}
+
+/**
+ * Filter chips and one card per question. In a mock test every question is graded, so a skipped one still
+ * shows the correct answer and explanation; in practice a skipped question was never checked and stays hidden.
+ */
+function ReviewList({ rows, mock = false }: { rows: ReviewRow[]; mock?: boolean }) {
+  const [filter, setFilter] = useState<ReviewStatus | "all">("all")
+  const counts = countRows(rows)
+  const shown =
+    filter === "all" ? rows : rows.filter((r) => r.status === filter)
+  const filters: { key: ReviewStatus | "all"; label: string; n: number }[] = [
+    { key: "all", label: "All", n: rows.length },
+    { key: "wrong", label: "Wrong", n: counts.wrong },
+    { key: "correct", label: "Correct", n: counts.correct },
+    { key: "skipped", label: "Skipped", n: counts.skipped },
+  ]
+
+  return (
+    <>
       <div className="flex flex-wrap gap-2" aria-label="Show questions">
         {filters.map((f) => (
           <button
@@ -968,7 +1041,7 @@ export function PracticeReview({
             aria-pressed={filter === f.key}
             onClick={() => setFilter(f.key)}
             className={
-              "tnum rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors " +
+              "tnum min-h-9 touch-manipulation rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors " +
               (filter === f.key
                 ? "border-teal bg-teal text-white"
                 : "border-border bg-white text-gray-600 hover:border-teal/40")
@@ -981,14 +1054,14 @@ export function PracticeReview({
 
       {shown.length === 0 && (
         <p className="text-sm text-gray-500">
-          No {filter} questions in this session.
+          No {filter} questions in this {mock ? "test" : "session"}.
         </p>
       )}
 
       {shown.map(({ q, i, a, status }, k) => (
         <Card
           key={q.id}
-          className="rise bg-white"
+          className="rise bg-white max-sm:[--card-spacing:--spacing(4)]"
           style={{ "--i": Math.min(k, 8) } as React.CSSProperties}
         >
           <CardContent className="space-y-4">
@@ -1009,12 +1082,18 @@ export function PracticeReview({
                   correctOptionId={a.correctOptionId}
                   selectedOptionId={a.selectedOptionId}
                 />
+                {status === "skipped" && (
+                  <p className="text-xs text-gray-500">
+                    You skipped this one. The correct answer is marked in
+                    green.
+                  </p>
+                )}
                 {a.explanation && (
                   <div className="rounded-md bg-mint/70 px-4 py-3 text-sm">
                     <p className="mb-1 text-xs font-medium text-teal">
                       Explanation
                     </p>
-                    <p className="leading-relaxed whitespace-pre-line text-gray-700">
+                    <p className="leading-relaxed break-words whitespace-pre-line text-gray-700">
                       {a.explanation}
                     </p>
                   </div>
@@ -1032,6 +1111,6 @@ export function PracticeReview({
           </CardContent>
         </Card>
       ))}
-    </div>
+    </>
   )
 }
