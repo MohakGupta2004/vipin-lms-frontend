@@ -19,7 +19,7 @@ import {
  * One run through a test, one question at a time. Both test types share it:
  * - practice: each answer is checked on the server as soon as it is given (correct option +
  *   explanation), and the whole session is saved at the end for the review page;
- * - mock test: answers stay editable until submit, and only the marks come back.
+ * - mock test: answers stay editable until submit; then the marks come back with every answer explained.
  */
 type Status = "answering" | "submitting" | "finished"
 
@@ -215,7 +215,7 @@ export function QuizSessionProvider({
           passed: result.passed,
           startedAt: result.submittedAt,
           submittedAt: result.submittedAt,
-          answers: null,
+          answers: result.answers ?? null,
         })
         dispatch({ type: "finished", mockResult: result })
       }

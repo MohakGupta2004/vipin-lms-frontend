@@ -14,7 +14,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { QuizBuilder } from "@/components/quiz-builder"
-import { PracticeReview, QuizPlayer } from "@/components/quiz-player"
+import {
+  MockReview,
+  PracticeReview,
+  QuizPlayer,
+} from "@/components/quiz-player"
 import { QuizSessionProvider } from "@/components/quiz-session"
 import { Select } from "@/components/ui/select"
 import { useUser } from "@/hooks/use-user"
@@ -57,7 +61,7 @@ function QuizView() {
   )
   // Key of the run in progress (bumped by "try again" for a fresh session); null shows the overview.
   const [run, setRun] = useState<number | null>(null)
-  // A past practice session opened from the history.
+  // A past attempt opened from the history.
   const [reviewing, setReviewing] = useState<QuizAttempt | null>(null)
   const [editing, setEditing] = useState(false)
   const [owner, setOwner] = useState(false)
@@ -231,17 +235,35 @@ function QuizView() {
         </QuizSessionProvider>
       )}
 
-      {isStudent && quiz && run === null && reviewing && (
-        <PracticeReview
-          quiz={quiz}
-          answers={reviewing.answers ?? []}
-          actions={
-            <Button variant="outline" onClick={() => setReviewing(null)}>
-              Back to overview
-            </Button>
-          }
-        />
-      )}
+      {isStudent &&
+        quiz &&
+        run === null &&
+        reviewing &&
+        (practice ? (
+          <PracticeReview
+            quiz={quiz}
+            answers={reviewing.answers ?? []}
+            actions={
+              <Button variant="outline" onClick={() => setReviewing(null)}>
+                Back to overview
+              </Button>
+            }
+          />
+        ) : (
+          <MockReview
+            quiz={quiz}
+            score={reviewing.score ?? 0}
+            total={reviewing.total ?? 0}
+            passed={!!reviewing.passed}
+            passPercent={quiz.passPercent ?? 0}
+            answers={reviewing.answers ?? []}
+            actions={
+              <Button variant="outline" onClick={() => setReviewing(null)}>
+                Back to overview
+              </Button>
+            }
+          />
+        ))}
 
       {isStudent && quiz && run === null && !reviewing && (
         <>
@@ -250,8 +272,33 @@ function QuizView() {
             (practice ? (
               <PracticeHistory attempts={attempts} onReview={setReviewing} />
             ) : (
-              <MockHistory attempts={attempts} />
+              <MockHistory attempts={attempts} onReview={setReviewing} />
             ))}
+          {/* Mock tests: the latest attempt's answers and explanations, right on the overview. */}
+          {!practice && !!attempts[0]?.answers?.length && (
+            <section aria-labelledby="latest-attempt" className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2
+                  id="latest-attempt"
+                  className="text-lg font-semibold text-heading"
+                >
+                  Latest attempt
+                </h2>
+                <span className="text-sm text-gray-500">
+                  {new Date(attempts[0].submittedAt).toLocaleString()}
+                </span>
+              </div>
+              <MockReview
+                key={attempts[0].id}
+                quiz={quiz}
+                score={attempts[0].score ?? 0}
+                total={attempts[0].total ?? 0}
+                passed={!!attempts[0].passed}
+                passPercent={quiz.passPercent ?? 0}
+                answers={attempts[0].answers}
+              />
+            </section>
+          )}
         </>
       )}
     </>
@@ -273,7 +320,7 @@ function StartCard({ quiz, onStart }: { quiz: Quiz; onStart: () => void }) {
           ? `You have ${Math.round(quiz.timeLimitSec / 60)} minutes. The test submits itself when time runs out.`
           : "There is no time limit.",
         "Unanswered questions count as wrong.",
-        `You'll see only your marks: answers and explanations stay hidden. Pass mark ${quiz.passPercent}%.`,
+        `After you submit, you'll see your marks and every answer with its explanation. Pass mark ${quiz.passPercent}%.`,
       ]
   return (
     <Card className="rise bg-white">
@@ -294,7 +341,13 @@ function StartCard({ quiz, onStart }: { quiz: Quiz; onStart: () => void }) {
   )
 }
 
-function MockHistory({ attempts }: { attempts: QuizAttempt[] }) {
+function MockHistory({
+  attempts,
+  onReview,
+}: {
+  attempts: QuizAttempt[]
+  onReview: (a: QuizAttempt) => void
+}) {
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -303,13 +356,25 @@ function MockHistory({ attempts }: { attempts: QuizAttempt[] }) {
       <CardContent>
         <ul className="divide-y divide-border text-sm">
           {attempts.map((a) => (
-            <li key={a.id} className="flex items-center justify-between py-2">
+            <li
+              key={a.id}
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2"
+            >
               <span>{new Date(a.submittedAt).toLocaleString()}</span>
               <span className="tnum flex items-center gap-2">
                 {a.score ?? 0}/{a.total ?? 0}
                 <Badge variant={a.passed ? "default" : "secondary"}>
                   {a.passed ? "Passed" : "Not passed"}
                 </Badge>
+                {!!a.answers?.length && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onReview(a)}
+                  >
+                    Review
+                  </Button>
+                )}
               </span>
             </li>
           ))}

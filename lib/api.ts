@@ -316,11 +316,11 @@ export type QuizAttempt = {
   passed: boolean | null
   startedAt: string
   submittedAt: string
-  /** Practice sessions only; mock test attempts never reveal answers. */
+  /** Practice: the questions answered. Mock test: every question (selectedOptionId null if skipped). */
   answers: AttemptAnswer[] | null
 }
 
-/** What a mock test submit returns: the marks and nothing else. */
+/** What a mock test submit returns: the marks, and every question graded for the review. */
 export type MockResult = {
   attemptId: string
   quizId: string
@@ -329,6 +329,8 @@ export type MockResult = {
   passed: boolean
   passPercent: number
   submittedAt: string
+  /** Every question, with the correct option and explanation; selectedOptionId is null if skipped. */
+  answers: AttemptAnswer[]
 }
 
 export const isPractice = (q: Pick<Quiz, "type">) => q.type === "practice"
@@ -837,7 +839,7 @@ export const submitAttempt = (
   answers: { questionId: string; optionId: string }[]
 ) => json<QuizAttempt>("POST", `/quizzes/${id(quizId)}/attempts`, { body: { answers } })
 
-/** Mock tests only: grades and saves the test; returns the marks, never the answers. */
+/** Mock tests only: grades and saves the test; returns the marks with every answer revealed. */
 export const submitMockTest = (
   quizId: string,
   answers: { questionId: string; optionId: string }[]
