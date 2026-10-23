@@ -15,6 +15,41 @@ const SKIP_SEC = 10 // a double-tap on either side of the video jumps this far, 
 const PREV_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>`
 const NEXT_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>`
 
+/**
+ * The transcoder writes every video as a 1280×720 (16:9) frame, so a recording made in another shape comes out
+ * stretched. The player draws the picture back at its recorded shape. The lecture recordings are 4:3 (a Mac
+ * screen framed by the recorder); any video that still looks off can be switched in the player's settings,
+ * remembered per video.
+ */
+const ASPECTS = [
+  { label: "4:3", ratio: 4 / 3 },
+  { label: "16:10", ratio: 16 / 10 },
+  { label: "16:9", ratio: 16 / 9 },
+] as const
+const DEFAULT_ASPECT = "4:3"
+const aspectKey = (videoId: string) => `video-aspect:${videoId}`
+
+function readAspect(videoId: string): string {
+  try {
+    const v = localStorage.getItem(aspectKey(videoId))
+    if (v && ASPECTS.some((x) => x.label === v)) return v
+  } catch {}
+  return DEFAULT_ASPECT
+}
+
+function saveAspect(videoId: string, label: string) {
+  try {
+    if (label === DEFAULT_ASPECT) localStorage.removeItem(aspectKey(videoId))
+    else localStorage.setItem(aspectKey(videoId), label)
+  } catch {}
+}
+
+/** Sets the shape the picture is drawn at (see `.stage` in globals.css). */
+function applyAspect(a: Artplayer, label: string) {
+  const ratio = ASPECTS.find((x) => x.label === label)?.ratio ?? 16 / 9
+  a.template.$player.style.setProperty("--ar", String(ratio))
+}
+
 // The server bakes the resume point into the manifest as `start`; we pass it to hls.js instead,
 // so a mid-play URL refresh never jumps back to it.
 function stripStart(url: string) {
@@ -50,6 +85,7 @@ export function VideoPlayer({
   const ended = useRef(false)
   const refresh = useRef<(() => void) | null>(null)
   const cb = useRef({ onEnded, onPrev, onNext })
+  const currentId = useRef(videoId) // the aspect setting saves against whichever video is playing
   const [layer, setLayer] = useState<HTMLElement | null>(null)
   // The side a double-tap just skipped on; `n` restarts the flash on every tap.
   const [skip, setSkip] = useState<{ side: "back" | "fwd"; n: number } | null>(null)
@@ -72,6 +108,21 @@ export function VideoPlayer({
     let lastRefresh = 0
     let detach = () => {}
     ended.current = false
+    currentId.current = videoId
+
+    // The "Aspect ratio" entry in settings, showing this video's saved choice.
+    const aspectSetting = (label: string) => ({
+      name: "aspect",
+      html: "Aspect ratio",
+      tooltip: label,
+      selector: ASPECTS.map((x) => ({ html: x.label, default: x.label === label })),
+      onSelect(this: Artplayer, item: { html: string | HTMLElement }) {
+        const picked = String(item.html)
+        applyAspect(this, picked)
+        saveAspect(currentId.current, picked)
+        return picked
+      },
+    })
 
     const save = (keepalive = false) => {
       const a = art.current
@@ -126,12 +177,16 @@ export function VideoPlayer({
         if (cancelled) return
         start.current = s.resumeAt
         const url = stripStart(s.manifestUrl)
+        const aspect = readAspect(videoId)
         if (art.current) {
+          art.current.setting.update(aspectSetting(aspect))
+          applyAspect(art.current, aspect)
           await art.current.switchUrl(url)
           art.current.play().catch(() => {})
         } else {
-          const a = await create(url)
+          const a = await create(url, aspectSetting(aspect))
           if (cancelled) return a.destroy(false)
+          applyAspect(a, aspect)
           art.current = a
           setLayer(a.layers.overlay ?? null)
         }
@@ -159,7 +214,7 @@ export function VideoPlayer({
       detach()
     }
 
-    async function create(url: string) {
+    async function create(url: string, aspect: ReturnType<typeof aspectSetting>) {
       const [{ default: ArtplayerCtor }, { default: HlsCtor }, { default: hlsControl }] = await Promise.all([
         import("artplayer"),
         import("hls.js"),
@@ -191,6 +246,7 @@ export function VideoPlayer({
         fastForward: true,
         lock: false,
         moreVideoAttr: { preload: "auto" },
+        settings: [aspect],
         plugins: [
           hlsControl({
             quality: { control: !narrow, setting: true, getName: (l) => `${(l as { height: number }).height}p`, title: "Quality", auto: "Auto" },

@@ -94,6 +94,7 @@ function Runner() {
     remaining,
     go,
     pick,
+    unpick,
     check,
     retry,
     reveal,
@@ -429,15 +430,20 @@ function Runner() {
           <ArrowLeftIcon /> <span className="hidden sm:inline">Previous</span>
         </Button>
         <div className="flex flex-1 gap-2 sm:flex-none">
-          {practice && !result && (
+          {/* Practice: skip instead of checking. Mock: leave the question unanswered and move on. */}
+          {(!practice || !result) && (
             <Button
               variant="ghost"
               size="lg"
               className="h-[50px] shrink-0 rounded-full px-4 text-[17px] font-medium text-teal hover:bg-teal/10 sm:h-10 sm:rounded-md sm:text-sm sm:text-heading"
-              onClick={() => (last ? submit() : go(state.index + 1))}
+              onClick={() => {
+                if (!practice) unpick()
+                if (last) submit()
+                else go(state.index + 1)
+              }}
               disabled={submitting || state.checking}
             >
-              {last ? "Finish" : "Skip"}
+              {last ? (practice ? "Finish" : "Skip & submit") : "Skip"}
             </Button>
           )}
           <Button
@@ -445,7 +451,9 @@ function Runner() {
             className="h-[50px] flex-1 rounded-[14px] text-[17px] disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-100 sm:h-10 sm:flex-none sm:rounded-md sm:px-5 sm:text-sm"
             onClick={primary}
             disabled={
-              submitting || state.checking || (practice && !result && !picked)
+              submitting ||
+              state.checking ||
+              (!picked && (practice ? !result : !last))
             }
           >
             {(submitting || state.checking) && (

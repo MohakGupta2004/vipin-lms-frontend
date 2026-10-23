@@ -43,6 +43,7 @@ type Action =
   | { type: "go"; index: number }
   | { type: "pick"; questionId: string; optionId: string }
   | { type: "retry"; questionId: string }
+  | { type: "unpick"; questionId: string }
   | { type: "reveal"; questionId: string }
   | { type: "checking" }
   | { type: "checked"; answer: AttemptAnswer }
@@ -70,6 +71,13 @@ function reducer(state: State, action: Action): State {
       // A checked practice answer is final; nothing changes once the test is submitted.
       if (state.status !== "answering" || state.checking || state.checked[action.questionId]) return state
       return { ...state, picked: { ...state.picked, [action.questionId]: action.optionId } }
+    case "unpick": {
+      // Mock only: leave a question unanswered again.
+      if (state.status !== "answering" || state.checked[action.questionId]) return state
+      const picked = { ...state.picked }
+      delete picked[action.questionId]
+      return { ...state, picked }
+    }
     case "retry": {
       // Only a wrong, still hidden answer can be retried.
       const a = state.checked[action.questionId]
@@ -113,6 +121,8 @@ type QuizSession = {
   remaining: number | null
   go: (index: number) => void
   pick: (optionId: string) => void
+  /** Mock: clear the current pick so the question counts as skipped. */
+  unpick: () => void
   /** Practice: reveal whether the current pick is right. */
   check: () => Promise<void>
   /** Practice: clear a wrong answer so the question can be tried again. */
@@ -152,6 +162,10 @@ export function QuizSessionProvider({
     [questions.length]
   )
 
+  const unpick = useCallback(
+    () => current && dispatch({ type: "unpick", questionId: current.id }),
+    [current]
+  )
   const pick = useCallback(
     (optionId: string) => current && dispatch({ type: "pick", questionId: current.id, optionId }),
     [current]
@@ -225,8 +239,8 @@ export function QuizSessionProvider({
   const done = practice ? Object.keys(state.checked).length : Object.keys(state.picked).length
 
   const value = useMemo<QuizSession>(
-    () => ({ quiz, questions, practice, state, current, done, remaining, go, pick, check, retry, reveal, finish }),
-    [quiz, questions, practice, state, current, done, remaining, go, pick, check, retry, reveal, finish]
+    () => ({ quiz, questions, practice, state, current, done, remaining, go, pick, unpick, check, retry, reveal, finish }),
+    [quiz, questions, practice, state, current, done, remaining, go, pick, unpick, check, retry, reveal, finish]
   )
 
   return <QuizSessionContext value={value}>{children}</QuizSessionContext>

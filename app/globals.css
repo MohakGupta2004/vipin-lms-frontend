@@ -302,6 +302,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
     0 8px 32px -8px rgba(16, 42, 67, 0.22);
 }
 
+/* ── Video shape ───────────────────────────────────────────────────────────────────────────────
+   Every rendition is a 16:9 frame, whatever shape the lecture was recorded in. The player sets --ar to the
+   recorded shape, and the picture is drawn at exactly that shape (fill, not contain, undoes the stretch),
+   centred in whatever space the player has: the page stage, fullscreen, or a phone held sideways. */
+.stage .art-video-player { container-type: size; }
+.stage .art-video-player .art-video {
+  inset: 0;
+  margin: auto;
+  width: min(100cqw, calc(100cqh * var(--ar, 1.7778)));
+  height: min(100cqh, calc(100cqw / var(--ar, 1.7778)));
+  object-fit: fill;
+}
+
 /* ── Phone video stage ─────────────────────────────────────────────────────────────────────────
    Held upright, the player is taller than the 16:9 picture: the picture keeps the full width at the
    top, uncropped, and the controls live permanently in a dark deck underneath it, so they never sit on
@@ -316,7 +329,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
     inset: 0 0 auto 0;
     height: calc(100% - var(--deck));
   }
-  .stage .art-video-player:not(.art-fullscreen) .art-video { object-fit: contain; }
+  /* The picture's space is the area above the deck; keep the recorded shape inside it, pinned to the top. */
+  .stage .art-video-player:not(.art-fullscreen) .art-video {
+    margin: 0 auto;
+    width: min(100cqw, calc((100cqh - var(--deck)) * var(--ar, 1.7778)));
+    height: min(calc(100cqh - var(--deck)), calc(100cqw / var(--ar, 1.7778)));
+    object-fit: fill;
+  }
   .stage .art-video-player:not(.art-fullscreen) .art-bottom {
     opacity: 1;
     padding: 0 0.75rem 0.25rem;
