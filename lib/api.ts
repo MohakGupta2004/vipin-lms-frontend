@@ -376,6 +376,63 @@ export type ProgressSummary = {
   continueWatching: MyVideo[]
 }
 
+/** One student's progress in one course the instructor owns, with their enrollment. */
+export type StudentCourse = CourseProgress & {
+  courseId: string
+  courseTitle: string
+  enrollmentStatus: EnrollmentStatus
+  tier: EnrollmentTier
+  enrolledAt: string
+  expiresAt: string | null
+  /** Cards in published decks, and how many of them the student rated at least once. */
+  flashcardsTotal: number
+  flashcardsReviewed: number
+  /** Latest video progress, test submission or flashcard rating; null if they never started. */
+  lastActiveAt: string | null
+}
+
+/** A student enrolled in the instructor's courses: totals across them, and each course. */
+export type StudentProgress = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  totals: CourseProgress
+  flashcardsTotal: number
+  flashcardsReviewed: number
+  lastActiveAt: string | null
+  courses: StudentCourse[]
+}
+
+/** A video the student has played, most recently watched first. */
+export type StudentVideo = {
+  videoId: string
+  title: string
+  courseId: string
+  courseTitle: string
+  lessonTitle: string
+  progress?: VideoProgress
+}
+
+/** A submitted test attempt, newest first. */
+export type StudentAttempt = {
+  id: string
+  quizId: string
+  quizTitle: string
+  quizType: QuizType
+  courseId: string
+  courseTitle: string
+  lessonTitle: string
+  score: number
+  total: number
+  percent: number
+  /** null for practice tests, which have no pass mark. */
+  passed: boolean | null
+  submittedAt: string
+}
+
+export type StudentDetail = StudentProgress & { videos: StudentVideo[]; attempts: StudentAttempt[] }
+
 export type NewQuestion = {
   questionText: string
   explanation?: string
@@ -576,6 +633,12 @@ export const listMyQuizzes = async (courseId?: string, type?: QuizType) =>
   (await json<MyQuiz[]>("GET", "/me/quizzes", { query: { courseId, type } })) ?? []
 
 export const getMyProgress = () => json<ProgressSummary>("GET", "/me/progress")
+
+// The students of the caller's own courses (instructors and admins); the server never returns anyone else's.
+export const listStudents = async (courseId?: string) =>
+  (await json<StudentProgress[]>("GET", "/instructor/students", { query: { courseId } })) ?? []
+
+export const getStudent = (studentId: string) => json<StudentDetail>("GET", `/instructor/students/${id(studentId)}`)
 
 export const listCatalog = async (freeOnly = false, limit = 100, offset = 0) =>
   (await json<CatalogCourse[]>("GET", "/catalog/courses", {
