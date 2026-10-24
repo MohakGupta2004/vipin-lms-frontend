@@ -13,6 +13,7 @@ import {
   PlayCircleIcon,
   SignOutIcon,
   SquaresFourIcon,
+  StudentIcon,
   UsersIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import type { Icon } from "@phosphor-icons/react"
@@ -79,6 +80,7 @@ const NAV: Record<
       icon: BookOpenTextIcon,
     },
     { href: "/feed", label: "My courses", short: "Mine", icon: NewspaperIcon },
+    { href: "/students", label: "Students", short: "Students", icon: StudentIcon },
     {
       href: "/enrollments",
       label: "Enrollments",
@@ -93,6 +95,7 @@ const NAV: Record<
       short: "Classroom",
       icon: NewspaperIcon,
     },
+    { href: "/students", label: "Students", short: "Students", icon: StudentIcon },
     {
       href: "/explore",
       label: "Explore courses",
