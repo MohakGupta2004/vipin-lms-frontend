@@ -60,7 +60,11 @@ export function tierAvailability(tags: readonly ContentTier[] | null | undefined
   return names.length ? [...names, TIER_LABEL.ultra].join(" · ") : `${TIER_LABEL.ultra} only`
 }
 
-export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" | "role">
+export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" | "role"> & {
+  createdAt: string
+  lastLoginAt: string | null
+  emailVerified: boolean
+}
 
 export type Exam = { id: string; code: string; name: string; description: string }
 
@@ -612,6 +616,10 @@ export const resetPassword = (resetToken: string, newPassword: string) =>
 // ── users (admin) ───────────────────────────────────────────────────────────
 export const listUsers = async (role?: Role, limit = 200, offset = 0) =>
   (await json<UserSummary[]>("GET", "/users", { query: { role, limit, offset } })) ?? []
+
+/** Students who signed up but were never enrolled in any course, newest sign-up first. */
+export const listNewStudents = async (limit = 50) =>
+  (await json<UserSummary[]>("GET", "/users", { query: { role: "student", notEnrolled: "true", limit } })) ?? []
 
 // ── exams ───────────────────────────────────────────────────────────────────
 export const listExams = async () => (await json<Exam[]>("GET", "/exams")) ?? []

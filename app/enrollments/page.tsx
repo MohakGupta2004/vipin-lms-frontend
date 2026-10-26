@@ -1,8 +1,8 @@
 "use client"
 
-import { CircleNotchIcon } from "@phosphor-icons/react/dist/ssr"
+import { CircleNotchIcon, SparkleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useSearchParams } from "next/navigation"
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,7 @@ import {
   createEnrollment,
   listCourses,
   listEnrollments,
+  listNewStudents,
   listUsers,
   updateEnrollment,
   type Course,
@@ -44,6 +45,9 @@ function Enrollments() {
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState(UUID_RE.test(initialCourse) ? initialCourse : "")
   const [students, setStudents] = useState<UserSummary[]>([])
+  const [newStudents, setNewStudents] = useState<UserSummary[] | null>(null)
+  const [enrollUserId, setEnrollUserId] = useState("")
+  const formRef = useRef<HTMLDivElement>(null)
   const [rows, setRows] = useState<Enrollment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,6 +56,22 @@ function Enrollments() {
     listCourses(100, 0).then(setCourses).catch((e) => setError(errMsg(e)))
     listUsers("student").then(setStudents).catch((e) => setError(errMsg(e)))
   }, [])
+
+  const loadNewStudents = useCallback(() => {
+    listNewStudents().then(setNewStudents).catch((e) => setError(errMsg(e)))
+  }, [])
+
+  useEffect(() => {
+    loadNewStudents()
+  }, [loadNewStudents])
+
+  // The picker lists students by name and stops at 200, so a brand-new sign-up may be missing from it.
+  const pickable = [...students, ...(newStudents ?? []).filter((n) => !students.some((u) => u.id === n.id))]
+
+  function pickForEnroll(u: UserSummary) {
+    setEnrollUserId(u.id)
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -72,7 +92,7 @@ function Enrollments() {
 
   const title = (id: string) => courses.find((c) => c.id === id)?.title ?? id
   const student = (id: string) => {
-    const u = students.find((x) => x.id === id)
+    const u = pickable.find((x) => x.id === id)
     return u ? `${u.firstName} ${u.lastName} (${u.email})` : id
   }
 
@@ -90,7 +110,21 @@ function Enrollments() {
     <>
       <PageTitle title="Enrollments" subtitle="Enroll students into published courses and manage their access." />
 
-      <EnrollForm students={students} courses={courses.filter((c) => c.status === "published")} defaultCourse={courseId} onDone={load} />
+      <NewStudents students={newStudents} onEnroll={pickForEnroll} />
+
+      <div ref={formRef} className="scroll-mt-6">
+        <EnrollForm
+          students={pickable}
+          courses={courses.filter((c) => c.status === "published")}
+          defaultCourse={courseId}
+          userId={enrollUserId}
+          onUserId={setEnrollUserId}
+          onDone={() => {
+            load()
+            loadNewStudents()
+          }}
+        />
+      </div>
 
       <Card className="bg-white">
         <CardHeader>
@@ -164,18 +198,77 @@ function Enrollments() {
   )
 }
 
+/** "Today", "Yesterday", "5 days ago", then the date. */
+function daysAgo(iso: string) {
+  const d = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
+  if (d < 1) return "today"
+  if (d === 1) return "yesterday"
+  if (d < 7) return `${d} days ago`
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+}
+
+/** Students who signed up but were never enrolled, newest first, so the admin can give them access. */
+function NewStudents({ students, onEnroll }: { students: UserSummary[] | null; onEnroll: (u: UserSummary) => void }) {
+  if (!students || students.length === 0) return null
+  return (
+    <Card className="border-primary/40 bg-white">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <SparkleIcon className="size-5 text-primary" weight="fill" />
+          New students
+          <Badge>{students.length}</Badge>
+        </CardTitle>
+        <p className="text-sm text-gray-500">Signed up but not enrolled in any course yet.</p>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border">
+          {students.map((u, i) => (
+            <li
+              key={u.id}
+              className="rise -mx-3 flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-3 transition-colors hover:bg-mint/60"
+              style={{ "--i": Math.min(i, 8) } as React.CSSProperties}
+            >
+              <div className="space-y-0.5 text-sm">
+                <div className="font-semibold text-heading">
+                  {u.firstName} {u.lastName}
+                </div>
+                <div className="text-xs text-gray-600">{u.email}</div>
+                <div className="text-xs text-gray-500">
+                  Signed up {daysAgo(u.createdAt)}
+                  {u.lastLoginAt && ` · last login ${daysAgo(u.lastLoginAt)}`}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={u.emailVerified ? "secondary" : "outline"}>
+                  {u.emailVerified ? "Email verified" : "Not verified"}
+                </Badge>
+                <Button size="sm" onClick={() => onEnroll(u)}>
+                  Enroll
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
 function EnrollForm({
   students,
   courses,
   defaultCourse,
+  userId,
+  onUserId: setUserId,
   onDone,
 }: {
   students: UserSummary[]
   courses: Course[]
   defaultCourse: string
+  userId: string
+  onUserId: (id: string) => void
   onDone: () => void
 }) {
-  const [userId, setUserId] = useState("")
   const [course, setCourse] = useState("")
   const [months, setMonths] = useState(3)
   const [tier, setTier] = useState<EnrollmentTier | "">("")
