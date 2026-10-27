@@ -1,6 +1,6 @@
 "use client"
 
-import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, DotsThreeIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useState } from "react"
@@ -15,11 +15,13 @@ import { QuizList } from "@/components/quiz-list"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { VideoList, VideoSection } from "@/components/video-section"
+import { cn } from "@/lib/utils"
 import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { useUser } from "@/hooks/use-user"
 import {
@@ -175,15 +177,16 @@ function CourseView() {
                   <PlayCircleIcon /> Preview player
                 </Link>
               )}
-              <Select aria-label="Course status" className="h-9 w-full sm:w-36" value={course.status} onChange={(e) => onStatus(e.target.value as CourseStatus)}>
+              <Select aria-label="Course status" className="h-9 w-full sm:w-36 md:hidden" value={course.status} onChange={(e) => onStatus(e.target.value as CourseStatus)}>
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
               </Select>
+              <StatusControl value={course.status} onChange={onStatus} />
               <Button variant="outline" onClick={() => setMode(mode === "edit" ? null : "edit")}>
                 <PencilSimpleIcon /> Edit
               </Button>
-              <Button variant="destructive" onClick={onDelete}>
+              <Button variant="destructive" onClick={onDelete} className="md:border-black/[0.1] md:shadow-[0_1px_1px_rgba(0,0,0,0.04)] md:hover:border-destructive/30 md:hover:bg-destructive/[0.06]">
                 <TrashIcon /> Delete
               </Button>
               <Button className="col-span-2 max-sm:order-first" onClick={() => setMode(mode === "lesson" ? null : "lesson")}>
@@ -219,33 +222,31 @@ function CourseView() {
       )}
 
       {course && (
-        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center" style={{ "--i": 1 } as React.CSSProperties}>
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={course.status === "published" ? "default" : "secondary"}>{course.status}</Badge>
+        <div className="rise grid gap-6 rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6 md:gap-0 md:overflow-hidden md:rounded-2xl md:border-0 md:p-0 md:shadow-(--shadow-surface)" style={{ "--i": 1 } as React.CSSProperties}>
+          <div className={cn("space-y-3 md:order-2 md:px-8 md:py-6", !course.description && isOwner && !course.isFree && "md:hidden")}>
+            <div className={cn("flex flex-wrap items-center gap-2", isOwner && !course.isFree && "md:hidden")}>
+              <Badge variant={course.status === "published" ? "default" : "secondary"} className={cn(isOwner && "md:hidden")}>{course.status}</Badge>
               {course.isFree && <Badge variant="lime">Free</Badge>}
               {preview && <Badge variant="secondary">Preview</Badge>}
               {!isOwner && course.access === "full" && !course.isFree && <Badge variant="lime">Your plan: {TIER_LABEL[tier]}</Badge>}
               {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
             </div>
-            {course.description && (
-              <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{course.description}</p>
-            )}
+            {course.description && <Description text={course.description} />}
           </div>
           {canSeeLessons && (
-            <dl className="flex flex-wrap gap-x-8 gap-y-4 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
-              <div>
-                <dt className="text-xs text-muted-foreground">Lessons</dt>
-                <dd className="tnum text-3xl font-semibold text-heading">{lessons.length}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Videos</dt>
-                <dd className="tnum text-3xl font-semibold text-heading">{isOwner ? videos.length : readyVideos}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Notes</dt>
-                <dd className="tnum text-3xl font-semibold text-heading">{lessons.reduce((n, l) => n + (l.notes?.length ?? 0), 0)}</dd>
-              </div>
+            // Desktop: one strip of facts across the top, like the info bar on an App Store page.
+            <dl className="flex flex-wrap gap-x-8 gap-y-4 border-t border-border pt-4 md:order-1 md:flex-nowrap md:gap-0 md:divide-x md:divide-black/[0.07] md:border-t-0 md:border-b md:border-black/[0.07] md:py-5">
+              {[
+                { label: "Lessons", value: lessons.length },
+                { label: "Videos", value: isOwner ? videos.length : readyVideos },
+                { label: "Notes", value: lessons.reduce((n, l) => n + (l.notes?.length ?? 0), 0) },
+                ...(isOwner ? [{ label: "In draft", value: lessons.filter((l) => !l.isPublished).length, desk: true }] : []),
+              ].map(({ label, value, desk }: { label: string; value: number; desk?: boolean }) => (
+                <div key={label} className={cn("md:flex md:flex-1 md:flex-col md:items-center md:px-4", desk && "max-md:hidden")}>
+                  <dt className="text-xs text-muted-foreground md:text-[11px] md:font-semibold md:tracking-[0.06em] md:text-heading/45 md:uppercase">{label}</dt>
+                  <dd className="tnum text-3xl font-semibold text-heading md:mt-1 md:text-[1.375rem] md:leading-none md:tracking-[-0.02em] md:text-heading/85">{value}</dd>
+                </div>
+              ))}
             </dl>
           )}
         </div>
@@ -291,20 +292,23 @@ function CourseView() {
       )}
 
       {canSeeLessons && lessons.length > 0 && (
-        <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
-          <h2 className="text-2xl font-semibold text-heading">Course content</h2>
+      <section className="space-y-8 sm:space-y-10 md:space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3 pt-2 md:px-1 md:pb-1">
+          <div>
+            <h2 className="text-2xl font-semibold text-heading md:text-[1.375rem] md:tracking-[-0.02em]">Course content</h2>
+          </div>
           <Button
             variant="outline"
             size="sm"
+            className="md:h-7 md:border-0 md:bg-transparent md:px-2 md:text-[13px] md:font-medium md:text-primary md:shadow-none md:hover:bg-black/[0.04] md:[&_svg]:hidden"
             onClick={() => setOpenIds(openIds.size === lessons.length ? new Set() : new Set(lessons.map((l) => l.id)))}
           >
             <CaretUpDownIcon />
             {openIds.size === lessons.length ? "Collapse all" : "Expand all"}
           </Button>
         </div>
-      )}
-      {canSeeLessons &&
-        lessons.map((l, i) => (
+        <div className="space-y-8 sm:space-y-10 md:space-y-2.5">
+        {lessons.map((l, i) => (
           <LessonCard
             key={l.id}
             linkQuery={linkQuery}
@@ -334,13 +338,17 @@ function CourseView() {
             }}
           />
         ))}
+        </div>
+      </section>
+      )}
 
       {canSeeLessons && (isOwner || (deckOf(null)?.cardCount ?? 0) > 0) && (
-        <section className="space-y-3 pt-2">
-          <h2 className="flex items-center gap-2 text-2xl font-semibold text-heading">
-            <CardsIcon className="size-6 text-teal" /> Course-wide flashcards
+        <section className="space-y-3 pt-2 md:space-y-2.5">
+          <h2 className="flex items-center gap-2 text-2xl font-semibold text-heading md:px-1 md:text-[1.375rem] md:tracking-[-0.02em]">
+            <CardsIcon className="size-6 text-teal md:hidden" />
+            Course-wide flashcards
           </h2>
-          <div className="rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6">
+          <div className="rounded-lg border border-border bg-white p-4 shadow-[0_1px_2px_rgba(10,37,64,0.05)] sm:p-6 md:rounded-2xl md:border-transparent md:px-6 md:py-5 md:shadow-(--shadow-surface)">
             {isOwner ? (
               <FlashcardDeckPanel courseId={id} lessonId={null} deck={deckOf(null)} onChange={setDeckOf(null)} />
             ) : (
@@ -529,6 +537,8 @@ function LessonCard({
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [error, setError] = useState<string | null>(null)
   const [panel, setPanel] = useState<"quiz" | "video-offline" | "video-meet" | "edit" | null>(null)
+  // Desktop shows one kind of lesson content at a time; until the instructor picks, open on the first with something in it.
+  const [tabChoice, setTabChoice] = useState<LessonTab | null>(null)
   const notes = lesson.notes ?? []
   const locked = !!lesson.locked
   const free = (x: { tiers: readonly string[] }) => x.tiers.includes("free")
@@ -558,6 +568,16 @@ function LessonCard({
   // Students get the lesson's own deck, else the course-wide one; with neither the Flashcards section is left out.
   const hasCards = (d: FlashcardDeck | null): d is FlashcardDeck => !!d && d.cardCount > 0
   const studyDeck = hasCards(deck) ? deck : hasCards(courseDeck) ? courseDeck : null
+  const showCards = isOwner || !!studyDeck
+  const tabs: { value: LessonTab; label: string; count: number }[] = [
+    { value: "recordings", label: "Recordings", count: videos.length },
+    { value: "tests", label: "Tests", count: quizzes.length },
+    { value: "notes", label: "Notes", count: notes.length },
+    ...(showCards ? [{ value: "flashcards" as const, label: "Flashcards", count: (studyDeck ?? deck)?.cardCount ?? 0 }] : []),
+  ]
+  const tab = tabChoice ?? tabs.find((t) => t.count > 0)?.value ?? "recordings"
+  /** Hidden on desktop unless it is the chosen tab; phones always show every section. */
+  const only = (t: LessonTab) => (tab === t ? "" : "md:hidden")
 
   useEffect(() => {
     listQuizzes(lesson.id).then(setQuizzes).catch((e) => setError(errMsg(e)))
@@ -599,46 +619,59 @@ function LessonCard({
 
   return (
     <article
-      className="rise overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200"
+      className={cn(
+        "rise group/lesson overflow-hidden rounded-lg border border-border bg-white shadow-[0_1px_2px_rgba(10,37,64,0.05)] transition-shadow duration-200",
+        // Desktop: each lesson is its own quiet card; an open one gains a touch more depth so it reads as in focus.
+        "md:rounded-2xl md:border-0 md:shadow-(--shadow-surface) md:duration-300",
+        open_ && "md:shadow-(--shadow-lifted)"
+      )}
       style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
     >
-      <div className="flex flex-col gap-3 p-4 transition-colors has-[>button:active]:bg-gray-50 sm:flex-row sm:items-center sm:gap-4 sm:p-6">
+      <div className="flex flex-col gap-3 p-4 transition-colors has-[>button:active]:bg-gray-50 sm:flex-row sm:items-center sm:gap-4 sm:p-6 md:gap-2 md:py-3 md:pr-3 md:pl-5 md:transition-colors md:duration-150 md:hover:bg-black/[0.018]">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open_}
           aria-controls={`lesson-${lesson.id}`}
-          className="group flex w-full min-w-0 touch-manipulation items-center gap-3 rounded-md text-left sm:flex-1 sm:gap-4"
+          className="group flex w-full min-w-0 touch-manipulation items-center gap-3 rounded-md text-left sm:flex-1 sm:gap-4 md:items-start md:gap-3 md:focus-visible:outline-offset-4"
         >
           {showLock ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Locked">
               <LockIcon className="size-4.5" />
             </span>
           ) : (
-            <span className="tnum flex size-11 shrink-0 items-center justify-center rounded-full bg-teal text-base font-semibold text-white transition-transform duration-200 group-hover:scale-105">
+            <span
+              className={cn(
+                "tnum flex size-11 shrink-0 items-center justify-center rounded-full bg-teal text-base font-semibold text-white transition-[transform,background-color,color] duration-200 group-hover:scale-105",
+                // Desktop: just the lesson's number, quiet and right-aligned, as a list index.
+                "md:h-[22px] md:w-6 md:justify-end md:rounded-none md:bg-transparent md:text-[15px] md:leading-[22px] md:font-medium md:text-heading/35 md:group-hover:scale-100"
+              )}
+            >
               {index}
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="line-clamp-2 block text-base font-semibold break-words text-heading sm:truncate sm:text-lg">{lesson.title}</span>
+            <span className="line-clamp-2 block text-base font-semibold break-words text-heading sm:truncate sm:text-lg md:text-[15px] md:leading-[22px] md:tracking-[-0.01em]">{lesson.title}</span>
             {/* A student's access badge lives inside the button, so tapping anywhere on the header opens the lesson. */}
             {!isOwner && access && <span className="mt-1.5 flex">{access}</span>}
             {isOwner && (!lesson.isPublished || lesson.isFree) && (
               <span className="mt-1.5 flex flex-wrap gap-1.5">
-                {!lesson.isPublished && <Badge variant="secondary">Draft</Badge>}
+                {!lesson.isPublished && <Badge variant="secondary" className="md:bg-black/[0.06] md:text-heading/60">Draft</Badge>}
                 {lesson.isFree && <Badge variant="lime">Free preview</Badge>}
               </span>
             )}
-            <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap text-muted-foreground">
+            <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap text-muted-foreground md:mt-0.5 md:gap-x-0 md:text-[13px] md:text-heading/45 md:[&_svg]:hidden md:[&>span]:gap-0 md:[&>span+span]:before:mx-1.5 md:[&>span+span]:before:content-['·']">
               <span className="flex items-center gap-1.5"><FileTextIcon className="size-3.5" />{notes.length} {notes.length === 1 ? "note" : "notes"}</span>
               <span className="flex items-center gap-1.5"><ListChecksIcon className="size-3.5" />{quizzes.length} {quizzes.length === 1 ? "test" : "tests"}</span>
               <span className="flex items-center gap-1.5"><FilmStripIcon className="size-3.5" />{videos.length} {videos.length === 1 ? "video" : "videos"}</span>
             </span>
           </span>
-          <CaretDownIcon className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 " + (open_ ? "rotate-180" : "")} />
+          <span className="flex shrink-0 items-center justify-center md:order-first md:-ml-1 md:h-[22px] md:w-5">
+            <CaretDownIcon weight="bold" className={"size-5 shrink-0 text-heading/60 transition-transform duration-300 ease-(--ease-out) md:size-3 md:text-heading/35 " + (open_ ? "rotate-180 md:rotate-0" : "md:-rotate-90")} />
+          </span>
         </button>
         {isOwner && (
-          <div className="flex shrink-0 items-center gap-1 max-sm:pl-14">
+          <div className="flex shrink-0 items-center gap-1 max-sm:pl-14 md:hidden">
             <Button variant="outline" size="sm" onClick={togglePublished}>
               {lesson.isPublished ? <EyeSlashIcon /> : <EyeIcon />}
               {lesson.isPublished ? "Unpublish" : "Publish"}
@@ -651,15 +684,46 @@ function LessonCard({
             </Button>
           </div>
         )}
+        {/* Desktop: the lesson's tools live behind one ⋯ button, as in Finder or Mail. */}
+        {isOwner && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Actions for ${lesson.title}`}
+                  className="shrink-0 rounded-full text-heading/45 hover:bg-black/[0.05] hover:text-heading data-popup-open:bg-black/[0.06] max-md:hidden"
+                />
+              }
+            >
+              <DotsThreeIcon weight="bold" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={4} className="w-44 p-1">
+              <DropdownMenuItem className="h-8 px-2.5" onClick={() => { setOpen(true); setPanel("edit") }}>
+                Edit Lesson…
+              </DropdownMenuItem>
+              <DropdownMenuItem className="h-8 px-2.5" onClick={togglePublished}>
+                {lesson.isPublished ? "Unpublish" : "Publish"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" className="h-8 px-2.5" onClick={removeLesson}>
+                Delete Lesson…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="expand" data-open={open_} id={`lesson-${lesson.id}`}>
         <div>
-          <div className="space-y-6 border-t border-border bg-gray-50/60 p-4 sm:p-6">
+          <div className="space-y-6 border-t border-border bg-gray-50/60 p-4 sm:p-6 md:space-y-5 md:border-black/[0.06] md:bg-[#f8f8fa] md:px-6 md:pt-5 md:pb-6">
             {lesson.content && (
-              <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700">{lesson.content}</p>
+              <p className="max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700 md:px-1 md:text-[14px] md:text-heading/70">{lesson.content}</p>
             )}
             <ErrorNote error={error} />
+
+            <DeskSegmented label="Lesson content" value={tab} options={tabs} onChange={setTabChoice} />
 
             {isOwner && panel === "edit" && (
               <EditLesson
@@ -671,8 +735,13 @@ function LessonCard({
               />
             )}
 
-            {!isOwner && <VideoList videos={videos} tier={tier} linkQuery={linkQuery} />}
+            {!isOwner && (
+              <div className={only("recordings")}>
+                <VideoList videos={videos} tier={tier} linkQuery={linkQuery} />
+              </div>
+            )}
             {isOwner && (
+              <div className={only("recordings")}>
               <VideoSection
                 lessonId={lesson.id}
                 videos={videos}
@@ -680,13 +749,12 @@ function LessonCard({
                 formKind={panel === "video-offline" ? "offline" : panel === "video-meet" ? "meet" : null}
                 setFormKind={(k: VideoKind | null) => setPanel(k ? `video-${k}` : null)}
               />
+              </div>
             )}
 
-            <div className="grid gap-6 xl:grid-cols-3">
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-                  <StackIcon className="size-4 text-teal" /> Notes
-                </h3>
+            <div className="grid gap-6 md:block">
+              <section className={cn("space-y-3", only("notes"))}>
+                <PanelHead icon={StackIcon} title="Notes" count={notes.length} />
                 <LessonNotes
                   lessonId={lesson.id}
                   notes={notes}
@@ -694,6 +762,7 @@ function LessonCard({
                   isOwner={isOwner}
                   onOpen={open}
                   tier={tier}
+                  inset
                   empty={
                     <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
                       No notes shared yet.
@@ -702,18 +771,23 @@ function LessonCard({
                 />
               </section>
 
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-                  <ListChecksIcon className="size-4 text-teal" /> Tests
-                </h3>
-                {quizzes.length === 0 && (
-                  <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
-                    No tests yet.
-                  </p>
-                )}
-                <QuizList quizzes={quizzes} tier={tier} owner={isOwner} linkQuery={linkQuery} />
+              <section className={cn("space-y-3 md:space-y-4", only("tests"))}>
+                <PanelHead icon={ListChecksIcon} title="Tests" count={quizzes.length} />
+                <div className="inset-box flex flex-col gap-3 md:gap-0">
+                  {quizzes.length === 0 && (
+                    <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
+                      No tests yet.
+                    </p>
+                  )}
+                  <QuizList quizzes={quizzes} tier={tier} owner={isOwner} linkQuery={linkQuery} inset />
+                  {isOwner && panel !== "quiz" && (
+                    <button type="button" className="inset-add" onClick={() => setPanel("quiz")}>
+                      <PlusIcon weight="bold" /> New test
+                    </button>
+                  )}
+                </div>
                 {isOwner && (
-                  <Button variant="outline" size="sm" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
+                  <Button variant="outline" size="sm" className="md:hidden" onClick={() => setPanel(panel === "quiz" ? null : "quiz")}>
                     <PlusIcon /> Create test
                   </Button>
                 )}
@@ -726,13 +800,13 @@ function LessonCard({
                 )}
               </section>
 
-              {(isOwner || studyDeck) && (
-                <section className="space-y-3">
-                  <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-                    <CardsIcon className="size-4 text-teal" /> Flashcards
-                  </h3>
+              {showCards && (
+                <section className={cn("space-y-3", only("flashcards"))}>
+                  <PanelHead icon={CardsIcon} title="Flashcards" count={deck?.cardCount} />
                   {isOwner ? (
-                    <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
+                    <div className="inset-box md:p-3.5">
+                      <FlashcardDeckPanel courseId={lesson.courseId} lessonId={lesson.id} deck={deck} onChange={onDeckChange} />
+                    </div>
                   ) : (
                     <DeckSummary
                       deck={studyDeck}
@@ -748,6 +822,128 @@ function LessonCard({
       </div>
       {preview && <PdfPreview title={preview.title} load={() => downloadNote(preview.id)} onClose={() => setPreview(null)} />}
     </article>
+  )
+}
+
+/** Desktop section header: a small label, a quiet count and an optional text action on the right. Phones keep the icon + label. */
+function PanelHead({
+  icon: PanelIcon,
+  title,
+  count,
+  action,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  count?: number
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 md:hidden">
+      <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
+        <PanelIcon className="size-4 text-teal md:hidden" />
+        {title}
+        {!!count && <span className="tnum hidden font-normal text-heading/35 md:inline">{count}</span>}
+      </h3>
+      {action && <span className="max-md:hidden">{action}</span>}
+    </div>
+  )
+}
+
+type LessonTab = "recordings" | "tests" | "notes" | "flashcards"
+
+/** Desktop segmented control, as macOS shows a small set of exclusive choices: a gray track and a white thumb that slides. */
+function DeskSegmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  segment = "w-[7.25rem]",
+  track = "h-9",
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string; count?: number }[]
+  onChange: (v: T) => void
+  /** Width of each segment; segments are equal so the thumb can slide by its own width. */
+  segment?: string
+  /** Track height, to match the controls beside it. */
+  track?: string
+}) {
+  const idx = Math.max(0, options.findIndex((o) => o.value === value))
+  return (
+    <div role="radiogroup" aria-label={label} className={cn("relative inline-flex items-center rounded-[10px]", track, " bg-black/[0.055] p-[3px] max-md:hidden")}>
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-[3px] left-[3px] rounded-[7px] bg-white shadow-[0_0_0_0.5px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-(--ease-drawer)"
+        style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${idx * 100}%)` }}
+      />
+      {options.map((o) => {
+        const active = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => !active && onChange(o.value)}
+            className={cn(
+              "relative z-10 flex h-full items-center justify-center gap-1.5 rounded-[7px] text-[13px] transition-colors duration-200",
+              segment,
+              active ? "font-semibold text-heading" : "font-medium text-heading/55 hover:text-heading/80"
+            )}
+          >
+            {o.label}
+            {o.count !== undefined && <span className={cn("tnum text-[12px] font-medium", active ? "text-heading/45" : "text-heading/30")}>{o.count}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Desktop: the three course states as one segmented control. */
+function StatusControl({ value, onChange }: { value: CourseStatus; onChange: (v: CourseStatus) => void }) {
+  return (
+    <DeskSegmented
+      label="Course status"
+      value={value}
+      segment="w-[5.75rem]"
+      track="h-10"
+      options={[
+        { value: "draft", label: "Draft" },
+        { value: "published", label: "Published" },
+        { value: "archived", label: "Archived" },
+      ]}
+      onChange={onChange}
+    />
+  )
+}
+
+/** A long course description: desktop shows the first lines and a toggle; phones keep the full text. */
+function Description({ text }: { text: string }) {
+  const [more, setMore] = useState(false)
+  const long = text.length > 420 || text.split("\n").length > 8
+  return (
+    <div className="space-y-2">
+      <p
+        className={cn(
+          "max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700 md:leading-[1.6] md:text-heading/75",
+          long && !more && "md:line-clamp-6"
+        )}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setMore((m) => !m)}
+          aria-expanded={more}
+          className="hidden text-sm font-medium text-primary transition-opacity hover:opacity-75 active:opacity-50 md:inline"
+        >
+          {more ? "less" : "more"}
+        </button>
+      )}
+    </div>
   )
 }
 

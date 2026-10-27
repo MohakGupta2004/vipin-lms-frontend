@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, FileTextIcon, PencilSimpleIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, FileTextIcon, PencilSimpleIcon, PlusIcon, TrashIcon, UploadSimpleIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
 import { ErrorNote, errMsg } from "@/components/app-shell"
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { LockHint, LockedRow, TierBadge } from "@/components/tier-badge"
 import { Button } from "@/components/ui/button"
 import { deleteNote, type Note, type Tier } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const size = (n: Note) => `PDF · ${(n.sizeBytes / 1024).toFixed(0)} KB`
 
@@ -110,6 +111,7 @@ export function LessonNotes({
   onOpen,
   tier,
   empty,
+  inset,
 }: {
   lessonId: string
   notes: Note[]
@@ -120,6 +122,8 @@ export function LessonNotes({
   tier?: Tier
   /** Shown when the lesson has no notes. */
   empty: React.ReactNode
+  /** Desktop: the notes and the share action form one grouped box. */
+  inset?: boolean
 }) {
   const [uploading, setUploading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -139,6 +143,8 @@ export function LessonNotes({
 
   return (
     <div className="space-y-3">
+      {/* Flex gap skips the desktop-only add row, so phone spacing is unchanged. */}
+      <div className={cn("flex flex-col gap-3", inset && "inset-box md:gap-0")}>
       {notes.length === 0 && empty}
       <NoteList
         notes={notes}
@@ -168,11 +174,25 @@ export function LessonNotes({
           )
         }
       />
+      {inset && isOwner && !uploading && (
+        <button
+          type="button"
+          className="inset-add"
+          onClick={() => {
+            setEditingId(null)
+            setUploading(true)
+          }}
+        >
+          <PlusIcon weight="bold" /> Share a note
+        </button>
+      )}
+      </div>
       <ErrorNote error={error} />
       {isOwner && (
         <Button
           variant="outline"
           size="sm"
+          className={cn(inset && "md:hidden")}
           onClick={() => {
             setEditingId(null)
             setUploading((v) => !v)

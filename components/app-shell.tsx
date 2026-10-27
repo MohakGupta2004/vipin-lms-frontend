@@ -19,9 +19,9 @@ import {
 import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
-import { Brand } from "@/components/brand"
+import { Brand, BrandMark } from "@/components/brand"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -251,8 +251,8 @@ export function AppShell({
               {pageName(user.role, pathname)}
             </span>
           </span>
-          <span className="hidden truncate text-sm text-muted-foreground md:block">
-            {pageName(user.role, pathname)}
+          <span className="hidden truncate text-sm font-medium tracking-[-0.01em] text-heading/70 md:block">
+            {deskNav(user.role, pathname)?.label}
           </span>
           <AccountButton user={user} onSignOut={signOut} />
         </header>
@@ -422,6 +422,50 @@ function TabBar({ role, pathname }: { role: Role; pathname: string }) {
   )
 }
 
+// Where the sidebar's selection pill sat on the previous page; like the tab bar's, it starts there and travels.
+let lastNavPill: { top: number; height: number } | null = null
+
+function useNavPill(pathname: string, sidebarState: string) {
+  const ref = useRef<HTMLUListElement>(null)
+  const [pill, setPill] = useState<{ top: number; height: number; glide: boolean } | null>(() =>
+    lastNavPill ? { ...lastNavPill, glide: false } : null
+  )
+  useLayoutEffect(() => {
+    const li = ref.current?.querySelector<HTMLElement>("[data-nav-active]")
+    const next = li ? { top: li.offsetTop, height: li.offsetHeight } : null
+    const from = lastNavPill
+    lastNavPill = next
+    if (!next) return setPill(null)
+    // First appearance lands in place; afterwards it glides from where it was.
+    if (!from) return setPill({ ...next, glide: false })
+    const raf = requestAnimationFrame(() => setPill({ ...next, glide: true }))
+    return () => cancelAnimationFrame(raf)
+  }, [pathname])
+
+  // Items change height as the sidebar collapses and expands; once it settles, measure again.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const li = ref.current?.querySelector<HTMLElement>("[data-nav-active]")
+      if (!li) return
+      lastNavPill = { top: li.offsetTop, height: li.offsetHeight }
+      setPill({ ...lastNavPill, glide: false })
+    }, 420)
+    return () => clearTimeout(t)
+  }, [sidebarState])
+  return [ref, pill] as const
+}
+
+// Pages that aren't in the sidebar themselves belong to one that is, so the sidebar always says where you are.
+const PARENT: Record<Role, string> = { admin: "/courses", instructor: "/feed", student: "/learn" }
+
+/** Desktop: the sidebar item for this page, or for the section a sub-page (a course, a test) lives under. */
+function deskNav(role: Role, pathname: string) {
+  const direct = NAV[role].find((n) => pathname.startsWith(n.href))
+  if (direct) return direct
+  if (/^\/(courses|quizzes|flashcards)/.test(pathname)) return NAV[role].find((n) => n.href === PARENT[role])
+  return undefined
+}
+
 function pageName(role: Role, pathname: string) {
   return NAV[role].find((n) => pathname.startsWith(n.href))?.label ?? ""
 }
@@ -435,7 +479,8 @@ function AppSidebar({
   pathname: string
   onSignOut: () => void
 }) {
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile, state } = useSidebar()
+  const [navRef, pill] = useNavPill(pathname, state)
   // A student's tier is per course; the sidebar shows the highest one they hold.
   const [tier, setTier] = useState<Tier | null>(null)
   useEffect(() => {
@@ -450,31 +495,55 @@ function AppSidebar({
       })
       .catch(() => {})
   }, [user.role])
+  const current = deskNav(user.role, pathname)?.href
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-2">
+      <SidebarHeader className="h-14 justify-center px-5 group-data-[collapsible=icon]:px-2">
         <Link
           href={roleHome(user.role)}
           aria-label="Home"
-          className="flex items-center"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80 group-data-[collapsible=icon]:justify-center"
           onClick={() => setOpenMobile(false)}
         >
-          <Brand className="[&>div]:size-8 group-data-[collapsible=icon]:[&>span]:hidden" />
+          <span className="size-8 shrink-0 rounded-full">
+            <BrandMark />
+          </span>
+          <span className="grid min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-[15px] font-semibold tracking-[-0.015em] text-heading">Vipin Garg</span>
+            <span className="truncate text-[12px] text-heading/45">Finance Coach</span>
+          </span>
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="pt-1">
+        <SidebarGroup className="px-3 group-data-[collapsible=icon]:px-2">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu ref={navRef} className="relative gap-0.5">
+              {/* The selection is one white pill that glides from the last page's item to this one. */}
+              <li
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 top-0 rounded-[10px] bg-primary/[0.08] group-data-[collapsible=icon]:hidden",
+                  pill?.glide && "transition-[transform,height,opacity] duration-500 ease-(--ease-drawer)"
+                )}
+                style={{
+                  height: pill?.height ?? 0,
+                  transform: `translateY(${pill?.top ?? 0}px)`,
+                  opacity: pill ? 1 : 0,
+                }}
+              />
               {NAV[user.role].map(({ href, label, icon: NavIcon }) => {
-                const active = pathname.startsWith(href)
+                const active = href === current
                 return (
-                  <SidebarMenuItem key={href}>
+                  <SidebarMenuItem key={href} data-nav-active={active || undefined}>
                     <SidebarMenuButton
                       isActive={active}
                       tooltip={label}
-                      className="h-9 text-[14px] pointer-coarse:h-11 pointer-coarse:text-[15px] data-active:bg-white data-active:shadow-[0_1px_2px_rgba(16,42,67,0.08),0_0_0_1px_rgba(16,42,67,0.06)] [&_svg]:size-[18px]"
+                      className={cn(
+                        "relative h-9 gap-3 rounded-[10px] px-3 text-[14px] font-medium text-heading/70 transition-colors duration-150 pointer-coarse:h-11 pointer-coarse:text-[15px] hover:bg-black/[0.04] hover:text-heading active:bg-black/[0.06] [&_svg]:size-[18px]",
+                        "data-active:bg-transparent data-active:font-semibold data-active:text-primary data-active:hover:bg-transparent",
+                        "group-data-[collapsible=icon]:data-active:bg-primary/[0.08]"
+                      )}
                       render={
                         <Link
                           href={href}
@@ -483,11 +552,9 @@ function AppSidebar({
                         />
                       }
                     >
-                      <NavIcon
-                        weight={active ? "fill" : "regular"}
-                        className={active ? "text-primary" : "text-gray-500"}
-                      />
-                      <span>{label}</span>
+                      {/* Quiet gray icons; the current page's turns accent and fills in. */}
+                      <NavIcon weight={active ? "fill" : "regular"} className={active ? "text-primary" : "text-heading/45"} />
+                      <span className="truncate">{label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
@@ -497,7 +564,7 @@ function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-3 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -505,54 +572,43 @@ function AppSidebar({
                 render={
                   <SidebarMenuButton
                     size="lg"
-                    className="data-popup-open:bg-sidebar-accent"
+                    className="h-12 gap-2.5 rounded-xl bg-black/[0.03] px-2.5 hover:bg-black/[0.05] active:bg-black/[0.07] data-popup-open:bg-black/[0.06] group-data-[collapsible=icon]:bg-transparent"
                   >
                     <Avatar className="size-8">
-                      <AvatarFallback className="bg-navy text-[13px] font-medium text-white">
+                      <AvatarFallback className="bg-gradient-to-b from-[#3a5f86] to-navy text-[13px] font-semibold text-white">
                         {user.firstName.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span className="grid min-w-0 flex-1 leading-tight">
-                      <span className="flex items-center gap-1.5 text-[13px] font-medium text-heading">
+                      <span className="flex items-center gap-1.5 text-[13px] font-semibold text-heading">
                         <span className="truncate">
                           {user.firstName} {user.lastName}
                         </span>
                         {tier && (
-                          <Badge
-                            variant="lime"
-                            className="h-4 shrink-0 px-1.5 text-[10px]"
-                          >
+                          <Badge variant="outline" className="h-4 shrink-0 border-black/10 px-1.5 text-[10px] font-semibold text-heading/60">
                             {TIER_LABEL[tier]}
                           </Badge>
                         )}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground capitalize">
-                        {user.role}
-                      </span>
+                      <span className="truncate text-[11.5px] text-heading/45 capitalize">{user.role}</span>
                     </span>
-                    <CaretUpDownIcon className="ml-auto text-gray-400" />
+                    <CaretUpDownIcon className="ml-auto size-3.5 text-heading/35" />
                   </SidebarMenuButton>
                 }
               />
-              <DropdownMenuContent
-                side={isMobile ? "top" : "right"}
-                align="end"
-                className="w-60"
-              >
+              <DropdownMenuContent side={isMobile ? "top" : "right"} align="end" sideOffset={8} className="w-60 p-1">
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel className="font-normal">
-                    <span className="block truncate text-sm font-medium text-heading">
+                  <DropdownMenuLabel className="px-2.5 py-2 font-normal">
+                    <span className="block truncate text-[13px] font-semibold text-heading">
                       {user.firstName} {user.lastName}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {user.email}
-                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onSignOut}>
+                <DropdownMenuItem onClick={onSignOut} className="h-8 px-2.5">
                   <SignOutIcon />
-                  Sign out
+                  Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -580,7 +636,7 @@ export function PageTitle({
   back?: { href: string; label: string }
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-1 sm:border-b sm:border-border sm:pb-7">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-1 sm:border-b sm:border-border sm:pb-7 md:border-b-0 md:pb-2">
       <div className="max-w-2xl min-w-0 space-y-2">
         {back && (
           <Link
@@ -596,11 +652,11 @@ export function PageTitle({
             {eyebrow}
           </p>
         )}
-        <h1 className="display text-[2rem] leading-[1.1] font-bold text-heading sm:text-[2.875rem] sm:font-semibold">
+        <h1 className="display text-[2rem] leading-[1.1] font-bold text-heading sm:text-[2.875rem] sm:font-semibold md:text-[2.75rem] md:leading-[1.08] md:font-semibold">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-[15px] leading-snug text-muted-foreground sm:leading-relaxed">
+          <p className="text-[15px] leading-snug text-muted-foreground sm:leading-relaxed md:text-[17px] md:tracking-[-0.01em]">
             {subtitle}
           </p>
         )}

@@ -261,7 +261,7 @@ export function ResumeBand({ video }: { video: MyVideo }) {
           <Progress
             value={Math.min(100, pct)}
             aria-label="Watched"
-            className="mt-2 [&_[data-slot=progress-indicator]]:bg-secondary [&_[data-slot=progress-track]]:bg-white/15"
+            className="mt-2 [&_[data-slot=progress-indicator]]:bg-secondary [&_[data-slot=progress-track]]:bg-white/15 md:[&_[data-slot=progress-indicator]]:bg-[#5B9BFF] md:[&_[data-slot=progress-track]]:h-1.5"
           />
         )}
       </div>
@@ -330,9 +330,9 @@ export function Loading({ rows = 4 }: { rows?: number }) {
   )
 }
 
-export function Empty({ icon: EmptyIcon, title, text, explore }: { icon: Icon; title: string; text: string; explore?: boolean }) {
+export function Empty({ icon: EmptyIcon, title, text, explore, className }: { icon: Icon; title: string; text: string; explore?: boolean; className?: string }) {
   return (
-    <EmptyRoot className="rounded-xl border border-transparent bg-card py-14 shadow-[0_1px_2px_rgba(16,42,67,0.04)] md:border-dashed md:border-gray-300 md:bg-transparent md:shadow-none">
+    <EmptyRoot className={cn(className, "rounded-xl border border-transparent bg-card py-14 shadow-[0_1px_2px_rgba(16,42,67,0.04)] md:border-dashed md:border-gray-300 md:bg-transparent md:shadow-none")}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <EmptyIcon weight="duotone" />

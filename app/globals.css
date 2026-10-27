@@ -364,3 +364,180 @@ input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
   .stagger > * { filter: none !important; transform: none !important; }
   .shimmer { animation: none !important; }
 }
+
+/* ── Desktop & laptop ─────────────────────────────────────────────────────────────────────────────
+   Everything below applies from 768px up, so the phone design above is untouched. The page becomes a soft
+   gray canvas, content floats on white surfaces with layered shadow instead of outlines, chrome turns to
+   translucent material, and every pointer interaction answers at once (hover lifts, press settles). */
+@media (min-width: 768px) {
+    :root {
+        --background: 240 11% 96.5%;
+        --border: 218 22% 90%;
+        --sidebar: 0 0% 100%;
+        --sidebar-accent: 240 6% 94%;
+        --sidebar-border: 218 18% 89%;
+        --radius: 0.75rem;
+        /* SF Pro on Apple devices brings optical sizing and per-size tracking; others keep Arimo. */
+        --font-ui: -apple-system, BlinkMacSystemFont, var(--font-arimo);
+        /* Apple surfaces barely cast a shadow: a hairline edge and a whisper of depth. */
+        --shadow-surface: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+        --shadow-lifted: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 4px 14px -6px rgba(0, 0, 0, 0.1);
+        --hairline: rgba(0, 0, 0, 0.08);
+    }
+    body { font-feature-settings: "kern", "calt"; text-rendering: optimizeLegibility; }
+
+    /* Type: tracking tightens as size grows; body stays neutral. */
+    h1.display { letter-spacing: -0.032em; }
+    h2.display { letter-spacing: -0.022em; }
+
+    /* Surfaces float: a hairline and a soft shadow replace the hard outline. */
+    [data-slot="card"] {
+        border-color: transparent;
+        box-shadow: var(--shadow-surface);
+    }
+
+    /* Translucent header: clear at the top, the hairline and material fade in only once content scrolls under. */
+    header.material {
+        background-color: hsl(var(--background) / 0.72);
+        border-color: hsl(var(--heading) / 0.07);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+    }
+
+    /* Sidebar glides open and closed on the drawer curve instead of a linear slide. */
+    [data-slot="sidebar-gap"], [data-slot="sidebar-container"] {
+        transition-duration: 380ms;
+        transition-timing-function: var(--ease-drawer);
+    }
+    [data-slot="sidebar-container"] { border-color: rgba(0, 0, 0, 0.07); }
+    [data-sidebar="menu-button"] { transition: background-color 160ms var(--ease-out), color 160ms, width 380ms var(--ease-drawer), height 200ms, padding 380ms var(--ease-drawer); }
+
+    /* Fields sit on white with a gentle halo on focus, like macOS text fields. */
+    :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select"]):not([data-slot="combobox-content"] *) {
+        background-color: #fff;
+        border-color: hsl(var(--heading) / 0.14);
+        box-shadow: 0 1px 2px rgba(16, 42, 67, 0.04);
+        transition: border-color 160ms var(--ease-out), box-shadow 220ms var(--ease-out), background-color 160ms;
+    }
+    :is([data-slot="input"], [data-slot="textarea"], [data-slot="select"]):focus-visible,
+    [data-slot="input-group"]:focus-within:not([data-slot="combobox-content"] *) {
+        border-color: hsl(var(--ring));
+        box-shadow: 0 0 0 4px hsl(var(--ring) / 0.14), 0 1px 2px rgba(16, 42, 67, 0.04);
+    }
+    :is([data-slot="input"], [data-slot="textarea"])[aria-invalid="true"] {
+        border-color: hsl(var(--destructive));
+        box-shadow: 0 0 0 4px hsl(var(--destructive) / 0.12);
+    }
+
+    /* Menus and popovers are frosted glass that grows out of their trigger. */
+    :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="select-content"], [data-slot="combobox-content"]) {
+        background-color: hsl(0 0% 100% / 0.8);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        border-radius: 14px;
+        box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 10px 30px -8px rgba(0, 0, 0, 0.2);
+    }
+    [data-slot="dropdown-menu-item"] { border-radius: 8px; transition: background-color 120ms; }
+
+    /* Line tabs: the active underline slides in rather than blinking on. */
+    [data-slot="tabs-trigger"] { transition: color 200ms var(--ease-out); }
+    [data-slot="tabs-trigger"]::after { transform: scaleX(0.4); transition: opacity 200ms var(--ease-out), transform 320ms var(--ease-out) !important; }
+    [data-slot="tabs-trigger"][data-active]::after { transform: none; }
+
+    /* Course filter chips answer the press. */
+    [data-slot="toggle-group-item"] { transition: background-color 180ms var(--ease-out), color 180ms, border-color 180ms, transform 140ms var(--ease-out); }
+    [data-slot="toggle-group-item"]:active { transform: scale(0.97); }
+
+    /* Dialogs push the page back under a soft frosted scrim. */
+    :is([data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"], [data-slot="dialog-overlay"]) {
+        background-color: rgba(16, 42, 67, 0.22);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+    :is([data-slot="alert-dialog-content"], [data-slot="dialog-content"]) {
+        border-radius: 18px;
+        box-shadow: 0 0 0 0.5px rgba(16, 42, 67, 0.08), 0 30px 80px -20px rgba(16, 42, 67, 0.4);
+    }
+
+    /* Empty states: a quiet white well instead of a dashed box. */
+    [data-slot="empty"] { border-style: solid; border-color: transparent; background-color: #fff; box-shadow: var(--shadow-surface); }
+
+    /* Progress tracks are a touch softer and rounder. */
+    [data-slot="progress-track"] { border-radius: 999px; }
+    [data-slot="progress-indicator"] { border-radius: 999px; }
+
+
+    ::selection { background: hsl(var(--primary) / 0.16); color: hsl(var(--navy)); }
+
+    /* Grouped box, as in macOS Settings: a white rounded group of rows split by hairlines. Rows lose their own
+       card chrome inside it, empty states become a quiet row, and the group's "add" action is its last row. */
+    .inset-box {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.09), 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .inset-box > * { margin: 0; }
+    .inset-box > :not(:first-child) { border-top: 1px solid var(--hairline); }
+    .inset-box > p {
+        border-width: 0 0 0 0; border-top-width: 1px; border-style: solid; border-color: var(--hairline);
+        border-radius: 0; background: transparent; padding: 0.75rem 0.875rem;
+        text-align: left; font-size: 13px; color: hsl(var(--heading) / 0.45);
+    }
+    .inset-box > p:first-child { border-top-width: 0; }
+    .inset-box ul { margin: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    .inset-box ul > li { margin: 0; border-width: 0; border-radius: 0; box-shadow: none; }
+    .inset-box ul > li + li { border-top: 1px solid var(--hairline); }
+    .inset-box ul:empty { display: none; }
+
+    /* A page on a big screen simply fades up into place; the blur-in wave is a phone gesture. */
+    .stagger > * { animation-name: rise; animation-duration: 280ms; }
+}
+
+/* Hover belongs to a precise pointer: whole-card targets rise toward the cursor and settle under the press. */
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+    .tap {
+        transition: transform 320ms var(--ease-out), box-shadow 320ms var(--ease-out), border-color 200ms, background-color 160ms;
+    }
+    /* Nothing levitates: a card answers the pointer in place with a slightly deeper edge, and the press settles it. */
+    .tap:hover { box-shadow: var(--shadow-lifted); }
+    .tap[class*="group/row"]:hover { box-shadow: none; background-color: hsl(240 8% 97.5%); }
+    .tap.bg-navy:hover { box-shadow: 0 12px 28px -14px rgba(16, 42, 67, 0.5); }
+    .tap:active, .tap:has(.tap-link:active) { transform: scale(0.99); transition-duration: 100ms; }
+
+    :is([data-slot="input"], [data-slot="textarea"], [data-slot="select"], [data-slot="input-group"]):hover:not(:focus-visible):not(:focus-within):not([data-slot="combobox-content"] *) { border-color: hsl(var(--heading) / 0.26); }
+
+}
+
+@supports (animation-timeline: scroll()) {
+    @media (min-width: 768px) {
+        @keyframes desk-bar { to { border-color: hsl(var(--heading) / 0.07); background-color: hsl(var(--background) / 0.72); } }
+        header.material {
+            border-color: transparent; background-color: hsl(var(--background) / 0);
+            animation: desk-bar linear both; animation-timeline: scroll(root); animation-range: 0 40px;
+        }
+    }
+}
+
+/* The add row closing a grouped box: desktop only. */
+.inset-add { display: none; }
+@media (min-width: 768px) {
+    .inset-add {
+        display: flex; width: 100%; align-items: center; gap: 0.5rem;
+        padding: 0.625rem 0.875rem; font-size: 13px; font-weight: 500; text-align: left;
+        color: hsl(var(--primary)); transition: background-color 120ms var(--ease-out);
+    }
+    .inset-add svg { width: 0.8125rem; height: 0.8125rem; }
+    .inset-add:hover { background-color: hsl(var(--primary) / 0.05); }
+    .inset-add:active { background-color: hsl(var(--primary) / 0.1); }
+    .inset-add:focus-visible { outline-offset: -2px; }
+}
+
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
+    :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="select-content"], [data-slot="combobox-content"]) {
+        background-color: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+}
+@media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    .tap:hover, .tap:active { transform: none !important; }
+}

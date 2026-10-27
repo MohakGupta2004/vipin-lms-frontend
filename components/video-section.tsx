@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, PencilSimpleIcon, PlayCircleIcon, TrashIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, CircleNotchIcon, CloudArrowUpIcon, FilmStripIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, TrashIcon, WarningIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 
@@ -224,24 +224,37 @@ export function VideoSection({
   }
 
   return (
-    <section className="space-y-5">
-      <ErrorNote error={error} />
+    <section className="space-y-5 md:grid md:grid-cols-2 md:gap-x-6 md:gap-y-7 md:space-y-0">
+      {error && (
+        <div className="md:col-span-2">
+          <ErrorNote error={error} />
+        </div>
+      )}
       {VIDEO_KINDS.map((kind) => {
         const kindVideos = videos.filter((v) => v.kind === kind)
         const kindUploads = uploads.filter((u) => u.kind === kind)
         const formOpen = formKind === kind
+        // Desktop: each kind is a panel; one that is being edited or uploaded to takes the full width.
+        const wide = formOpen || kindVideos.some((v) => v.id === editingId)
+        const uploadLabel = `Upload ${kind === "meet" ? "Meet recording" : "offline recording"}`
         return (
-          <div key={kind} className="space-y-3">
-            <h3 className="flex items-center gap-2 text-sm font-medium text-heading">
-              <FilmStripIcon className="size-4 text-teal" /> {VIDEO_KIND_LABEL[kind]}
-            </h3>
+          <div key={kind} className={"space-y-3 md:space-y-2 md:self-start " + (wide ? "md:col-span-2" : "")}>
+            <div className="flex items-center justify-between gap-3 md:px-1">
+              <h3 className="flex items-center gap-2 text-sm font-medium text-heading md:gap-1.5 md:text-[13px] md:font-semibold md:text-heading/75">
+                <FilmStripIcon className="size-4 text-teal md:hidden" />
+                {VIDEO_KIND_LABEL[kind]}
+                {kindVideos.length > 0 && <span className="tnum hidden font-normal text-heading/35 md:inline">{kindVideos.length}</span>}
+              </h3>
+            </div>
+            {/* Flex gap skips the desktop-only add row, so phone spacing is unchanged. */}
+            <div className="inset-box flex flex-col gap-3 md:gap-0">
             {kindVideos.length === 0 && kindUploads.length === 0 && !formOpen && (
               <p className="rounded-md border border-dashed border-border bg-white px-4 py-5 text-center text-sm text-muted-foreground">
                 No {VIDEO_KIND_LABEL[kind].toLowerCase()} uploaded yet.
               </p>
             )}
 
-            <ul className="space-y-2">
+            <ul className="space-y-2 md:empty:hidden">
               {kindUploads.map((u) => (
                 <UploadRow
                   key={u.key}
@@ -282,10 +295,16 @@ export function VideoSection({
                 )
               )}
             </ul>
+            {!formOpen && (
+              <button type="button" className="inset-add" onClick={() => setFormKind(kind)}>
+                <PlusIcon weight="bold" /> {uploadLabel}
+              </button>
+            )}
+            </div>
 
             {!formOpen && (
-              <Button variant="outline" size="sm" onClick={() => setFormKind(kind)}>
-                <CloudArrowUpIcon /> Upload {kind === "meet" ? "Meet recording" : "offline recording"}
+              <Button variant="outline" size="sm" onClick={() => setFormKind(kind)} className="md:hidden">
+                <CloudArrowUpIcon /> {uploadLabel}
               </Button>
             )}
             {formOpen && (

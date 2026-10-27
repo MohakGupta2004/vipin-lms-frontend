@@ -11,7 +11,7 @@ const buttonStyles = cva(
         lime: "bg-secondary text-navy hover:bg-lime-hover",
         navy: "bg-navy text-white hover:bg-[#1b3b5a]",
         outline:
-          "border-heading/30 bg-white text-heading hover:border-teal hover:bg-accent aria-expanded:bg-accent",
+          "border-heading/30 bg-white text-heading hover:border-teal hover:bg-accent aria-expanded:bg-accent md:border-black/[0.1] md:shadow-[0_1px_1px_rgba(0,0,0,0.04)] md:hover:border-black/[0.14] md:hover:bg-[#fafafa]",
         outlineLight:
           "border-white/60 bg-transparent text-white hover:bg-white hover:text-navy",
         secondary: "bg-secondary text-navy hover:bg-lime-hover",

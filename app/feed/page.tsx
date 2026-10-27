@@ -5,15 +5,16 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
-import { StudyBand } from "@/components/flashcard-links"
+import { StudyBand, deckHref, deckName } from "@/components/flashcard-links"
 import { Bar, Empty, Figures, Loading, ResumeBand, SectionHead } from "@/components/learning"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useUser } from "@/hooks/use-user"
+import { cn } from "@/lib/utils"
 import {
   createPost,
   deletePost,
@@ -91,13 +92,31 @@ function Feed() {
 
       <ErrorNote error={error} />
 
+      {/* Wide screens: a main column and a quiet side rail, as Notion and Apple lay out a home page. The wrapper has no box
+          below that width (display: contents), so the sections stack and space exactly as they always have. */}
+      <div
+        className={cn(
+          "stagger contents space-y-8 sm:space-y-10",
+          !canTeach && "xl:grid xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start xl:gap-x-10 xl:gap-y-10 xl:space-y-0 xl:[&>*]:col-start-1 xl:[&_h2.display]:text-[1.25rem] xl:[&_h2.display]:font-semibold"
+        )}
+      >
       {progress && progress.courseCount > 0 && (
         <section className="space-y-4">
           {resume && <ResumeBand video={resume} />}
+          <div className={cn(!canTeach && "xl:hidden")}>
           <Figures
             items={[
-              { label: "Overall progress", value: `${progress.totals.percent}%`, href: "/progress" },
-              { label: "Videos completed", value: progress.totals.videosCompleted, of: progress.totals.videosTotal, href: "/learn" },
+              {
+                label: "Overall progress",
+                value: `${progress.totals.percent}%`,
+                href: "/progress",
+              },
+              {
+                label: "Videos completed",
+                value: progress.totals.videosCompleted,
+                of: progress.totals.videosTotal,
+                href: "/learn",
+              },
               {
                 label: "Tests attempted",
                 value: progress.totals.practiceDone + progress.totals.mockDone,
@@ -111,11 +130,16 @@ function Feed() {
               },
             ]}
           />
+          </div>
         </section>
       )}
 
+      {!canTeach && (progress?.courseCount || flashcards) && (
+        <Rail progress={progress} flashcards={courses.length > 0 ? flashcards : null} />
+      )}
+
       {!canTeach && flashcards && courses.length > 0 && (
-        <section className="space-y-4">
+        <section className="space-y-4 xl:hidden">
           <SectionHead
             title="Flashcards"
             aside={
@@ -129,7 +153,19 @@ function Feed() {
           {flashcards.decks.length > 0 ? (
             <StudyBand deck={flashcards.recent} />
           ) : (
-            <Empty icon={CardsIcon} title="No flashcards yet" text="Your instructors haven't published any. They'll show up here for quick revision." />
+            <>
+              <Empty icon={CardsIcon} title="No flashcards yet" text="Your instructors haven't published any. They'll show up here for quick revision." className="md:hidden" />
+              {/* Desktop: a quiet one-line notice rather than a tall empty box. */}
+              <div className="hidden items-center gap-4 rounded-2xl bg-white px-5 py-4 shadow-(--shadow-surface) md:flex">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-black/[0.045] text-heading/45">
+                  <CardsIcon className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-heading">No flashcards yet</p>
+                  <p className="text-[13px] text-heading/55">Your instructors haven&apos;t published any. They&apos;ll show up here for quick revision.</p>
+                </div>
+              </div>
+            </>
           )}
         </section>
       )}
@@ -157,10 +193,10 @@ function Feed() {
                 <li key={c.id}>
                   <Link
                     href={courseHref(c.id)}
-                    className="group relative grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-4 pr-10 pl-5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem] sm:pr-5"
+                    className="group relative grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-4 pr-10 pl-5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem] sm:pr-5 md:py-3.5 md:hover:bg-black/[0.02]"
                   >
                     <div className="min-w-0">
-                      <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem]">{c.title}</p>
+                      <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem] md:text-[1.0625rem] md:font-semibold">{c.title}</p>
                       {c.shortDescription && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{c.shortDescription}</p>}
                     </div>
                     {canTeach ? (
@@ -169,8 +205,8 @@ function Feed() {
                       </Badge>
                     ) : pct !== undefined ? (
                       <div className="flex items-center gap-3 max-sm:col-span-2">
-                        <Bar value={pct} className="flex-1" />
-                        <span className="tnum w-9 text-right text-xs text-heading">{pct}%</span>
+                        <Bar value={pct} className={cn("flex-1", pct >= 100 ? DONE_BAR : PROGRESS_BAR)} />
+                        <span className={cn("tnum w-9 text-right text-xs text-heading", pct >= 100 && DONE_TEXT)}>{pct}%</span>
                       </div>
                     ) : (
                       <span />
@@ -256,7 +292,102 @@ function Feed() {
           </ol>
         )}
       </section>
+      </div>
     </>
+  )
+}
+
+/*
+ * Desktop colour, two hues with one job each, as in Apple's own apps. Blue is the accent: progress and the action to take.
+ * Green is achievement: what's mastered or finished. Everything else stays navy and gray. Phones keep the navy bars.
+ */
+// Bars are 6px on desktop so their colour reads at a glance; 4px on phones as before.
+const BAR = "md:[&_[data-slot=progress-track]]:h-1.5"
+const PROGRESS_BAR = `${BAR} md:[&_[data-slot=progress-indicator]]:bg-primary md:[&_[data-slot=progress-track]]:bg-primary/[0.12]`
+const DONE_BAR = `${BAR} md:[&_[data-slot=progress-indicator]]:bg-[#34C759] md:[&_[data-slot=progress-track]]:bg-[#34C759]/[0.15]`
+const DONE_TEXT = "md:text-[#248A3D]"
+
+/**
+ * Wide screens: the at-a-glance column. Progress reads as a short list of properties under one headline number,
+ * and flashcards sit beneath it, so the main column is left for what you'll actually open.
+ */
+function Rail({ progress, flashcards }: { progress: ProgressSummary | null; flashcards: MyFlashcards | null }) {
+  const t = progress?.totals
+  const deck = flashcards?.recent ?? flashcards?.decks[0] ?? null
+  return (
+    <aside className="hidden space-y-4 xl:sticky xl:top-20 xl:col-start-2! xl:row-span-6 xl:row-start-1 xl:block">
+      {t && (
+        <RailCard title="Progress" href="/progress" link="Details">
+          <div className="px-5 pt-1 pb-4">
+            <p className="display tnum text-[2.25rem] leading-none text-heading">{t.percent}%</p>
+            <p className="mt-1.5 text-[13px] text-heading/50">of all your course work</p>
+            <Bar value={t.percent} className={cn("mt-3.5", t.percent >= 100 ? DONE_BAR : PROGRESS_BAR)} />
+          </div>
+          <dl className="border-t border-black/[0.06]">
+            {[
+              { label: "Videos completed", value: `${t.videosCompleted} of ${t.videosTotal}`, href: "/learn" },
+              { label: "Tests attempted", value: `${t.practiceDone + t.mockDone} of ${t.practiceTotal + t.mockTotal}`, href: "/practice" },
+              { label: "Average mock score", value: t.mockAvgPercent === null ? "–" : `${t.mockAvgPercent}%`, href: "/progress" },
+            ].map((r) => (
+              <Link
+                key={r.label}
+                href={r.href}
+                className="group flex items-center justify-between gap-3 px-5 py-2.5 text-[13px] transition-colors duration-150 not-last:border-b not-last:border-black/[0.05] hover:bg-black/[0.02]"
+              >
+                <dt className="text-heading/60">{r.label}</dt>
+                <dd className="tnum flex items-center gap-1.5 font-medium text-heading">
+                  {r.value}
+                  <CaretRightIcon weight="bold" className="size-3 text-heading/25 transition-transform duration-150 group-hover:translate-x-0.5" />
+                </dd>
+              </Link>
+            ))}
+          </dl>
+        </RailCard>
+      )}
+
+      {flashcards && (
+        <RailCard title="Flashcards" href={flashcards.decks.length > 0 ? "/flashcards" : undefined} link="All decks">
+          {deck ? (
+            <div className="space-y-3 px-5 pt-1 pb-5">
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-semibold text-heading">{deckName(deck)}</p>
+                <p className="truncate text-[13px] text-heading/50">{deck.courseTitle}</p>
+              </div>
+              {/* What's mastered is an achievement, so this one bar is green. */}
+              <Bar value={deck.cardCount ? (deck.myMastered / deck.cardCount) * 100 : 0} className={DONE_BAR} />
+              <div className="flex items-center justify-between gap-3">
+                <span className="tnum text-[13px] text-heading/55">
+                  <span className={cn("font-semibold text-heading", deck.myMastered > 0 && DONE_TEXT)}>{deck.myMastered}</span> of {deck.cardCount} mastered
+                </span>
+                <Link href={deckHref(deck.id)} className={cn(buttonVariants({ size: "sm" }), "h-8 rounded-full bg-primary px-4 hover:bg-brand-blue-dark")}>
+                  Study
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="px-5 pt-1 pb-5 text-[13px] leading-relaxed text-heading/50">
+              None yet. When your instructors publish flashcards, they&apos;ll show up here for quick revision.
+            </p>
+          )}
+        </RailCard>
+      )}
+    </aside>
+  )
+}
+
+function RailCard({ title, href, link, children }: { title: string; href?: string; link: string; children: React.ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-(--shadow-surface)">
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <h2 className="text-[13px] font-semibold text-heading/60">{title}</h2>
+        {href && (
+          <Link href={href} className="text-[13px] font-medium text-primary transition-opacity hover:opacity-70">
+            {link}
+          </Link>
+        )}
+      </div>
+      {children}
+    </section>
   )
 }
 
