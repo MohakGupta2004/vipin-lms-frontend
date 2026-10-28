@@ -541,3 +541,23 @@ input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
 @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
     .tap:hover, .tap:active { transform: none !important; }
 }
+
+/* Course covers on the dashboard: a defined hairline edge and a soft, layered shadow, as Apple frames artwork on a gray
+   canvas. Declared after the card rules above so it wins at equal specificity. Leaf-cut corners, generous on the leading
+   top and trailing bottom and nearly square on the other two, give the shelf a shape of its own; under the pointer the
+   square corners soften a little and the shadow deepens. */
+/* The dashboard's shape: every surface on it shares the leaf cut, so the cards, rail and band read as one family. */
+.leaf { border-radius: 22px 6px 22px 6px; }
+.course-card {
+    border-radius: 22px 6px 22px 6px;
+    transition: transform 320ms var(--ease-out), box-shadow 320ms var(--ease-out), border-radius 360ms var(--ease-out);
+    border-color: transparent;
+    box-shadow: 0 0 0 1px rgba(16, 42, 67, 0.07), 0 1px 2px rgba(16, 42, 67, 0.04), 0 4px 12px -6px rgba(16, 42, 67, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+    .course-card:hover {
+        border-radius: 22px 10px 22px 10px;
+        box-shadow: 0 0 0 1px rgba(16, 42, 67, 0.09), 0 2px 4px rgba(16, 42, 67, 0.04), 0 14px 32px -14px rgba(16, 42, 67, 0.22);
+    }
+    .course-card:active { transform: scale(0.985); transition-duration: 100ms; }
+}

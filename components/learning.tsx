@@ -228,13 +228,18 @@ function CountUp({ value }: { value: React.ReactNode }) {
 }
 
 /** The one dark accent on a page: the video to pick up again. */
-export function ResumeBand({ video }: { video: MyVideo }) {
+export function ResumeBand({ video, className }: { video: MyVideo; className?: string }) {
   const { pct } = watchState(video)
   return (
     <Link
       href={playerHref(video)}
-      className="tap group relative flex items-center gap-4 overflow-hidden rounded-xl bg-navy bg-[radial-gradient(130%_150%_at_0%_0%,#28598a_0%,transparent_55%)] px-5 py-5 text-white shadow-[0_10px_30px_-12px_rgba(16,42,67,0.55)] hover:bg-[#143352] sm:gap-5 sm:px-7"
+      className={cn("tap group relative flex items-center gap-4 overflow-hidden rounded-xl bg-navy bg-[radial-gradient(130%_150%_at_0%_0%,#28598a_0%,transparent_55%)] px-5 py-5 text-white shadow-[0_10px_30px_-12px_rgba(16,42,67,0.55)] hover:bg-[#143352] sm:gap-5 sm:px-7", className)}
     >
+      {/* The same quiet disc as the course covers, so the band belongs to the shelf; it eases outward under the pointer. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-16 -bottom-28 size-72 rounded-full bg-white/[0.045] transition-transform duration-500 ease-(--ease-out) group-hover:scale-110"
+      />
       <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white text-navy shadow-[0_0_0_6px_rgba(255,255,255,0.1)] transition-transform duration-200 ease-(--ease-out) group-hover:scale-105 group-active:scale-90">
         <PlayIcon weight="fill" className="ml-0.5 size-5" />
       </span>

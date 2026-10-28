@@ -630,7 +630,7 @@ export function PageTitle({
   title: string
   /** A small caps line above the title, like the date over iOS's Today view. */
   eyebrow?: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   actions?: React.ReactNode
   /** The parent page, shown as a link above the title. */
   back?: { href: string; label: string }
