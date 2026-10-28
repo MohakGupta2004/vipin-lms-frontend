@@ -1,11 +1,12 @@
 "use client"
 
-import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, DotsThreeIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { CaretDownIcon, CaretUpDownIcon, CircleNotchIcon, CopySimpleIcon, DotsThreeIcon, EyeIcon, EyeSlashIcon, FileTextIcon, CardsIcon, FilmStripIcon, ListChecksIcon, LockIcon, LockOpenIcon, PencilSimpleIcon, PlayCircleIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { CourseBatchBadges } from "@/components/course-badges"
 import { DeckSummary } from "@/components/flashcard-links"
 import { FlashcardDeckPanel } from "@/components/flashcard-deck"
 import { LessonNotes } from "@/components/note-list"
@@ -26,6 +27,8 @@ import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { useUser } from "@/hooks/use-user"
 import {
   UUID_RE,
+  batchLabel,
+  createCourseBatch,
   createLesson,
   deleteCourse,
   deleteLesson,
@@ -38,6 +41,7 @@ import {
   listQuizzes,
   updateCourse,
   updateCourseStatus,
+  updateCourseVisibility,
   updateLesson,
   type Course as CourseT,
   type CourseStatus,
@@ -79,6 +83,7 @@ function CourseView() {
   const [error, setError] = useState<string | null>(valid ? null : "That is not a valid course ID.")
   const [mode, setMode] = useState<"lesson" | "edit" | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const [startingBatch, setStartingBatch] = useState(false)
 
   // Only the course owner (its instructor, or an admin who is its instructor) can manage it.
   const isOwner = !!course && user.role !== "student" && course.instructorId === user.id
@@ -117,6 +122,43 @@ function CourseView() {
       setCourse((cur) => (cur ? { ...cur, status: c.status } : cur))
     } catch (e) {
       setError(errMsg(e))
+    }
+  }
+
+  // Private keeps the course open to the students enrolled now and hides it from everyone else.
+  async function onVisibility() {
+    if (!course) return
+    const next = course.visibility === "private" ? "public" : "private"
+    const question =
+      next === "private"
+        ? `Make "${course.title}" private? Students enrolled now keep access until their enrollment ends. Nobody else will see it.`
+        : `Make "${course.title}" public again? Every student will be able to find it in Explore.`
+    if (!confirm(question)) return
+    setError(null)
+    try {
+      const c = await updateCourseVisibility(id, next)
+      setCourse((cur) => (cur ? { ...cur, visibility: c.visibility } : cur))
+    } catch (e) {
+      setError(errMsg(e))
+    }
+  }
+
+  async function onNewBatch() {
+    if (
+      !course ||
+      !confirm(
+        `Start a new batch of "${course.title}"? Its lessons, PDF notes, offline recordings, tests and flashcards are copied into a new draft course. Meet recordings and students stay here.`
+      )
+    )
+      return
+    setError(null)
+    setStartingBatch(true)
+    try {
+      const c = await createCourseBatch(id)
+      router.push(`/courses/${c.id}`)
+    } catch (e) {
+      setError(errMsg(e))
+      setStartingBatch(false)
     }
   }
 
@@ -163,6 +205,7 @@ function CourseView() {
               : { href: "/feed", label: user.role === "student" ? "Dashboard" : "My classroom" }
         }
         title={course?.title ?? "Course"}
+        eyebrow={courseEyebrow(course, isOwner || user.role === "admin")}
         subtitle={
           isOwner
             ? "Manage lessons, share PDF notes and publish tests."
@@ -185,6 +228,13 @@ function CourseView() {
               <StatusControl value={course.status} onChange={onStatus} />
               <Button variant="outline" onClick={() => setMode(mode === "edit" ? null : "edit")}>
                 <PencilSimpleIcon /> Edit
+              </Button>
+              <Button variant="outline" onClick={onVisibility}>
+                {course.visibility === "private" ? <EyeIcon /> : <EyeSlashIcon />}
+                {course.visibility === "private" ? "Make public" : "Make private"}
+              </Button>
+              <Button variant="outline" onClick={onNewBatch} disabled={startingBatch}>
+                {startingBatch ? <CircleNotchIcon className="animate-spin" /> : <CopySimpleIcon />} New batch
               </Button>
               <Button variant="destructive" onClick={onDelete} className="md:border-black/[0.1] md:shadow-[0_1px_1px_rgba(0,0,0,0.04)] md:hover:border-destructive/30 md:hover:bg-destructive/[0.06]">
                 <TrashIcon /> Delete
@@ -227,6 +277,7 @@ function CourseView() {
             <div className={cn("flex flex-wrap items-center gap-2", isOwner && !course.isFree && "md:hidden")}>
               <Badge variant={course.status === "published" ? "default" : "secondary"} className={cn(isOwner && "md:hidden")}>{course.status}</Badge>
               {course.isFree && <Badge variant="lime">Free</Badge>}
+              <CourseBatchBadges course={course} showPrivate={isOwner || user.role === "admin"} />
               {preview && <Badge variant="secondary">Preview</Badge>}
               {!isOwner && course.access === "full" && !course.isFree && <Badge variant="lime">Your plan: {TIER_LABEL[tier]}</Badge>}
               {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
@@ -902,6 +953,14 @@ function DeskSegmented<T extends string>({
 }
 
 /** Desktop: the three course states as one segmented control. */
+/** The line above the title: "Batch 2.0" on a later batch, plus "Private" for the people who manage the course. */
+function courseEyebrow(course: CourseT | null, canManage: boolean) {
+  if (!course) return undefined
+  const batch = batchLabel(course)
+  const parts = [batch && `Batch ${batch}`, canManage && course.visibility === "private" && "Private"].filter(Boolean)
+  return parts.length ? parts.join(" · ") : undefined
+}
+
 function StatusControl({ value, onChange }: { value: CourseStatus; onChange: (v: CourseStatus) => void }) {
   return (
     <DeskSegmented

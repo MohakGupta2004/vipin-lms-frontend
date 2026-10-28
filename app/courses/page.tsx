@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { CourseBatchBadges } from "@/components/course-badges"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -133,6 +134,7 @@ function Courses() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
                   {c.isFree && <Badge variant="lime">Free</Badge>}
+                  <CourseBatchBadges course={c} showPrivate />
                 </div>
                 <span
                   aria-hidden

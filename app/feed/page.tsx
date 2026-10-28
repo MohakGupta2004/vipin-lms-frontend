@@ -18,6 +18,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { CourseBatchBadges } from "@/components/course-badges"
 import { StudyBand, deckHref, deckName } from "@/components/flashcard-links"
 import { Bar, Empty, Figures, Loading, ResumeBand, SectionHead } from "@/components/learning"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -254,9 +255,10 @@ function Feed() {
                       {c.shortDescription && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{c.shortDescription}</p>}
                     </div>
                     {canTeach ? (
-                      <Badge variant={c.status === "published" ? "default" : "secondary"} className="justify-self-end sm:justify-self-start">
-                        {c.status}
-                      </Badge>
+                      <span className="flex flex-wrap items-center gap-1.5 justify-self-end sm:justify-self-start">
+                        <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
+                        <CourseBatchBadges course={c} showPrivate />
+                      </span>
                     ) : pct !== undefined ? (
                       <div className="flex items-center gap-3 max-sm:col-span-2">
                         <Bar value={pct} className={cn("flex-1", pct >= 100 ? DONE_BAR : PROGRESS_BAR)} />

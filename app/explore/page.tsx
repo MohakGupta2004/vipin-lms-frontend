@@ -5,11 +5,12 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { CourseBatchBadges } from "@/components/course-badges"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { listCatalog, type CatalogCourse } from "@/lib/api"
+import { batchLabel, listCatalog, type CatalogCourse } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 export default function ExplorePage() {
@@ -81,10 +82,11 @@ function CourseCard({ c }: { c: CatalogCourse }) {
 
   return (
     <article className="tap relative flex h-full flex-col rounded-xl border border-border bg-white p-4 hover:border-teal/40 hover:shadow-sm sm:p-6">
-      {(c.enrolled || c.isFree) && (
+      {(c.enrolled || c.isFree || batchLabel(c)) && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {c.enrolled && <Badge>Enrolled</Badge>}
           {c.isFree && <Badge variant="lime">Free course</Badge>}
+          <CourseBatchBadges course={c} />
         </div>
       )}
 

@@ -15,6 +15,7 @@ export type User = {
 }
 
 export type CourseStatus = "draft" | "published" | "archived"
+export type CourseVisibility = "public" | "private"
 export type EnrollmentStatus = "active" | "completed" | "expired" | "cancelled"
 export type QuizStatus = "draft" | "published"
 export type QuizType = "mock_test" | "practice"
@@ -78,6 +79,12 @@ export type Course = {
   description: string
   status: CourseStatus
   isFree: boolean
+  /** private: only students already enrolled still see it, until their enrollment ends. */
+  visibility: CourseVisibility
+  /** Shared by every batch of a course: the id of its first batch. */
+  batchGroupId: string
+  /** 1 for the first batch of a course; 2 is shown as "2.0". */
+  batchNumber: number
   createdAt: string
   /**
    * Only from GET /courses/{id}. "full": enrolled, or the course is free. "preview": published course
@@ -89,6 +96,19 @@ export type Course = {
 }
 
 export type CourseAccess = "owner" | "full" | "preview"
+
+/** "2.0" for the second batch of a course, "3.0" for the third; null for the first. */
+export const batchLabel = (c: Pick<Course, "batchNumber">) => (c.batchNumber > 1 ? `${c.batchNumber}.0` : null)
+
+/** "IFC 2.0" for a later batch of a course, plain "IFC" for the first one. */
+export const courseTitle = (c: Pick<Course, "title" | "batchNumber">) => {
+  const batch = batchLabel(c)
+  return batch ? `${c.title} ${batch}` : c.title
+}
+
+/** Only the newest batch of each course in the list (IFC 2.0, not IFC), in the same order. */
+export const latestBatches = <T extends Pick<Course, "batchGroupId" | "batchNumber">>(courses: T[]) =>
+  courses.filter((c) => !courses.some((o) => o.batchGroupId === c.batchGroupId && o.batchNumber > c.batchNumber))
 
 /** A published course in the catalog, with what a non-enrolled user can open for free. */
 export type CatalogCourse = Course & {
@@ -684,6 +704,17 @@ export const deleteCourse = (courseId: string) =>
 
 export const updateCourseStatus = (courseId: string, status: CourseStatus) =>
   json<Course>("PATCH", `/courses/${id(courseId)}/status`, { body: { status } })
+
+/** Course owner only. Private hides the course from everyone not enrolled; enrolled students keep access until it expires. */
+export const updateCourseVisibility = (courseId: string, visibility: CourseVisibility) =>
+  json<Course>("PATCH", `/courses/${id(courseId)}/visibility`, { body: { visibility } })
+
+/**
+ * Course owner only. Starts the next batch: a draft copy with the lessons, PDF notes, offline recordings,
+ * tests and flashcards, but no Meet recordings and no students. Title and slug default to the source's.
+ */
+export const createCourseBatch = (courseId: string, input: { title?: string; slug?: string } = {}) =>
+  json<Course>("POST", `/courses/${id(courseId)}/batches`, { body: input })
 
 // ── lessons & notes ─────────────────────────────────────────────────────────
 export const listLessons = async (courseId: string) =>

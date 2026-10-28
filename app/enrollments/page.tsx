@@ -16,6 +16,8 @@ import {
   TIER_LABEL,
   UUID_RE,
   createEnrollment,
+  courseTitle,
+  latestBatches,
   listCourses,
   listEnrollments,
   listNewStudents,
@@ -90,7 +92,10 @@ function Enrollments() {
     load()
   }, [load])
 
-  const title = (id: string) => courses.find((c) => c.id === id)?.title ?? id
+  const title = (id: string) => {
+    const c = courses.find((x) => x.id === id)
+    return c ? courseTitle(c) : id
+  }
   const student = (id: string) => {
     const u = pickable.find((x) => x.id === id)
     return u ? `${u.firstName} ${u.lastName} (${u.email})` : id
@@ -115,7 +120,8 @@ function Enrollments() {
       <div ref={formRef} className="scroll-mt-6">
         <EnrollForm
           students={pickable}
-          courses={courses.filter((c) => c.status === "published")}
+          // New students go into the newest published batch of a course, so older batches are left out.
+          courses={latestBatches(courses.filter((c) => c.status === "published"))}
           defaultCourse={courseId}
           userId={enrollUserId}
           onUserId={setEnrollUserId}
@@ -137,7 +143,7 @@ function Enrollments() {
               <option value="">All courses</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.title}
+                  {courseTitle(c)}
                 </option>
               ))}
             </Select>
@@ -321,7 +327,7 @@ function EnrollForm({
               <option value="">Select a course…</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.title}
+                  {courseTitle(c)}
                 </option>
               ))}
             </Select>
