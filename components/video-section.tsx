@@ -15,34 +15,35 @@ import { TierPicker } from "@/components/tier-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import {
+  ApiError,
   DEFAULT_TIERS,
-  MAX_VIDEO,
   VIDEO_EXT_RE,
   VIDEO_KINDS,
   VIDEO_KIND_LABEL,
   confirmVideo,
   deleteVideo,
   getVideo,
-  putVideoFile,
+  renewVideoUpload,
   requestVideoUpload,
-  retryVideo,
   updateVideo,
-  uploadUrlFresh,
   type ContentTier,
   type Tier,
   type Video,
   type VideoKind,
   type VideoUpload,
 } from "@/lib/api"
+import { acquireConversionSlot, canConvertVideo, probeVideo, transcodeAndUpload, type UploadForm } from "@/lib/video-transcode"
+import { MAX_DURATION_SEC } from "@/lib/video-transcode/ladder"
 
 const POLL_MS = 5_000
 // Matches the server's limits.
 const MAX_TITLE = 255
 const MAX_DESCRIPTION = 5000
 
-type Phase = "starting" | "uploading" | "confirming" | "error"
+// waiting: another video is converting in this tab. checking: reading the file. starting: creating the video.
+type Phase = "waiting" | "checking" | "starting" | "converting" | "confirming" | "error"
 
-// An upload running in this tab, before the server has the file and has queued transcoding.
+// An upload running in this tab: the browser converts the file to HLS and uploads it, then the server checks it.
 type LocalUpload = {
   key: string
   file: File
@@ -50,11 +51,23 @@ type LocalUpload = {
   tiers: ContentTier[]
   description: string
   phase: Phase
-  loaded: number
+  progress: number // 0 to 1, of converting
+  uploadedBytes: number
+  offline?: boolean // uploads are failing; they resume on their own
   error?: string
-  upload?: VideoUpload // signed URL, once requested
-  sent?: boolean // the PUT finished; only confirm is left
+  upload?: VideoUpload // the server's video and upload form, once created
+  uploaded?: boolean // every file is in storage; only confirm is left
 }
+
+const formOf = (u: VideoUpload): UploadForm => ({
+  url: u.uploadUrl,
+  keyPrefix: u.keyPrefix,
+  fields: u.fields,
+  maxFileBytes: u.maxFileBytes,
+  expiresAt: u.expiresAt,
+})
+
+const notFound = (e: unknown) => e instanceof ApiError && e.status === 404
 
 export function fmtBytes(n: number) {
   if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`
@@ -63,9 +76,10 @@ export function fmtBytes(n: number) {
 }
 
 /**
- * Owner-only video manager for a lesson, split into Offline Recordings and Meet Recordings. Uploads go
- * straight to storage via a signed URL, are confirmed, then polled until transcoding is ready or failed
- * (failed videos can be retried). The section a video sits in is its `kind`.
+ * Owner-only video manager for a lesson, split into Offline Recordings and Meet Recordings. The browser
+ * converts each video to a 1080p/720p/480p HLS ladder itself, one at a time, uploads the files straight to
+ * storage with a signed form, and confirms; the server checks the files and the video is ready.
+ * The section a video sits in is its `kind`.
  */
 export function VideoSection({
   lessonId,
@@ -82,12 +96,13 @@ export function VideoSection({
   setFormKind: (k: VideoKind | null) => void
 }) {
   const [uploads, setUploads] = useState<LocalUpload[]>([])
-  const [retrying, setRetrying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   // The video whose title and description are being edited in place.
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ctrls = useRef(new Map<string, AbortController>())
+  // Video rows this tab created and hasn't finished, by upload key: removed again if the upload is abandoned.
+  const rows = useRef(new Map<string, string>())
   // The parent passes a fresh setter each render; the poller must not restart because of it.
   const setVideosRef = useRef(setVideos)
   useEffect(() => {
@@ -97,20 +112,69 @@ export function VideoSection({
   const patch = (key: string, p: Partial<LocalUpload>) =>
     setUploads((us) => us.map((u) => (u.key === key ? { ...u, ...p } : u)))
 
-  // Abort in-flight PUTs if the lesson card goes away.
+  // Deletes the server's row for an upload that won't finish, with whatever files it had uploaded.
+  // keepalive lets the request finish while the tab closes.
+  const discard = (key: string) => {
+    const videoId = rows.current.get(key)
+    if (!videoId) return
+    rows.current.delete(key)
+    deleteVideo(videoId, true).catch(() => {})
+  }
+
+  // Leaving the lesson card stops every conversion (terminating its worker) and cleans up after it.
   useEffect(() => {
     const map = ctrls.current
-    return () => map.forEach((c) => c.abort())
+    const created = rows.current
+    return () => {
+      map.forEach((c) => c.abort())
+      map.clear()
+      created.forEach((videoId) => deleteVideo(videoId, true).catch(() => {}))
+      created.clear()
+    }
   }, [])
 
-  // Closing the tab mid-upload loses the file, so ask first.
+  // Closing the tab mid-upload loses the work, so ask first; if it closes anyway, clean up.
   const busy = uploads.some((u) => u.phase !== "error")
   useEffect(() => {
     if (!busy) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    const leave = (e: PageTransitionEvent) => {
+      if (e.persisted) return // kept in the back/forward cache: the page may come back as it was
+      ctrls.current.forEach((c) => c.abort())
+      rows.current.forEach((_, key) => discard(key))
+    }
     window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
+    window.addEventListener("pagehide", leave)
+    return () => {
+      window.removeEventListener("beforeunload", warn)
+      window.removeEventListener("pagehide", leave)
+    }
   }, [busy])
+
+  // Converting a long video takes a while: keep the screen (and so the machine) awake meanwhile.
+  const converting = uploads.some((u) => u.phase === "converting")
+  useEffect(() => {
+    if (!converting || !("wakeLock" in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    let released = false
+    const acquire = () => {
+      if (released || document.visibilityState !== "visible" || (lock && !lock.released)) return
+      navigator.wakeLock
+        .request("screen")
+        .then((l) => {
+          if (released) l.release().catch(() => {})
+          else lock = l
+        })
+        .catch(() => {})
+    }
+    acquire()
+    document.addEventListener("visibilitychange", acquire)
+    return () => {
+      released = true
+      document.removeEventListener("visibilitychange", acquire)
+      lock?.release().catch(() => {})
+    }
+  }, [converting])
 
   // Poll every video that is transcoding until it settles.
   const pending = videos
@@ -138,38 +202,74 @@ export function VideoSection({
   async function run(u: LocalUpload) {
     const ctrl = new AbortController()
     ctrls.current.set(u.key, ctrl)
+    const { signal } = ctrl
     let upload = u.upload
+    let release: (() => void) | undefined
+    const finish = (video: Video) => {
+      rows.current.delete(u.key)
+      setUploads((us) => us.filter((x) => x.key !== u.key))
+      setVideos((vs) => [video, ...vs.filter((v) => v.id !== video.id)])
+    }
     try {
-      if (!u.sent) {
-        // Reuse the signed URL on retry unless it is about to expire.
-        if (!upload || !uploadUrlFresh(upload)) {
-          patch(u.key, { phase: "starting", error: undefined, loaded: 0 })
+      if (!u.uploaded) {
+        patch(u.key, { phase: "waiting", error: undefined, progress: 0, uploadedBytes: 0, offline: false })
+        release = await acquireConversionSlot(signal)
+
+        patch(u.key, { phase: "checking" })
+        // Nothing is created on the server until the file is known to convert here.
+        const probe = await probeVideo(u.file, signal)
+        if (probe.problems.length > 0) throw new Error(probe.problems.join(" "))
+
+        patch(u.key, { phase: "starting" })
+        if (upload) {
+          // Another attempt at the same video: it may have finished after all, or been removed meanwhile.
+          const current = await getVideo(upload.video.id).catch((e) => {
+            if (notFound(e)) return null
+            throw e
+          })
+          if (current?.status === "ready") return finish(current)
+          upload = current ? await renewVideoUpload(current.id) : undefined
+        }
+        if (!upload) {
           upload = await requestVideoUpload(lessonId, {
             fileName: u.file.name,
             description: u.description || undefined,
             kind: u.kind,
             tiers: u.tiers,
           })
-          patch(u.key, { upload })
         }
-        patch(u.key, { phase: "uploading", error: undefined, loaded: 0 })
-        await putVideoFile(
-          upload,
-          u.file,
-          (loaded) => patch(u.key, { loaded }),
-          ctrl.signal
-        )
-        patch(u.key, { sent: true })
+        rows.current.set(u.key, upload.video.id)
+        if (signal.aborted) return discard(u.key) // cancelled while the video was being created
+        patch(u.key, { upload, phase: "converting" })
+
+        const videoId = upload.video.id
+        await transcodeAndUpload(u.file, {
+          form: formOf(upload),
+          renewForm: async () => formOf(await renewVideoUpload(videoId)),
+          onProgress: (p) => patch(u.key, { progress: p.progress, uploadedBytes: p.uploadedBytes }),
+          onNetwork: (offline) => patch(u.key, { offline }),
+          signal,
+        })
+        release()
+        patch(u.key, { uploaded: true })
       }
-      patch(u.key, { phase: "confirming", error: undefined })
-      const video = await confirmVideo(upload!.video.id)
-      setUploads((us) => us.filter((x) => x.key !== u.key))
-      setVideos((vs) => [video, ...vs.filter((v) => v.id !== video.id)])
+
+      if (signal.aborted) return
+      patch(u.key, { phase: "confirming", error: undefined, offline: false })
+      const videoId = upload!.video.id
+      try {
+        finish(await confirmVideo(videoId))
+      } catch (e) {
+        // The server found the files incomplete or wrong: the next attempt converts and uploads again.
+        if (e instanceof ApiError && e.status === 400) patch(u.key, { uploaded: false })
+        throw e
+      }
     } catch (e) {
-      if (ctrl.signal.aborted) return
-      patch(u.key, { phase: "error", error: errMsg(e) })
+      if (signal.aborted) return
+      patch(u.key, { phase: "error", offline: false, error: errMsg(e) })
     } finally {
-      ctrls.current.delete(u.key)
+      release?.()
+      if (ctrls.current.get(u.key) === ctrl) ctrls.current.delete(u.key)
     }
   }
 
@@ -180,8 +280,9 @@ export function VideoSection({
       kind,
       tiers,
       description,
-      phase: "starting",
-      loaded: 0,
+      phase: "waiting",
+      progress: 0,
+      uploadedBytes: 0,
     }
     setUploads((us) => [u, ...us])
     setFormKind(null)
@@ -192,20 +293,8 @@ export function VideoSection({
     if (u.phase !== "error" && !confirm(`Cancel uploading "${u.file.name}"?`))
       return
     ctrls.current.get(u.key)?.abort()
+    discard(u.key)
     setUploads((us) => us.filter((x) => x.key !== u.key))
-  }
-
-  async function retry(v: Video) {
-    setError(null)
-    setRetrying(v.id)
-    try {
-      const next = await retryVideo(v.id)
-      setVideos((vs) => vs.map((x) => (x.id === v.id ? next : x)))
-    } catch (e) {
-      setError(errMsg(e))
-    } finally {
-      setRetrying(null)
-    }
   }
 
   async function remove(v: Video) {
@@ -286,8 +375,6 @@ export function VideoSection({
                   <VideoRow
                     key={v.id}
                     v={v}
-                    retrying={retrying === v.id}
-                    onRetry={() => retry(v)}
                     onEdit={() => setEditingId(v.id)}
                     deleting={deleting === v.id}
                     onDelete={() => remove(v)}
@@ -424,11 +511,13 @@ function UploadRow({
   onRetry: () => void
   onCancel: () => void
 }) {
-  const pct = u.file.size ? Math.min(100, (u.loaded / u.file.size) * 100) : 0
+  const pct = Math.min(100, u.progress * 100)
   const failed = u.phase === "error"
   const label = {
+    waiting: "Waiting…",
+    checking: "Preparing…",
     starting: "Preparing…",
-    uploading: `${Math.floor(pct)}%`,
+    converting: `${Math.floor(pct)}%`,
     confirming: "Verifying…",
     error: "Upload failed",
   }[u.phase]
@@ -439,9 +528,13 @@ function UploadRow({
       title={u.file.name}
       meta={
         <>
-          {u.phase === "uploading"
-            ? `${fmtBytes(u.loaded)} of ${fmtBytes(u.file.size)}`
-            : fmtBytes(u.file.size)}
+          {u.phase === "waiting"
+            ? "Starts when the video before it is done"
+            : u.phase === "converting"
+              ? u.offline
+                ? "Connection lost, resumes on its own"
+                : `Converting and uploading · ${fmtBytes(u.uploadedBytes)} sent`
+              : fmtBytes(u.file.size)}
           <TierBadge tags={u.tiers} />
         </>
       }
@@ -461,7 +554,7 @@ function UploadRow({
         failed ? (
           <p className="mt-2 text-xs text-red-700">{u.error}</p>
         ) : (
-          <Bar pct={u.phase === "uploading" ? pct : undefined} />
+          <Bar pct={u.phase === "converting" ? pct : undefined} />
         )
       }
     >
@@ -485,15 +578,11 @@ function UploadRow({
 
 function VideoRow({
   v,
-  retrying,
-  onRetry,
   onEdit,
   deleting,
   onDelete,
 }: {
   v: Video
-  retrying: boolean
-  onRetry: () => void
   onEdit: () => void
   deleting: boolean
   onDelete: () => void
@@ -583,19 +672,10 @@ function VideoRow({
           }
           bar={
             <p className="mt-2 text-xs text-red-700">
-              {v.error || "Transcoding failed."}
+              {v.error || "Transcoding failed. Delete this video and upload it again."}
             </p>
           }
         >
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={retrying}
-            onClick={onRetry}
-          >
-            {retrying ? <CircleNotchIcon className="animate-spin" /> : <ArrowClockwiseIcon />}{" "}
-            Retry
-          </Button>
           {edit}
           {del}
         </RowShell>
@@ -642,8 +722,9 @@ function VideoUploadForm({
     if (!VIDEO_EXT_RE.test(f.name))
       return setError("Only .mp4, .mov, .mkv or .webm videos are allowed.")
     if (f.size === 0) return setError("That file is empty.")
-    if (f.size > MAX_VIDEO)
-      return setError("The video must be 5 GB or smaller.")
+    // The browser converts the video itself, so it must be able to.
+    if (!canConvertVideo())
+      return setError("This browser can't convert video. Use the latest Chrome, Edge or Safari.")
     setFile(f)
   }
 
@@ -701,7 +782,7 @@ function VideoUploadForm({
               Drop a video here, or click to browse
             </span>
             <span className="text-xs text-muted-foreground">
-              MP4, MOV, MKV or WebM · up to 5 GB
+              MP4, MOV, MKV or WebM · up to {MAX_DURATION_SEC / 3600} hours
             </span>
           </>
         )}

@@ -303,8 +303,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
 }
 
 /* ── Video shape ───────────────────────────────────────────────────────────────────────────────
-   Every rendition is a 16:9 frame, whatever shape the lecture was recorded in. The player sets --ar to the
-   recorded shape, and the picture is drawn at exactly that shape (fill, not contain, undoes the stretch),
+   Older videos are 16:9 frames whatever shape the lecture was recorded in; newer ones keep their shape. The
+   player sets --ar to the recorded shape, and the picture is drawn at exactly that shape (fill, not contain,
+   undoes the stretch of older videos and is a no-op for newer ones),
    centred in whatever space the player has: the page stage, fullscreen, or a phone held sideways. */
 .stage .art-video-player { container-type: size; }
 .stage .art-video-player .art-video {

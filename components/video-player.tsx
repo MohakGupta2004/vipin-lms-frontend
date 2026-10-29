@@ -7,6 +7,7 @@ import { createPortal } from "react-dom"
 
 import { errMsg } from "@/components/app-shell"
 import { getVideoStream, saveVideoProgress, setVideoCompletion } from "@/lib/api"
+import { qualityLabel } from "@/lib/video-transcode/ladder"
 
 const SAVE_EVERY_MS = 15_000
 const REFRESH_BEFORE_MS = 90_000 // re-sign the stream this long before the URL expires
@@ -16,10 +17,11 @@ const PREV_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="current
 const NEXT_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>`
 
 /**
- * The transcoder writes every video as a 1280×720 (16:9) frame, so a recording made in another shape comes out
- * stretched. The player draws the picture back at its recorded shape. The lecture recordings are 4:3 (a Mac
- * screen framed by the recorder); any video that still looks off can be switched in the player's settings,
- * remembered per video.
+ * Older videos were transcoded on the server into a 1280×720 (16:9) frame, so a recording made in another shape
+ * came out stretched. For those the player draws the picture back at its recorded shape. The lecture recordings
+ * are 4:3 (a Mac screen framed by the recorder); any video that still looks off can be switched in the player's
+ * settings, remembered per video. Videos converted in the instructor's browser keep their own shape
+ * (`nativeAspect`) and are drawn at it, with no setting.
  */
 const ASPECTS = [
   { label: "4:3", ratio: 4 / 3 },
@@ -48,6 +50,19 @@ function saveAspect(videoId: string, label: string) {
 function applyAspect(a: Artplayer, label: string) {
   const ratio = ASPECTS.find((x) => x.label === label)?.ratio ?? 16 / 9
   a.template.$player.style.setProperty("--ar", String(ratio))
+}
+
+/** Draws a video that kept its recorded shape at exactly that shape, once the player knows it. */
+function applyNativeAspect(a: Artplayer) {
+  const { videoWidth: w, videoHeight: h } = a.video
+  if (w > 0 && h > 0) a.template.$player.style.setProperty("--ar", String(w / h))
+  else a.template.$player.style.removeProperty("--ar")
+}
+
+function removeAspectSetting(a: Artplayer) {
+  try {
+    a.setting.remove("aspect")
+  } catch {} // not there
 }
 
 // The server bakes the resume point into the manifest as `start`; we pass it to hls.js instead,
@@ -86,6 +101,7 @@ export function VideoPlayer({
   const refresh = useRef<(() => void) | null>(null)
   const cb = useRef({ onEnded, onPrev, onNext })
   const currentId = useRef(videoId) // the aspect setting saves against whichever video is playing
+  const nativeAspect = useRef(false) // the playing video kept its recorded shape
   const [layer, setLayer] = useState<HTMLElement | null>(null)
   // The side a double-tap just skipped on; `n` restarts the flash on every tap.
   const [skip, setSkip] = useState<{ side: "back" | "fwd"; n: number } | null>(null)
@@ -142,6 +158,12 @@ export function VideoPlayer({
       },
       "video:pause": () => save(),
       "video:play": () => (ended.current = false),
+      "video:loadedmetadata": () => {
+        if (nativeAspect.current && art.current) applyNativeAspect(art.current)
+      },
+      "video:resize": () => {
+        if (nativeAspect.current && art.current) applyNativeAspect(art.current)
+      },
       "video:ended": () => {
         ended.current = true
         saveVideoProgress(videoId, 0, false, art.current?.duration).catch(() => {})
@@ -178,15 +200,25 @@ export function VideoPlayer({
         start.current = s.resumeAt
         const url = stripStart(s.manifestUrl)
         const aspect = readAspect(videoId)
+        nativeAspect.current = s.nativeAspect
+        // Native shape: drawn as recorded, no setting. Stretched (older) videos: the saved or default shape.
+        const shape = (a: Artplayer) => {
+          if (s.nativeAspect) {
+            removeAspectSetting(a)
+            applyNativeAspect(a)
+          } else {
+            a.setting.update(aspectSetting(aspect))
+            applyAspect(a, aspect)
+          }
+        }
         if (art.current) {
-          art.current.setting.update(aspectSetting(aspect))
-          applyAspect(art.current, aspect)
+          shape(art.current)
           await art.current.switchUrl(url)
           art.current.play().catch(() => {})
         } else {
-          const a = await create(url, aspectSetting(aspect))
+          const a = await create(url, s.nativeAspect ? null : aspectSetting(aspect))
           if (cancelled) return a.destroy(false)
-          applyAspect(a, aspect)
+          shape(a)
           art.current = a
           setLayer(a.layers.overlay ?? null)
         }
@@ -196,6 +228,7 @@ export function VideoPlayer({
         // Our listeners are per video; ArtPlayer's own must stay, so remove only these.
         const a = art.current!
         for (const [name, fn] of Object.entries(handlers)) a.on(name, fn)
+        if (s.nativeAspect) applyNativeAspect(a) // its metadata may have loaded before the handlers were on
         detach = () => {
           for (const [name, fn] of Object.entries(handlers)) a.off(name, fn)
         }
@@ -214,7 +247,7 @@ export function VideoPlayer({
       detach()
     }
 
-    async function create(url: string, aspect: ReturnType<typeof aspectSetting>) {
+    async function create(url: string, aspect: ReturnType<typeof aspectSetting> | null) {
       const [{ default: ArtplayerCtor }, { default: HlsCtor }, { default: hlsControl }] = await Promise.all([
         import("artplayer"),
         import("hls.js"),
@@ -246,10 +279,17 @@ export function VideoPlayer({
         fastForward: true,
         lock: false,
         moreVideoAttr: { preload: "auto" },
-        settings: [aspect],
+        settings: aspect ? [aspect] : [],
         plugins: [
           hlsControl({
-            quality: { control: !narrow, setting: true, getName: (l) => `${(l as { height: number }).height}p`, title: "Quality", auto: "Auto" },
+            quality: {
+              control: !narrow,
+              setting: true,
+              // By the ladder rung, so a 4:3 or ultra-wide recording still reads 1080p / 720p / 480p.
+              getName: (l) => qualityLabel((l as { width: number }).width, (l as { height: number }).height),
+              title: "Quality",
+              auto: "Auto",
+            },
           }),
         ],
         controls: [

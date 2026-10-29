@@ -168,7 +168,7 @@ export type Lesson = {
   locked?: boolean
 }
 
-/** uploading → (PUT + confirm) → processing → ready | failed */
+/** uploading (the browser converts and uploads) → confirm → ready. processing and failed are left from server-side transcoding. */
 export type VideoStatus = "uploading" | "processing" | "ready" | "failed"
 
 export type Video = {
@@ -213,13 +213,20 @@ export type VideoStream = {
   expiresAt: string
   /** Seconds; where this user stopped last time (0 = from the start). */
   resumeAt: number
+  /** The picture has the recording's own shape. False for older videos, which were stretched to 16:9. */
+  nativeAspect: boolean
 }
 
+/** A video waiting for its HLS files, plus the signed form that uploads them straight to storage. */
 export type VideoUpload = {
   video: Video
   uploadUrl: string
   method: string
-  headers: Record<string, string> | null
+  /** Every file's `key` must start with this: the video's own folder. */
+  keyPrefix: string
+  /** Form fields per file extension (".m3u8", ".mp4", ".m4s"). */
+  fields: Record<string, Record<string, string>>
+  maxFileBytes: number
   expiresAt: string
 }
 
@@ -770,7 +777,6 @@ export async function downloadNote(noteId: string): Promise<Blob> {
 
 // ── videos ──────────────────────────────────────────────────────────────────
 export const VIDEO_EXT_RE = /\.(mp4|mov|mkv|webm)$/i
-export const MAX_VIDEO = 5 * 1024 * 1024 * 1024 // 5 GB, enforced by the signed URL too
 
 /** Owner sees every video; students see ready videos of published lessons, locked when their tier can't stream them. */
 export const listCourseVideos = async (courseId: string, kind?: VideoKind) =>
@@ -779,7 +785,7 @@ export const listCourseVideos = async (courseId: string, kind?: VideoKind) =>
 export const listLessonVideos = async (lessonId: string, kind?: VideoKind) =>
   (await json<{ videos: Video[] | null }>("GET", `/lessons/${id(lessonId)}/videos`, { query: { kind } }))?.videos ?? []
 
-/** Creates the video row ('uploading') and returns a signed URL to PUT the file to. */
+/** Creates the video row ('uploading') and returns the signed form its HLS files are uploaded with. */
 export const requestVideoUpload = (
   lessonId: string,
   input: { fileName: string; description?: string; kind: VideoKind; tiers: ContentTier[] }
@@ -793,7 +799,11 @@ export const updateVideo = async (
 ) =>
   (await json<{ video: Video }>("PATCH", `/videos/${id(videoId)}`, { body: input })).video
 
-/** Tells the server the PUT finished; it checks the file and queues transcoding. */
+/** A fresh upload form for a video still uploading: the old one is about to expire, or this is a new attempt. */
+export const renewVideoUpload = (videoId: string) =>
+  json<VideoUpload>("POST", `/videos/${id(videoId)}/upload`)
+
+/** Tells the server every HLS file is uploaded; it checks them and the video becomes ready (400 if they aren't right). */
 export const confirmVideo = async (videoId: string) =>
   (await json<{ video: Video }>("POST", `/videos/${id(videoId)}/confirm`)).video
 
@@ -822,44 +832,12 @@ export const saveVideoProgress = (videoId: string, positionSec: number, keepaliv
 export const setVideoCompletion = (videoId: string, completed: boolean) =>
   json<{ completed: boolean }>("PUT", `/videos/${id(videoId)}/completion`, { body: { completed } })
 
-/** Re-queues transcoding of a failed video; the uploaded file is reused. */
-/** Owner only. 409 while the video is still processing; its files are removed from storage afterwards. */
-export const deleteVideo = (videoId: string) =>
-  json<string>("DELETE", `/videos/${id(videoId)}`)
-
-export const retryVideo = async (videoId: string) =>
-  (await json<{ video: Video }>("POST", `/videos/${id(videoId)}/retry`)).video
-
-/** True while the signed upload URL has at least a minute left, so a retry can reuse it. */
-export const uploadUrlFresh = (upload: VideoUpload) => Date.parse(upload.expiresAt) - Date.now() > 60_000
-
 /**
- * PUTs the file straight to storage. Uses XHR (not fetch) for upload progress.
- * No cookies are sent: the signature in the URL is the credential.
+ * Owner only. 409 while the old server-side transcoder is still on it; its files are removed from storage
+ * afterwards. `keepalive` lets it finish while the page unloads.
  */
-export function putVideoFile(
-  upload: VideoUpload,
-  file: File,
-  onProgress: (loaded: number, total: number) => void,
-  signal?: AbortSignal
-) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open(upload.method || "PUT", upload.uploadUrl)
-    // The signed headers must be sent unchanged, or storage rejects the signature.
-    const headers = { "x-goog-content-length-range": `0,${MAX_VIDEO}`, ...upload.headers }
-    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
-    xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size)
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new ApiError(`Upload rejected by storage (HTTP ${xhr.status}).`, xhr.status))
-    xhr.onerror = () => reject(new ApiError("Upload failed. Check your connection and try again.", 0))
-    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"))
-    signal?.addEventListener("abort", () => xhr.abort(), { once: true })
-    xhr.send(file)
-  })
-}
+export const deleteVideo = (videoId: string, keepalive = false) =>
+  json<string>("DELETE", `/videos/${id(videoId)}`, { keepalive })
 
 // ── enrollments ─────────────────────────────────────────────────────────────
 export const listEnrollments = async (
