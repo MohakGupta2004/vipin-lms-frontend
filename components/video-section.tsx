@@ -34,6 +34,7 @@ import {
 } from "@/lib/api"
 import { acquireConversionSlot, canConvertVideo, probeVideo, transcodeAndUpload, type UploadForm } from "@/lib/video-transcode"
 import { MAX_DURATION_SEC } from "@/lib/video-transcode/ladder"
+import { fmtTimeLeft, timeLeftEstimator } from "@/lib/video-transcode/time-left"
 
 const POLL_MS = 5_000
 // Matches the server's limits.
@@ -52,7 +53,7 @@ type LocalUpload = {
   description: string
   phase: Phase
   progress: number // 0 to 1, of converting
-  uploadedBytes: number
+  secondsLeft?: number // rough estimate, while converting
   offline?: boolean // uploads are failing; they resume on their own
   error?: string
   upload?: VideoUpload // the server's video and upload form, once created
@@ -212,7 +213,7 @@ export function VideoSection({
     }
     try {
       if (!u.uploaded) {
-        patch(u.key, { phase: "waiting", error: undefined, progress: 0, uploadedBytes: 0, offline: false })
+        patch(u.key, { phase: "waiting", error: undefined, progress: 0, secondsLeft: undefined, offline: false })
         release = await acquireConversionSlot(signal)
 
         patch(u.key, { phase: "checking" })
@@ -240,14 +241,19 @@ export function VideoSection({
         }
         rows.current.set(u.key, upload.video.id)
         if (signal.aborted) return discard(u.key) // cancelled while the video was being created
-        patch(u.key, { upload, phase: "converting" })
+        const timeLeft = timeLeftEstimator(probe.duration)
+        patch(u.key, { upload, phase: "converting", secondsLeft: timeLeft.update(0) })
 
         const videoId = upload.video.id
         await transcodeAndUpload(u.file, {
           form: formOf(upload),
           renewForm: async () => formOf(await renewVideoUpload(videoId)),
-          onProgress: (p) => patch(u.key, { progress: p.progress, uploadedBytes: p.uploadedBytes }),
-          onNetwork: (offline) => patch(u.key, { offline }),
+          onProgress: (p) => patch(u.key, { progress: p.progress, secondsLeft: timeLeft.update(p.progress) }),
+          onNetwork: (offline) => {
+            // Time spent offline says nothing about the speed once it's back.
+            timeLeft.reset()
+            patch(u.key, { offline })
+          },
           signal,
         })
         release()
@@ -282,7 +288,6 @@ export function VideoSection({
       description,
       phase: "waiting",
       progress: 0,
-      uploadedBytes: 0,
     }
     setUploads((us) => [u, ...us])
     setFormKind(null)
@@ -533,7 +538,7 @@ function UploadRow({
             : u.phase === "converting"
               ? u.offline
                 ? "Connection lost, resumes on its own"
-                : `Converting and uploading · ${fmtBytes(u.uploadedBytes)} sent`
+                : `Converting and uploading${u.secondsLeft === undefined ? "" : ` · ${fmtTimeLeft(u.secondsLeft)}`}`
               : fmtBytes(u.file.size)}
           <TierBadge tags={u.tiers} />
         </>

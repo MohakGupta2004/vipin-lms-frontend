@@ -203,7 +203,7 @@ export function transcodeAndUpload(
     (msg, { worker, done, fail }) => {
       switch (msg.type) {
         case "progress":
-          opts.onProgress({ progress: msg.progress, uploadedBytes: msg.uploadedBytes })
+          opts.onProgress({ progress: msg.progress })
           break
         case "network":
           networkWaiting = msg.waiting

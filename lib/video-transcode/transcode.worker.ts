@@ -303,15 +303,14 @@ async function transcodeInput(input: Input) {
   }
 
   const abort = new AbortController()
-  let uploadedBytes = 0
   let progress = 0
   let lastPost = 0
-  // Throttled; also sent after every finished upload, so a slow connection still shows (and proves) life.
+  // Throttled; also sent after every finished upload, so a slow connection still proves life.
   const report = () => {
     const now = performance.now()
     if (now - lastPost < 250) return
     lastPost = now
-    post({ type: "progress", progress, uploadedBytes })
+    post({ type: "progress", progress })
   }
 
   // Flat layout, which the API's playlist route and the CDN signature both rely on:
@@ -334,7 +333,6 @@ async function transcodeInput(input: Input) {
         new BufferTarget({
           onFinalize: async (data) => {
             await upload(path, data, abort.signal)
-            uploadedBytes += data.byteLength
             report()
           },
         })
@@ -381,5 +379,5 @@ async function transcodeInput(input: Input) {
     abort.abort() // stop sibling uploads still in flight
     throw err
   }
-  post({ type: "progress", progress: 1, uploadedBytes })
+  post({ type: "progress", progress: 1 })
 }
