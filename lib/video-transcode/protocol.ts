@@ -26,7 +26,6 @@ export type ProbeResult = {
 export type TranscodeProgress = {
   /** 0 to 1. */
   progress: number
-  uploadedBytes: number
 }
 
 export type ToWorker =

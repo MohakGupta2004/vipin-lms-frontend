@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ArrowRightIcon,
   ArrowUpRightIcon,
   BookOpenTextIcon,
   CardsIcon,
@@ -36,8 +37,11 @@ import {
   deletePost,
   getMyFlashcards,
   getMyProgress,
+  latestBatches,
+  listCatalog,
   listMyCourses,
   listPosts,
+  type CatalogCourse,
   type Course,
   type CourseProgress,
   type MyFlashcards,
@@ -61,6 +65,7 @@ function Feed() {
   const [courses, setCourses] = useState<Course[]>([])
   const [progress, setProgress] = useState<ProgressSummary | null>(null)
   const [flashcards, setFlashcards] = useState<MyFlashcards | null>(null)
+  const [starter, setStarter] = useState<CatalogCourse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +79,8 @@ function Feed() {
         canTeach ? null : getMyProgress().catch(() => null),
         canTeach ? null : getMyFlashcards().catch(() => null),
       ])
+      // Someone with no courses yet sees real ones to try; the dashboard still works without them.
+      setStarter(!canTeach && c.length === 0 ? starterCourses(await listCatalog().catch(() => [])) : [])
       setCourses(c)
       setPosts(p)
       setProgress(pr)
@@ -95,6 +102,7 @@ function Feed() {
   const courseHref = (courseId: string) => (canTeach ? `/courses/${courseId}` : `/learn?course=${courseId}`)
   const coursePct = new Map(progress?.courses.map((c) => [c.courseId, c.percent]))
   const resume = progress?.continueWatching[0]
+  const shelf = !loading && !error && courses.length === 0 ? starter : []
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
@@ -142,7 +150,8 @@ function Feed() {
       <div
         className={cn(
           "stagger contents space-y-8 sm:space-y-10",
-          !canTeach && "xl:grid xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start xl:gap-x-10 xl:gap-y-10 xl:space-y-0 xl:[&>*]:col-start-1 xl:[&_h2.display]:text-[1.25rem] xl:[&_h2.display]:font-semibold"
+          // Nothing to put in the rail until there is a course, so the shelf takes the full width.
+          !canTeach && (loading || courses.length > 0) && "xl:grid xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start xl:gap-x-10 xl:gap-y-10 xl:space-y-0 xl:[&>*]:col-start-1 xl:[&_h2.display]:text-[1.25rem] xl:[&_h2.display]:font-semibold"
         )}
       >
       {progress && progress.courseCount > 0 && (
@@ -179,9 +188,7 @@ function Feed() {
         </section>
       )}
 
-      {!canTeach && (progress?.courseCount || flashcards) && (
-        <Rail progress={progress} flashcards={courses.length > 0 ? flashcards : null} />
-      )}
+      {!canTeach && courses.length > 0 && (progress?.courseCount || flashcards) && <Rail progress={progress} flashcards={flashcards} />}
 
       {!canTeach && flashcards && courses.length > 0 && (
         <section className="space-y-4 xl:hidden">
@@ -216,18 +223,40 @@ function Feed() {
       )}
 
       <section className="space-y-4">
-        <SectionHead
-          title={canTeach ? "Courses" : "Your courses"}
-          aside={courses.length > 0 && <span className="tnum">{canTeach ? courses.length : `${courses.length} enrolled`}</span>}
-        />
+        <div className="space-y-1">
+          <SectionHead
+            title={shelf.length === 0 ? (canTeach ? "Courses" : "Your courses") : shelf.some(hasFree) ? "Start with a free lesson" : "Find your course"}
+            aside={
+              shelf.length > 0 ? (
+                <Link href="/explore" className="-m-2 inline-flex items-center gap-1 p-2 font-semibold text-primary hover:underline">
+                  See all courses <ArrowRightIcon weight="bold" className="size-3.5" />
+                </Link>
+              ) : (
+                courses.length > 0 && <span className="tnum">{canTeach ? courses.length : `${courses.length} enrolled`}</span>
+              )
+            }
+          />
+          {shelf.some(hasFree) && <p className="text-sm text-muted-foreground">No enrollment needed.</p>}
+        </div>
         {loading && (canTeach ? <Loading rows={3} /> : <CourseCardsLoading />)}
-        {!loading && courses.length === 0 && !error && (
+        {!loading && courses.length === 0 && !error && shelf.length === 0 && (
           <Empty
             icon={BookOpenTextIcon}
-            title={canTeach ? "No courses yet" : "You're not enrolled yet"}
-            text={canTeach ? "You don't own any courses yet." : "Free lessons are open to everyone while you wait to be enrolled."}
+            title={canTeach ? "No courses yet" : "Start with a free lesson"}
+            text={canTeach ? "You don't own any courses yet." : "Free lessons are open to everyone, no enrollment needed."}
             explore={!canTeach}
+            exploreVariant="navy"
           />
+        )}
+        {shelf.length > 0 && (
+          <ul className={cn("grid gap-4 md:gap-5", shelf.length === 1 && "sm:max-w-md", shelf.length > 1 && "sm:grid-cols-2", shelf.length > 2 && "lg:grid-cols-3")}>
+            {shelf.map((c, i) => (
+              // Three don't fit two columns: the odd one waits for the wider layout rather than sit alone on a row.
+              <li key={c.id} className={cn("flex", i === 2 && "sm:max-lg:hidden")}>
+                <StarterCourseCard course={c} index={i} />
+              </li>
+            ))}
+          </ul>
         )}
         {/* Students: each course is a card of its own, the thing on this page they open most. */}
         {!canTeach && courses.length > 0 && (
@@ -257,7 +286,7 @@ function Feed() {
                     {canTeach ? (
                       <span className="flex flex-wrap items-center gap-1.5 justify-self-end sm:justify-self-start">
                         <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
-                        <CourseBatchBadges course={c} showPrivate />
+                        <CourseBatchBadges course={c} showBatch showPrivate />
                       </span>
                     ) : pct !== undefined ? (
                       <div className="flex items-center gap-3 max-sm:col-span-2">
@@ -279,6 +308,8 @@ function Feed() {
 
       {canTeach && owned.size > 0 && <NewPost courses={courses} onPosted={load} />}
 
+      {/* Someone with no courses has no instructors yet, so there is nothing to wait for here. */}
+      {(canTeach || loading || courses.length > 0 || posts.length > 0) && (
       <section className="space-y-4">
         <SectionHead title={canTeach ? "Updates" : "From your instructors"} />
         {loading && <Loading rows={2} />}
@@ -360,6 +391,7 @@ function Feed() {
           </ol>
         )}
       </section>
+      )}
       </div>
     </>
   )
@@ -377,12 +409,15 @@ const DONE_TEXT = "md:text-[#248A3D]"
 
 /**
  * A course's short code and its title without it: "Investment Funds in Canada ( IFC )" → "IFC" and "Investment Funds in
- * Canada". Titles without a code in brackets keep their full name and use the initials of their first words.
+ * Canada". Titles without a code in brackets keep their full name and use the initials of their first words. A one-word
+ * title has no initials to speak of: a short one is its own code ("IFC"), a long one gives its first letters.
  */
 function courseName(title: string) {
   const m = title.match(/^(.*?)\s*\(\s*([A-Za-z0-9&]{2,6})\s*\)\s*$/)
   if (m && m[1]) return { code: m[2].toUpperCase(), name: m[1] }
-  const initials = title.split(/\s+/).filter((w) => /^[A-Za-z0-9]/.test(w)).slice(0, 3).map((w) => w[0].toUpperCase()).join("")
+  const words = title.split(/\s+/).filter((w) => /^[A-Za-z0-9]/.test(w))
+  if (words.length === 1) return { code: (words[0].length <= 6 ? words[0] : words[0].slice(0, 3)).toUpperCase(), name: title }
+  const initials = words.slice(0, 3).map((w) => w[0].toUpperCase()).join("")
   return { code: initials || "•", name: title }
 }
 
@@ -403,32 +438,41 @@ const STATUS = {
 } as const
 
 /**
- * One enrolled course as a cover, the way Books and TV shelve things: the code set large on a dark tone, where you are
- * along its bottom edge, and one play control. Pointing at it deepens the card, lifts the code, and opens the play
- * control into its verb; pressing settles the whole card. The title link is stretched over it, so it is one target.
+ * One course as a cover, the way Books and TV shelve things: the code set large on a soft tone and one round control. The
+ * title link is stretched over it, so it is one target. Pointing at it deepens the card and lifts the code; pressing
+ * settles the whole card. `cta` is a verb the control opens into on hover; at rest, and on touch, it stays round.
  */
-function StudentCourseCard({ course, progress: p, href, index }: { course: Course; progress?: CourseProgress; href: string; index: number }) {
-  const pct = Math.max(0, Math.min(100, p?.percent ?? 0))
-  const key = pct >= 100 ? "done" : pct > 0 || (p && (p.videosInProgress > 0 || p.quizAttempts > 0)) ? "started" : "new"
-  const status = STATUS[key]
-  const cover = COVERS[index % COVERS.length]
-  const { code, name } = courseName(course.title)
-  const tests = p ? p.practiceTotal + p.mockTotal : 0
-  // Only what the course actually has: a course with no videos doesn't say "0 of 0 videos".
-  const meta = [
-    p && p.videosTotal > 0 && `${p.videosCompleted} of ${p.videosTotal} videos`,
-    p && tests > 0 && `${p.practiceDone + p.mockDone} of ${tests} tests`,
-  ].filter(Boolean)
+function CoverCard({
+  tone,
+  code,
+  name,
+  description,
+  href,
+  icon,
+  cta,
+  progress,
+  footer,
+}: {
+  tone: (typeof COVERS)[number]
+  code: string
+  name: string
+  description?: string | null
+  href: string
+  icon: React.ReactNode
+  cta?: string
+  progress?: React.ReactNode
+  footer: React.ReactNode
+}) {
   return (
     <Card className="course-card tap group relative w-full gap-0 overflow-hidden py-0 has-[.tap-link:focus-visible]:outline-2 has-[.tap-link:focus-visible]:outline-offset-2 has-[.tap-link:focus-visible]:outline-ring">
       <div
         className="relative h-28 overflow-hidden px-5 pt-4 text-(--ink) shadow-[inset_0_1px_0_rgba(255,255,255,0.7),inset_0_-0.5px_0_rgba(0,0,0,0.05)]"
         style={
           {
-            "--ink": cover.ink,
-            "--bar": key === "done" ? "#34C759" : cover.bar,
-            backgroundColor: cover.bg,
-            backgroundImage: `radial-gradient(120% 140% at 0% 0%, ${cover.glow} 0%, transparent 60%)`,
+            "--ink": tone.ink,
+            "--bar": tone.bar,
+            backgroundColor: tone.bg,
+            backgroundImage: `radial-gradient(120% 140% at 0% 0%, ${tone.glow} 0%, transparent 60%)`,
           } as React.CSSProperties
         }
       >
@@ -452,19 +496,16 @@ function StudentCourseCard({ course, progress: p, href, index }: { course: Cours
           aria-hidden
           className="absolute right-4 bottom-4 flex h-10 items-center rounded-full bg-white/90 pr-3.5 pl-3 text-(--ink) shadow-[0_0_0_0.5px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.05),0_8px_20px_-10px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-[transform,background-color] duration-200 ease-(--ease-out) group-hover:bg-white group-active:scale-95"
         >
-          {key === "done" ? <CheckIcon weight="bold" className="size-4" /> : <PlayIcon weight="fill" className="size-4" />}
-          {/* The verb opens out of the control on hover; at rest, and on touch, it is a round play button. */}
-          <span className="grid grid-cols-[0fr] transition-[grid-template-columns] duration-300 ease-(--ease-out) group-hover:grid-cols-[1fr]">
-            <span className="overflow-hidden text-[13px] font-semibold whitespace-nowrap">
-              <span className="pl-1.5">{status.cta}</span>
+          {icon}
+          {cta && (
+            <span className="grid grid-cols-[0fr] transition-[grid-template-columns] duration-300 ease-(--ease-out) group-hover:grid-cols-[1fr]">
+              <span className="overflow-hidden text-[13px] font-semibold whitespace-nowrap">
+                <span className="pl-1.5">{cta}</span>
+              </span>
             </span>
-          </span>
+          )}
         </span>
-        <Progress
-          value={pct}
-          aria-label={`${name}: ${pct}% complete`}
-          className="absolute inset-x-0 bottom-0 gap-0 [&_[data-slot=progress-indicator]]:rounded-none [&_[data-slot=progress-indicator]]:bg-(--bar) [&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-none [&_[data-slot=progress-track]]:bg-(--ink)/10"
-        />
+        {progress}
       </div>
 
       <div className="flex flex-1 flex-col px-5 pt-4 pb-5">
@@ -473,11 +514,45 @@ function StudentCourseCard({ course, progress: p, href, index }: { course: Cours
             {name}
           </Link>
         </h3>
-        {course.shortDescription && (
-          <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">{course.shortDescription}</p>
-        )}
-        {/* Where you stand, in words at full contrast beside what the course holds; the cover stays artwork. */}
-        <div className="mt-auto flex items-end justify-between gap-4 pt-4 text-[13px]">
+        {description && <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">{description}</p>}
+        <div className="mt-auto flex items-end justify-between gap-4 pt-4 text-[13px]">{footer}</div>
+      </div>
+    </Card>
+  )
+}
+
+/** One enrolled course, with where you are along the bottom edge of its cover. */
+function StudentCourseCard({ course, progress: p, href, index }: { course: Course; progress?: CourseProgress; href: string; index: number }) {
+  const pct = Math.max(0, Math.min(100, p?.percent ?? 0))
+  const key = pct >= 100 ? "done" : pct > 0 || (p && (p.videosInProgress > 0 || p.quizAttempts > 0)) ? "started" : "new"
+  const status = STATUS[key]
+  const cover = COVERS[index % COVERS.length]
+  const { code, name } = courseName(course.title)
+  const tests = p ? p.practiceTotal + p.mockTotal : 0
+  // Only what the course actually has: a course with no videos doesn't say "0 of 0 videos".
+  const meta = [
+    p && p.videosTotal > 0 && `${p.videosCompleted} of ${p.videosTotal} videos`,
+    p && tests > 0 && `${p.practiceDone + p.mockDone} of ${tests} tests`,
+  ].filter(Boolean)
+  return (
+    <CoverCard
+      tone={key === "done" ? { ...cover, bar: "#34C759" } : cover}
+      code={code}
+      name={name}
+      description={course.shortDescription}
+      href={href}
+      icon={key === "done" ? <CheckIcon weight="bold" className="size-4" /> : <PlayIcon weight="fill" className="size-4" />}
+      cta={status.cta}
+      progress={
+        <Progress
+          value={pct}
+          aria-label={`${name}: ${pct}% complete`}
+          className="absolute inset-x-0 bottom-0 gap-0 [&_[data-slot=progress-indicator]]:rounded-none [&_[data-slot=progress-indicator]]:bg-(--bar) [&_[data-slot=progress-track]]:h-[3px] [&_[data-slot=progress-track]]:rounded-none [&_[data-slot=progress-track]]:bg-(--ink)/10"
+        />
+      }
+      footer={
+        // Where you stand, in words at full contrast beside what the course holds; the cover stays artwork.
+        <>
           <p className="tnum min-w-0 text-muted-foreground">{meta.join("  ·  ")}</p>
           <p className="tnum inline-flex shrink-0 items-center gap-1.5 font-semibold text-heading">
             {key === "done" && <CheckIcon weight="bold" className="size-3.5 text-[#248A3D]" />}
@@ -489,9 +564,49 @@ function StudentCourseCard({ course, progress: p, href, index }: { course: Cours
               status.label
             )}
           </p>
-        </div>
-      </div>
-    </Card>
+        </>
+      }
+    />
+  )
+}
+
+const hasFree = (c: CatalogCourse) => c.isFree || c.freeLessonCount > 0 || c.freeVideoCount > 0
+
+/** The courses to show someone with none yet: the newest batch of each, free ones first, none that are still empty. */
+const starterCourses = (catalog: CatalogCourse[]) => {
+  const filled = latestBatches(catalog).filter((c) => c.lessonCount > 0 || c.videoCount > 0)
+  return [...filled.filter(hasFree), ...filled.filter((c) => !hasFree(c))].slice(0, 3)
+}
+
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`
+
+/** What a newcomer can open right now. Says "free" only when the course really has something free. */
+function offer(c: CatalogCourse) {
+  if (c.freeLessonCount > 0) return count(c.freeLessonCount, "free lesson")
+  if (c.freeVideoCount > 0) return count(c.freeVideoCount, "free video")
+  if (c.isFree) return "Free course"
+  return c.lessonCount > 0 ? count(c.lessonCount, "lesson") : count(c.videoCount, "video")
+}
+
+/** A course someone can try before they are enrolled. No verb on the cover: it stays in words below, so touch sees it too. */
+function StarterCourseCard({ course, index }: { course: CatalogCourse; index: number }) {
+  const { code, name } = courseName(course.title)
+  const watch = course.freeVideoCount > 0
+  return (
+    <CoverCard
+      tone={COVERS[index % COVERS.length]}
+      code={code}
+      name={name}
+      description={course.shortDescription}
+      href={`/courses/${course.id}?from=explore`}
+      icon={watch ? <PlayIcon weight="fill" className="size-4" /> : <ArrowRightIcon weight="bold" className="size-4" />}
+      footer={
+        <>
+          <p className="tnum whitespace-nowrap text-muted-foreground">{offer(course)}</p>
+          <p className="shrink-0 font-semibold text-primary">{watch ? "Watch free" : "Preview course"}</p>
+        </>
+      }
+    />
   )
 }
 

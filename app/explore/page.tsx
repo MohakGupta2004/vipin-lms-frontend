@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { useUser } from "@/hooks/use-user"
 import { batchLabel, listCatalog, type CatalogCourse } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -75,6 +76,7 @@ function Explore() {
 }
 
 function CourseCard({ c }: { c: CatalogCourse }) {
+  const canTeach = useUser()!.role !== "student"
   const counts = [
     c.lessonCount > 0 && `${c.lessonCount} ${c.lessonCount === 1 ? "lesson" : "lessons"}`,
     c.videoCount > 0 && `${c.videoCount} ${c.videoCount === 1 ? "video" : "videos"}`,
@@ -82,11 +84,11 @@ function CourseCard({ c }: { c: CatalogCourse }) {
 
   return (
     <article className="tap relative flex h-full flex-col rounded-xl border border-border bg-white p-4 hover:border-teal/40 hover:shadow-sm sm:p-6">
-      {(c.enrolled || c.isFree || batchLabel(c)) && (
+      {(c.enrolled || c.isFree || (canTeach && batchLabel(c))) && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {c.enrolled && <Badge>Enrolled</Badge>}
           {c.isFree && <Badge variant="lime">Free course</Badge>}
-          <CourseBatchBadges course={c} />
+          <CourseBatchBadges course={c} showBatch={canTeach} />
         </div>
       )}
 
