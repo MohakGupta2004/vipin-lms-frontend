@@ -134,7 +134,7 @@ function Courses() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
                   {c.isFree && <Badge variant="lime">Free</Badge>}
-                  <CourseBatchBadges course={c} showPrivate />
+                  <CourseBatchBadges course={c} showBatch showPrivate />
                 </div>
                 <span
                   aria-hidden

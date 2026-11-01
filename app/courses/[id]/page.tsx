@@ -85,8 +85,9 @@ function CourseView() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [startingBatch, setStartingBatch] = useState(false)
 
+  const canTeach = user.role !== "student"
   // Only the course owner (its instructor, or an admin who is its instructor) can manage it.
-  const isOwner = !!course && user.role !== "student" && course.instructorId === user.id
+  const isOwner = !!course && canTeach && course.instructorId === user.id
   // An admin who doesn't own the course can read it but has no access to its lessons.
   const canSeeLessons = !!course && (user.role !== "admin" || isOwner)
 
@@ -205,7 +206,7 @@ function CourseView() {
               : { href: "/feed", label: user.role === "student" ? "Dashboard" : "My classroom" }
         }
         title={course?.title ?? "Course"}
-        eyebrow={courseEyebrow(course, isOwner || user.role === "admin")}
+        eyebrow={courseEyebrow(course, canTeach, isOwner || user.role === "admin")}
         subtitle={
           isOwner
             ? "Manage lessons, share PDF notes and publish tests."
@@ -277,7 +278,7 @@ function CourseView() {
             <div className={cn("flex flex-wrap items-center gap-2", isOwner && !course.isFree && "md:hidden")}>
               <Badge variant={course.status === "published" ? "default" : "secondary"} className={cn(isOwner && "md:hidden")}>{course.status}</Badge>
               {course.isFree && <Badge variant="lime">Free</Badge>}
-              <CourseBatchBadges course={course} showPrivate={isOwner || user.role === "admin"} />
+              <CourseBatchBadges course={course} showBatch={canTeach} showPrivate={isOwner || user.role === "admin"} />
               {preview && <Badge variant="secondary">Preview</Badge>}
               {!isOwner && course.access === "full" && !course.isFree && <Badge variant="lime">Your plan: {TIER_LABEL[tier]}</Badge>}
               {user.role === "admin" && !isOwner && <Badge variant="secondary">Owned by another instructor</Badge>}
@@ -953,10 +954,10 @@ function DeskSegmented<T extends string>({
 }
 
 /** Desktop: the three course states as one segmented control. */
-/** The line above the title: "Batch 2.0" on a later batch, plus "Private" for the people who manage the course. */
-function courseEyebrow(course: CourseT | null, canManage: boolean) {
+/** The line above the title: "Batch 2.0" on a later batch for instructors and admins, plus "Private" for the people who manage the course. */
+function courseEyebrow(course: CourseT | null, canTeach: boolean, canManage: boolean) {
   if (!course) return undefined
-  const batch = batchLabel(course)
+  const batch = canTeach && batchLabel(course)
   const parts = [batch && `Batch ${batch}`, canManage && course.visibility === "private" && "Private"].filter(Boolean)
   return parts.length ? parts.join(" · ") : undefined
 }

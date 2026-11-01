@@ -257,7 +257,7 @@ function Feed() {
                     {canTeach ? (
                       <span className="flex flex-wrap items-center gap-1.5 justify-self-end sm:justify-self-start">
                         <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
-                        <CourseBatchBadges course={c} showPrivate />
+                        <CourseBatchBadges course={c} showBatch showPrivate />
                       </span>
                     ) : pct !== undefined ? (
                       <div className="flex items-center gap-3 max-sm:col-span-2">
