@@ -335,7 +335,21 @@ export function Loading({ rows = 4 }: { rows?: number }) {
   )
 }
 
-export function Empty({ icon: EmptyIcon, title, text, explore, className }: { icon: Icon; title: string; text: string; explore?: boolean; className?: string }) {
+export function Empty({
+  icon: EmptyIcon,
+  title,
+  text,
+  explore,
+  exploreVariant = "outline",
+  className,
+}: {
+  icon: Icon
+  title: string
+  text: string
+  explore?: boolean
+  exploreVariant?: "outline" | "navy"
+  className?: string
+}) {
   return (
     <EmptyRoot className={cn(className, "rounded-xl border border-transparent bg-card py-14 shadow-[0_1px_2px_rgba(16,42,67,0.04)] md:border-dashed md:border-gray-300 md:bg-transparent md:shadow-none")}>
       <EmptyHeader>
@@ -347,7 +361,7 @@ export function Empty({ icon: EmptyIcon, title, text, explore, className }: { ic
       </EmptyHeader>
       {explore && (
         <EmptyContent>
-          <Link href="/explore" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Link href="/explore" className={buttonVariants({ variant: exploreVariant, size: "sm" })}>
             <CompassIcon /> Explore courses
           </Link>
         </EmptyContent>
