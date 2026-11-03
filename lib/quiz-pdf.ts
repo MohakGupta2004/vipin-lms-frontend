@@ -9,8 +9,20 @@
 
 export type PdfFile = "questions" | "answers"
 
-/** One line of text, in reading order, with the page it came from. */
-export type PdfLine = { text: string; page: number }
+/**
+ * One line of text, in reading order, with the page it came from.
+ * `cells` are the pieces of the line that sit in separate columns (only when there are 2 or more).
+ * `table` is a run of such lines already written as a Markdown table.
+ */
+export type PdfLine = {
+  text: string
+  page: number
+  cells?: string[]
+  table?: string
+}
+
+/** A line as read from one PDF page, before cleaning. */
+export type RawLine = { text: string; cells: string[] }
 
 export type FormatIssue = {
   file: PdfFile | "both"
@@ -80,6 +92,7 @@ const SET_RE = /^Set\s+(\d+)$/i
 const COUNT_RE = /^(\d+)\s+Questions?$/i
 const QUESTION_RE = /^(\d+)\.\s+(.+)$/
 const OPTION_RE = /^([A-Z])\.\s+(.+)$/
+const LABEL_ONLY_RE = /^(?:\d+|[A-Z]|[IVX]+)\.$/
 const ROMAN_RE = /^(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+/
 const KEY_SET_RE = /^Set\s+(\d+)\s+Answer\s+Key$/i
 const KEY_ENTRY_RE = new RegExp(String.raw`(\d+)\.\s*(${ANSWER})\b`, "g")
@@ -121,11 +134,18 @@ function ranges(ns: number[], max = 8) {
  * Normalises raw per-page lines: collapses whitespace, drops blank lines, bare page numbers,
  * and the running header (the first line, when every page starts with the same one).
  */
-export function cleanLines(pages: string[][]): PdfLine[] {
-  const norm = pages.map((lines) =>
-    lines.map((l) => l.replace(/[\s ]+/g, " ").trim()).filter(Boolean)
-  )
-  const firsts = norm.map((p) => p[0]).filter(Boolean)
+export function cleanLines(pages: RawLine[][]): PdfLine[] {
+  const norm = pages.map((lines) => {
+    const cleaned: { text: string; cells: string[] }[] = []
+    for (const line of lines) {
+      const text = cleanText(line.text)
+      if (!text) continue
+      const cells = line.cells.map(cleanText).filter(Boolean)
+      cleaned.push({ text, cells })
+    }
+    return cleaned
+  })
+  const firsts = norm.map((p) => p[0]?.text).filter(Boolean)
   const header =
     norm.length > 1 &&
     firsts.length === norm.length &&
@@ -134,12 +154,79 @@ export function cleanLines(pages: string[][]): PdfLine[] {
       : null
   const out: PdfLine[] = []
   norm.forEach((lines, i) => {
-    for (const text of lines) {
+    for (const { text, cells } of lines) {
       if (text === header || PAGE_NUMBER_RE.test(text)) continue
-      out.push({ text, page: i + 1 })
+      const line: PdfLine = { text, page: i + 1 }
+      if (cells.length >= 2) line.cells = cells
+      out.push(line)
     }
   })
   return out
+}
+
+const cleanText = (s: string) => s.replace(/[\s\u00a0]+/g, " ").trim()
+
+/** Two cells this far apart (in PDF points) are in different table columns. */
+const COLUMN_GAP = 12
+
+/** Cells go between pipes, so a pipe inside a cell is escaped. */
+const markdownRow = (cells: string[]) =>
+  "| " + cells.map((c) => c.replace(/\|/g, "\\|")).join(" | ") + " |"
+
+/**
+ * Finds tables: two or more lines in a row that are split into the same number of columns.
+ * Each table becomes one line whose `table` is Markdown; its `text` stays the plain words,
+ * so a table found outside a question's stem is read as ordinary text.
+ */
+export function groupTables(lines: PdfLine[]): PdfLine[] {
+  const out: PdfLine[] = []
+  let i = 0
+  while (i < lines.length) {
+    const first = lines[i]
+    if (!isTableRow(first)) {
+      out.push(first)
+      i++
+      continue
+    }
+    let end = i + 1
+    while (
+      end < lines.length &&
+      isTableRow(lines[end]) &&
+      lines[end].page === first.page &&
+      lines[end].cells!.length === first.cells!.length
+    ) {
+      end++
+    }
+    const run = lines.slice(i, end)
+    if (run.length < 2) {
+      out.push(first)
+      i++
+      continue
+    }
+    const markdown: string[] = []
+    for (let r = 0; r < run.length; r++) {
+      markdown.push(markdownRow(run[r].cells!))
+      if (r === 0) markdown.push("|" + " --- |".repeat(first.cells!.length))
+    }
+    out.push({
+      text: run.map((l) => l.text).join(" "),
+      page: first.page,
+      table: markdown.join("\n"),
+    })
+    i = end
+  }
+  return out
+}
+
+/** Side-by-side options ("A. Yes   B. No") are in columns too, but they are not a table. */
+function isTableRow(line: PdfLine) {
+  if (!line.cells) return false
+  for (const cell of line.cells) {
+    if (OPTION_RE.test(cell) || ROMAN_RE.test(cell)) return false
+    // "1." or "A." alone is the label of a hanging-indent question or option, not a table cell.
+    if (LABEL_ONLY_RE.test(cell)) return false
+  }
+  return true
 }
 
 type QDraft = {
@@ -157,10 +244,11 @@ type QSet = {
   questions: QDraft[]
 }
 
-export function parseQuestions(lines: PdfLine[]): {
+export function parseQuestions(pdfLines: PdfLine[]): {
   sets: QSet[]
   issues: FormatIssue[]
 } {
+  const lines = groupTables(pdfLines)
   const issues: FormatIssue[] = []
   const issue = (page: number, message: string) =>
     issues.push({ file: "questions", page, message })
@@ -169,7 +257,7 @@ export function parseQuestions(lines: PdfLine[]): {
   let q: QDraft | null = null
   let strayQuestion = false
 
-  for (const { text, page } of lines) {
+  for (const { text, page, table } of lines) {
     const s = SET_RE.exec(text)
     if (s) {
       const prevEnd: number = set?.questions.at(-1)?.number ?? 0
@@ -203,6 +291,11 @@ export function parseQuestions(lines: PdfLine[]): {
     }
 
     const inStem = !!q && q.options.length === 0
+    if (inStem && table) {
+      // Checked before the question number, because a table's first column may be numbered.
+      q!.text += `\n${table}`
+      continue
+    }
     const qm = QUESTION_RE.exec(text)
     const last = set.questions.at(-1)
     const expected = last ? last.number + 1 : null
@@ -243,7 +336,9 @@ export function parseQuestions(lines: PdfLine[]): {
         `${where} Q${q.number}: option ${om[1]} is out of order (expected ${LETTERS[q.options.length]}).`
       )
     } else if (inStem) {
-      q.text = join(q.text, text)
+      const lastLine = q.text.slice(q.text.lastIndexOf("\n") + 1)
+      // Text after a table must not be glued onto the table's last row.
+      q.text = lastLine.startsWith("|") ? `${q.text}\n${text}` : join(q.text, text)
     } else {
       const lastOption = q.options[q.options.length - 1]
       lastOption.text = join(lastOption.text, text)
@@ -629,17 +724,28 @@ export async function readPdfLines(
     )
   }
   try {
-    const pages: string[][] = []
+    const pages: RawLine[][] = []
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p)
       const { items } = await page.getTextContent()
       page.cleanup()
-      const lines: string[] = []
+      const lines: RawLine[] = []
       let cur = ""
+      let cells: string[] = []
+      let cell = ""
       let lastY: number | null = null
+      let lastEnd = 0
+      const endLine = () => {
+        cells.push(cell)
+        lines.push({ text: cur, cells })
+        cur = ""
+        cells = []
+        cell = ""
+      }
       for (const it of items) {
         if (!("str" in it)) continue
         const y = it.transform[5]
+        const x = it.transform[4]
         // Break on an explicit end of line, or when the baseline moves to a new line.
         if (
           it.str.trim() &&
@@ -647,17 +753,22 @@ export async function readPdfLines(
           Math.abs(y - lastY) > 2 &&
           cur.trim()
         ) {
-          lines.push(cur)
-          cur = ""
+          endLine()
+        }
+        // A wide gap on the same line means the next text is in another column.
+        if (it.str.trim() && cell.trim() && x - lastEnd > COLUMN_GAP) {
+          cells.push(cell)
+          cell = ""
         }
         cur += it.str
-        if (it.str.trim()) lastY = y
-        if (it.hasEOL) {
-          lines.push(cur)
-          cur = ""
+        cell += it.str
+        if (it.str.trim()) {
+          lastY = y
+          lastEnd = x + it.width
         }
+        if (it.hasEOL) endLine()
       }
-      if (cur) lines.push(cur)
+      if (cur) endLine()
       pages.push(lines)
       onPage?.(p, doc.numPages)
     }
