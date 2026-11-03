@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { QuizBuilder } from "@/components/quiz-builder"
+import { QuestionBlocks } from "@/components/question-blocks"
 import {
   MockReview,
   PracticeReview,
@@ -438,8 +439,15 @@ function Answers({ questions }: { questions: NonNullable<Quiz["questions"]> }) {
           <CardContent className="space-y-2">
             <p className="text-base font-semibold whitespace-pre-line text-heading">
               <span className="tnum mr-2 text-teal">{i + 1}.</span>
-              {q.questionText}
+              {q.questionText.split("\n")[0]}
             </p>
+            {q.questionText.includes("\n") && (
+              <div className="space-y-1.5 text-sm text-gray-700">
+                <QuestionBlocks
+                  text={q.questionText.split("\n").slice(1).join("\n")}
+                />
+              </div>
+            )}
             <ul className="space-y-2 text-sm">
               {q.options.map((o) => (
                 <li
