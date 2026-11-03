@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleNotchIcon, MinusIcon, PlusIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { CircleNotchIcon, MinusIcon, PlusIcon, PrinterIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button"
 
 type PdfDoc = import("pdfjs-dist").PDFDocumentProxy
 
+const PRINT_PAGE_WIDTH = 1240
+
 /**
  * Read-only PDF viewer rendered to canvases inside the app.
- * There is no browser PDF toolbar, no file URL and no download or print control.
- * (A page the user can see can always be screenshotted; this removes the easy paths.)
+ * There is no browser PDF toolbar, no file URL and no download control.
+ * The Print button prints the pages as images. (A page the user can see can always be screenshotted or
+ * saved as a PDF from the print dialog; this removes the easy paths.)
  */
 export function PdfPreview({
   title,
@@ -26,6 +29,8 @@ export function PdfPreview({
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(1)
+  const [preparingPrint, setPreparingPrint] = useState(false)
+  const [printImages, setPrintImages] = useState<string[]>([])
   const scroller = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -52,9 +57,43 @@ export function PdfPreview({
   }, [])
 
   useEffect(() => {
+    if (printImages.length === 0) return
+    const clearImages = () => setPrintImages([])
+    window.addEventListener("afterprint", clearImages)
+    // Short wait so the images are in the page before the print dialog opens.
+    const timer = setTimeout(() => window.print(), 300)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("afterprint", clearImages)
+    }
+  }, [printImages])
+
+  async function printNote() {
+    if (!pdf) return
+    setPreparingPrint(true)
+    const images: string[] = []
+    try {
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const pdfPage = await pdf.getPage(n)
+        const base = pdfPage.getViewport({ scale: 1 })
+        const viewport = pdfPage.getViewport({ scale: PRINT_PAGE_WIDTH / base.width })
+        const canvas = document.createElement("canvas")
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        await pdfPage.render({ canvas, viewport }).promise
+        images.push(canvas.toDataURL("image/jpeg", 0.9))
+      }
+      setPrintImages(images)
+    } catch {
+      setError("This note could not be printed. Please try again.")
+    }
+    setPreparingPrint(false)
+  }
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
-      if ((e.ctrlKey || e.metaKey) && ["s", "p"].includes(e.key.toLowerCase())) e.preventDefault()
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") e.preventDefault()
     }
     // Block the context menu page-wide while open, in the capture phase: a touch long-press
     // (phones, or DevTools device mode) also raises it and would offer "Save image".
@@ -74,6 +113,7 @@ export function PdfPreview({
 
   // Portal to <body>: an animated ancestor would otherwise become the containing block of this fixed overlay.
   return createPortal(
+    <>
     <div
       role="dialog"
       aria-modal="true"
@@ -81,7 +121,14 @@ export function PdfPreview({
       className="pdf-preview pop fixed inset-0 z-50 flex flex-col bg-navy [-webkit-touch-callout:none]"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <style>{`@media print { .pdf-preview { display: none !important; } }`}</style>
+      <style>{`
+        .pdf-print { display: none; }
+        @media print {
+          body > *:not(.pdf-print) { display: none !important; }
+          .pdf-print { display: block; }
+          .pdf-print img { display: block; width: 100%; break-after: page; }
+        }
+      `}</style>
       <div className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-white/15 px-4 sm:px-6">
         <div className="min-w-0">
           <div className="truncate text-base font-semibold text-white">{title}</div>
@@ -99,7 +146,10 @@ export function PdfPreview({
           <Button variant="outlineLight" size="icon-sm" aria-label="Zoom in" disabled={zoom >= 2} onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(1)))}>
             <PlusIcon />
           </Button>
-          <Button variant="lime" size="sm" onClick={onClose} className="ml-2">
+          <Button variant="outlineLight" size="sm" disabled={!pdf || preparingPrint} onClick={printNote} className="ml-2">
+            {preparingPrint ? <CircleNotchIcon className="animate-spin" /> : <PrinterIcon />} Print
+          </Button>
+          <Button variant="lime" size="sm" onClick={onClose}>
             <XIcon /> Close
           </Button>
         </div>
@@ -130,7 +180,14 @@ export function PdfPreview({
           </div>
         )}
       </div>
-    </div>,
+    </div>
+    <div className="pdf-print">
+      {printImages.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={src} alt="" />
+      ))}
+    </div>
+    </>,
     document.body
   )
 }
