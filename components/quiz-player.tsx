@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react"
 import { ErrorNote } from "@/components/app-shell"
 import { cn } from "@/lib/utils"
 import { useQuizSession } from "@/components/quiz-session"
+import { QuestionBlocks } from "@/components/question-blocks"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -660,7 +661,6 @@ function QuestionText({
   className: string
 }) {
   const [stem, ...rest] = text.trim().split("\n")
-  const lines = rest.filter((l) => l.trim())
   return (
     <div
       className={
@@ -668,12 +668,10 @@ function QuestionText({
       }
     >
       <p className="font-semibold tracking-[-0.005em]">{stem}</p>
-      {lines.length > 0 && (
-        <ul className="space-y-1.5 text-[0.9375em] text-gray-700">
-          {lines.map((l, i) => (
-            <li key={i}>{l}</li>
-          ))}
-        </ul>
+      {rest.join("").trim() && (
+        <div className="space-y-1.5 text-[0.9375em] text-gray-700">
+          <QuestionBlocks text={rest.join("\n")} />
+        </div>
       )}
     </div>
   )

@@ -32,6 +32,7 @@ import {
   type PdfFile,
   type QuizPart,
 } from "@/lib/quiz-pdf"
+import { QuestionBlocks } from "@/components/question-blocks"
 
 const TYPE_HINT: Record<QuizType, string> = {
   mock_test: "Timed and scored, with a pass mark",
@@ -680,8 +681,15 @@ function SetPreview({
                 className="space-y-1.5 border-t border-gray-100 pt-2 first:border-0 first:pt-0"
               >
                 <p className="font-medium whitespace-pre-line text-gray-900">
-                  {set.numbers[i]}. {q.questionText}
+                  {set.numbers[i]}. {q.questionText.split("\n")[0]}
                 </p>
+                {q.questionText.includes("\n") && (
+                  <div className="space-y-1 text-xs text-gray-700">
+                    <QuestionBlocks
+                      text={q.questionText.split("\n").slice(1).join("\n")}
+                    />
+                  </div>
+                )}
                 <ul className="space-y-0.5">
                   {q.options.map((o, j) => (
                     <li
