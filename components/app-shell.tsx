@@ -307,23 +307,6 @@ function AccountButton({ user, onSignOut }: { user: User; onSignOut: () => void 
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        {offDock(user.role).length > 0 && (
-          <>
-            <DropdownMenuGroup>
-              {offDock(user.role).map(({ href, label, icon: PageIcon }) => (
-                <DropdownMenuItem
-                  key={href}
-                  render={<Link href={href} />}
-                  className="min-h-11 rounded-xl px-2 text-[15px] text-heading [&_svg]:size-[18px] [&_svg]:text-gray-500"
-                >
-                  <PageIcon />
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
         <DropdownMenuItem onClick={onSignOut} className="min-h-11 rounded-xl px-2 text-[15px] text-red-600 focus:text-red-600 [&_svg]:text-red-600">
           <SignOutIcon />
           Sign out
@@ -333,43 +316,155 @@ function AccountButton({ user, onSignOut }: { user: User; onSignOut: () => void 
   )
 }
 
-// The tab the bar showed last. The shell remounts with every page, so this is how the selection pill
-// knows where it is coming from and can glide to the new tab instead of jumping.
-let lastTab = -1
-
 const FOCUSED = /^\/(quizzes\/|flashcards\/study)/
 
-/** The dock holds five at most: the first four pages, then Explore. */
-function dockTabs(role: Role) {
-  const nav = NAV[role]
-  if (nav.length <= 5) return nav
-  const explore = nav.find((n) => n.href === "/explore")
-  return explore ? [...nav.slice(0, 4), explore] : nav.slice(0, 5)
+/**
+ * Apple's spring, by damping ratio and response (seconds): progress 0→1 at t seconds, and its velocity,
+ * for a start velocity v0 given in whole-distances per second. A touch under critical damping, so the pill
+ * settles with the faintest give, like the iOS tab bar's.
+ */
+function spring(t: number, v0: number, damping = 0.82, response = 0.42) {
+  const w = (2 * Math.PI) / response
+  const zw = damping * w
+  const wd = w * Math.sqrt(1 - damping * damping)
+  const b = (v0 - zw) / wd
+  const e = Math.exp(-zw * t)
+  const c = Math.cos(wd * t)
+  const s = Math.sin(wd * t)
+  const y = e * (-c + b * s)
+  return { p: 1 + y, v: -zw * y + e * (wd * s + b * wd * c) }
 }
 
-/** Pages that don't fit in the dock; the account menu lists them so every page stays reachable on phones. */
-const offDock = (role: Role) => NAV[role].filter((n) => !dockTabs(role).includes(n))
+// The pill's flight, in tabs. It lives outside React because the shell remounts with every page: the next
+// dock reads where the pill is right now, mid-flight or not, and carries on from there at the same speed.
+let flight: { from: number; to: number; v0: number; t0: number; ms: number } | null = null
+
+function pillNow(now: number) {
+  if (!flight) return null
+  const t = Math.min(now - flight.t0, flight.ms) / 1000
+  const { p, v } = t * 1000 >= flight.ms ? { p: 1, v: 0 } : spring(t, flight.v0)
+  const d = flight.to - flight.from
+  return { at: flight.from + d * p, speed: d * v }
+}
+
+const linearOk = () => typeof CSS !== "undefined" && CSS.supports("transition-timing-function", "linear(0, 1)")
+
+/** Sends the dock's selection pill to `to`, from wherever it is on screen, keeping its momentum. */
+function glidePill(el: HTMLElement, to: number) {
+  el.getAnimations().forEach((a) => a.cancel())
+  const now = performance.now()
+  const cur = pillNow(now)
+  const place = (i: number) => `translateX(${i * 100}%)`
+  if (to < 0) {
+    flight = null
+    el.style.opacity = "0"
+    return
+  }
+  el.style.transform = place(to)
+  const fadeIn = el.style.opacity !== "1"
+  el.style.opacity = "1"
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches
+  // First sight of the pill, or a calmer setting: it simply appears where it belongs.
+  if (!cur || reduced || Math.abs(to - cur.at) < 0.001) {
+    flight = { from: to, to, v0: 0, t0: now, ms: 0 }
+    if (fadeIn) el.animate({ opacity: [0, 1] }, { duration: 180, easing: "ease-out" })
+    return
+  }
+  const dist = to - cur.at
+  const v0 = cur.speed / dist
+  // Sample the spring into a linear() curve and stop once it is at rest.
+  const pts: string[] = []
+  let ms = 0
+  for (let t = 0; t < 1.5; t += 1 / 60) {
+    const { p, v } = spring(t, v0)
+    pts.push(p.toFixed(4))
+    ms = t * 1000
+    if (t > 0.1 && Math.abs(1 - p) < 0.001 && Math.abs(v) < 0.01) break
+  }
+  pts[pts.length - 1] = "1"
+  flight = { from: cur.at, to, v0, t0: now, ms }
+  el.animate(
+    { transform: [place(cur.at), place(to)] },
+    { duration: ms, easing: linearOk() ? `linear(${pts.join(", ")})` : "cubic-bezier(0.32, 0.72, 0, 1)" }
+  )
+  // While it travels the pill stretches along its path, longer for a longer trip, then gathers itself
+  // back into a capsule as it lands: the liquid feel of a selection that has weight.
+  const stretch = 1 + Math.min(0.28, 0.1 + 0.06 * Math.abs(dist))
+  el.animate(
+    { transform: ["scaleX(1)", `scaleX(${stretch}) scaleY(0.94)`, "scale(1)"], offset: [0, 0.32, 1] },
+    { duration: Math.min(ms, 520), easing: "cubic-bezier(0.25, 1, 0.5, 1)", composite: "add" }
+  )
+}
+
+// Every tab shows at once when each still gets a comfortable touch target. On a narrower phone five whole
+// tabs show and the strip scrolls, a tab at a time, to the rest; a tab is never left cut in half.
+const DOCK_FIT = 5
+const DOCK_MIN_TAB = 56
+
+// How far the strip was scrolled on the previous page, so the dock comes back exactly as it was left.
+let dockScroll = 0
 
 /**
- * Phones: the main destinations float under the thumb in a glass capsule, like a native tab bar. Up to
- * five fit; with more, the first four stay and "More" opens the full menu. Hidden from md, where the
+ * Phones: every destination floats under the thumb in a glass capsule, like a native tab bar. When there
+ * are more than five, the capsule becomes a strip that scrolls to the right. Hidden from md, where the
  * sidebar takes over.
  */
 function TabBar({ role, pathname }: { role: Role; pathname: string }) {
-  const tabs = dockTabs(role)
-  const count = tabs.length
+  const tabs = NAV[role]
+  const scrolls = tabs.length > DOCK_FIT
+  const fit = Math.min(tabs.length, DOCK_FIT)
   const activeIdx = tabs.findIndex((t) => pathname.startsWith(t.href))
 
-  // Start the pill where it was on the previous page, then let it travel on the next frame.
-  const [pill, setPill] = useState(() => (lastTab >= 0 ? lastTab : activeIdx))
-  useEffect(() => {
-    lastTab = activeIdx
-    const raf = requestAnimationFrame(() => setPill(activeIdx))
-    return () => cancelAnimationFrame(raf)
-  }, [activeIdx])
+  // A tap selects the tab at once; the route catches up after. A real navigation clears it.
+  const [pressed, setPressed] = useState<number | null>(null)
+  const [seen, setSeen] = useState(activeIdx)
+  if (seen !== activeIdx) {
+    setSeen(activeIdx)
+    setPressed(null)
+  }
+  const selected = pressed ?? activeIdx
+  const pillRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    if (pillRef.current) glidePill(pillRef.current, selected)
+  }, [selected])
+
+  // Before the first paint, put the strip back where it was, then bring the current tab into view if it is
+  // off the edge. The pill and the strip travel together, so the eye follows one motion, not two.
+  const stripRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (!strip || !scrolls) return
+    const size = () => {
+      const all = strip.clientWidth / tabs.length >= DOCK_MIN_TAB
+      strip.style.setProperty("--across", String(all ? tabs.length : DOCK_FIT))
+      fadeEdges(strip)
+    }
+    size()
+    const ro = new ResizeObserver(size)
+    ro.observe(strip)
+    return () => ro.disconnect()
+  }, [scrolls, tabs.length])
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (!strip) return
+    strip.scrollLeft = dockScroll
+    fadeEdges(strip)
+    const tab = strip.querySelectorAll<HTMLElement>("a")[selected]
+    if (!tab) return
+    const left = tab.offsetLeft
+    const right = left + tab.offsetWidth
+    const view = strip.clientWidth
+    let to = strip.scrollLeft
+    if (left < to) to = left
+    else if (right > to + view) to = right - view
+    if (to !== strip.scrollLeft) {
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches
+      strip.scrollTo({ left: to, behavior: reduced ? "auto" : "smooth" })
+    }
+  }, [selected])
 
   const item =
-    "group relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] rounded-full py-1.5 text-[10px] font-semibold tracking-[0.01em] transition-colors duration-200"
+    "group relative z-10 flex w-(--tab) shrink-0 snap-start flex-col items-center justify-center gap-[3px] rounded-full py-1.5 text-[10px] font-semibold tracking-[0.01em] transition-colors duration-200"
   const icon =
     "size-[24px] transition-transform duration-200 ease-(--ease-out) group-active:scale-[0.82]"
   // Focused tasks (a test in progress, a study session) own the bottom of the screen with their own
@@ -387,39 +482,60 @@ function TabBar({ role, pathname }: { role: Role; pathname: string }) {
         aria-label="Main"
         className="tab-bar fixed inset-x-3 bottom-[max(0.625rem,env(safe-area-inset-bottom))] z-30 md:hidden"
       >
-        <div className="glass relative flex rounded-full p-1">
-          <div className="pointer-events-none absolute inset-1">
-            <span
-              aria-hidden="true"
-              className="absolute inset-y-0 left-0 rounded-full bg-navy/[0.07] transition-[transform,opacity] duration-500 ease-(--ease-drawer)"
-              style={{
-                width: `${100 / count}%`,
-                transform: `translateX(${Math.max(pill, 0) * 100}%)`,
-                opacity: pill < 0 ? 0 : 1,
-              }}
-            />
+        <div className="glass rounded-full p-1">
+          <div
+            ref={stripRef}
+            onScroll={(e) => {
+              dockScroll = e.currentTarget.scrollLeft
+              fadeEdges(e.currentTarget)
+            }}
+            style={{ "--across": fit } as React.CSSProperties}
+            className={cn(
+              "dock-strip @container overflow-hidden rounded-full",
+              scrolls && "rail snap-x snap-mandatory overflow-x-auto"
+            )}
+          >
+            <div className="relative flex w-max [--tab:calc(100cqw/var(--across))]">
+              <span
+                ref={pillRef}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-0 w-(--tab) rounded-full bg-navy/[0.07] opacity-0 will-change-transform"
+              />
+              {tabs.map(({ href, short, icon: TabIcon }, i) => {
+                const active = i === selected
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-current={i === activeIdx ? "page" : undefined}
+                    onClick={() => setPressed(i)}
+                    className={cn(item, active ? "text-primary" : "text-gray-500")}
+                  >
+                    <TabIcon
+                      weight={active ? "fill" : "regular"}
+                      className={icon}
+                    />
+                    <span className="max-w-full truncate">{short}</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
-          {tabs.map(({ href, short, icon: TabIcon }, i) => {
-            const active = i === activeIdx
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(item, active ? "text-primary" : "text-gray-500")}
-              >
-                <TabIcon
-                  weight={active ? "fill" : "regular"}
-                  className={icon}
-                />
-                <span className="max-w-full truncate">{short}</span>
-              </Link>
-            )
-          })}
         </div>
       </nav>
     </>
   )
+}
+
+/**
+ * The strip's edges dissolve where more tabs sit beyond them, and the fade grows with how far there is to
+ * go, so a hard cut never reads as the end of the dock.
+ */
+function fadeEdges(strip: HTMLElement) {
+  const max = strip.scrollWidth - strip.clientWidth
+  const fade = (px: number) => `${Math.max(0, Math.min(16, px))}px`
+  strip.style.setProperty("--fade-l", fade(strip.scrollLeft))
+  strip.style.setProperty("--fade-r", fade(max - strip.scrollLeft))
 }
 
 // Where the sidebar's selection pill sat on the previous page; like the tab bar's, it starts there and travels.

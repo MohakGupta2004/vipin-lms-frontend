@@ -183,6 +183,11 @@ button, a, [role="button"] { touch-action: manipulation; }
 /* Content settles in once, quickly and all together: product pages load into a task, not a show. */
 .rise { animation: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .pop { animation: pop 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Full-screen sheets (the note viewer) rise from the bottom edge and leave the way they came. The exit curve
+   is the entry played backwards, so the two read as one path run forwards and back. */
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+.sheet-in { animation: sheet-in 460ms var(--ease-drawer) both; }
+.sheet-out { animation: sheet-in 320ms var(--ease-drawer) reverse both; }
 
 /* Flashcard flip: two faces back to back in one 3D box. Reduced motion turns the 1ms rule below into an instant swap. */
 .flip { perspective: 1200px; }
@@ -212,6 +217,12 @@ button, a, [role="button"] { touch-action: manipulation; }
 /* Horizontal rails (chips, tabs) scroll by swipe; a scrollbar under them is a desktop artifact. */
 .rail { scrollbar-width: none; overscroll-behavior-x: contain; }
 .rail::-webkit-scrollbar { display: none; }
+/* The dock's tab strip fades out at whichever edge still has tabs past it; app-shell sets the widths as it scrolls. */
+.dock-strip {
+  --fade-l: 0px;
+  --fade-r: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+}
 
 input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--teal)); }
 /* Whole-card targets: phones have no hover, so the card answers the finger with a small press. A card whose
