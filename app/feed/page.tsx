@@ -8,6 +8,10 @@ import {
   CaretRightIcon,
   CheckIcon,
   CircleNotchIcon,
+  ArchiveIcon,
+  BroadcastIcon,
+  PencilSimpleLineIcon,
+  LockSimpleIcon,
   MegaphoneSimpleIcon,
   MoonStarsIcon,
   PlayIcon,
@@ -15,15 +19,14 @@ import {
   SunIcon,
   TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
+import type { Icon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
-import { CourseBatchBadges } from "@/components/course-badges"
 import { StudyBand, deckHref, deckName } from "@/components/flashcard-links"
 import { Bar, Empty, Figures, Loading, ResumeBand, SectionHead } from "@/components/learning"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
@@ -35,6 +38,7 @@ import { cn } from "@/lib/utils"
 import {
   createPost,
   deletePost,
+  batchLabel,
   getMyFlashcards,
   getMyProgress,
   latestBatches,
@@ -43,6 +47,7 @@ import {
   listPosts,
   type CatalogCourse,
   type Course,
+  type CourseStatus,
   type CourseProgress,
   type MyFlashcards,
   type Post,
@@ -100,7 +105,11 @@ function Feed() {
   const owned = new Set(courses.filter((c) => c.instructorId === user.id).map((c) => c.id))
   // Students open a course straight into its videos; owners go to the course page to manage it.
   const courseHref = (courseId: string) => (canTeach ? `/courses/${courseId}` : `/learn?course=${courseId}`)
-  const coursePct = new Map(progress?.courses.map((c) => [c.courseId, c.percent]))
+  // Every batch of one course shares a cover colour, so "CPH" and "CPH 2.0" are recognisably the same course.
+  const groupTone = new Map<string, number>()
+  for (const c of courses) if (!groupTone.has(c.batchGroupId)) groupTone.set(c.batchGroupId, groupTone.size)
+  // An instructor's courses grouped by status (Published, Drafts, Archived); empty groups are left out.
+  const desk = DESK_ORDER.map((status) => ({ status, items: courses.filter((c) => c.status === status) })).filter((g) => g.items.length > 0)
   const resume = progress?.continueWatching[0]
   const shelf = !loading && !error && courses.length === 0 ? starter : []
 
@@ -268,41 +277,33 @@ function Feed() {
             ))}
           </ul>
         )}
+        {/* Instructors: a desk of courses to manage. Wide tiles with a small cover, unlike a student's tall covers, so the
+            two never read alike; each says at a glance whether it is live. */}
         {canTeach && courses.length > 0 && (
-          <Card className="gap-0 overflow-hidden py-0">
-            <ul className="divide-y divide-border">
-            {courses.map((c) => {
-              const pct = coursePct.get(c.id)
+          <div className="space-y-7">
+            {desk.map(({ status, items }) => {
+              const s = DESK_STATUS[status]
               return (
-                <li key={c.id}>
-                  <Link
-                    href={courseHref(c.id)}
-                    className="group relative grid touch-manipulation grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 py-4 pr-10 pl-5 transition-colors duration-150 hover:bg-gray-50 active:bg-gray-100 sm:grid-cols-[minmax(0,1fr)_11rem_1rem] sm:pr-5 md:py-3.5 md:hover:bg-black/[0.02]"
-                  >
-                    <div className="min-w-0">
-                      <p className="display line-clamp-2 text-[1.125rem] leading-snug text-heading sm:line-clamp-1 sm:text-[1.25rem] md:text-[1.0625rem] md:font-semibold">{c.title}</p>
-                      {c.shortDescription && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{c.shortDescription}</p>}
-                    </div>
-                    {canTeach ? (
-                      <span className="flex flex-wrap items-center gap-1.5 justify-self-end sm:justify-self-start">
-                        <Badge variant={c.status === "published" ? "default" : "secondary"}>{c.status}</Badge>
-                        <CourseBatchBadges course={c} showBatch showPrivate />
-                      </span>
-                    ) : pct !== undefined ? (
-                      <div className="flex items-center gap-3 max-sm:col-span-2">
-                        <Bar value={pct} className={cn("flex-1", pct >= 100 ? DONE_BAR : PROGRESS_BAR)} />
-                        <span className={cn("tnum w-9 text-right text-xs text-heading", pct >= 100 && DONE_TEXT)}>{pct}%</span>
-                      </div>
-                    ) : (
-                      <span />
-                    )}
-                    <CaretRightIcon weight="bold" className="absolute top-1/2 right-4 size-3.5 -translate-y-1/2 text-gray-300 transition-transform duration-150 group-active:translate-x-0.5 sm:static sm:size-4 sm:translate-y-0 sm:group-hover:translate-x-0.5 sm:group-hover:text-heading" />
-                  </Link>
-                </li>
+                <section key={status} aria-labelledby={`desk-${status}`} className="space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className={cn("flex size-7 items-center justify-center rounded-[9px_3px_9px_3px]", s.tag)}>
+                      <s.icon weight="bold" className="size-3.5" />
+                    </span>
+                    <h3 id={`desk-${status}`} className="text-[15px] font-semibold text-heading">
+                      {s.group} <span className="tnum font-normal text-heading/40">{items.length}</span>
+                    </h3>
+                  </div>
+                  <ul className="grid gap-3 sm:grid-cols-2 md:gap-4">
+                    {items.map((c) => (
+                      <li key={c.id} className="flex">
+                        <InstructorCourseCard course={c} tone={COVERS[groupTone.get(c.batchGroupId)! % COVERS.length]} href={courseHref(c.id)} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )
             })}
-            </ul>
-          </Card>
+          </div>
         )}
       </section>
 
@@ -567,6 +568,96 @@ function StudentCourseCard({ course, progress: p, href, index }: { course: Cours
         </>
       }
     />
+  )
+}
+
+/* Each status has a word, an icon and a colour, so it reads even at a glance or without colour: green "Published" with a
+   broadcast mark, amber "Draft" with a pencil, grey "Archived" with a box. */
+const DESK_STATUS: Record<CourseStatus, { label: string; group: string; icon: Icon; tag: string }> = {
+  published: {
+    label: "Published",
+    group: "Published",
+    icon: BroadcastIcon,
+    tag: "bg-[#E6F6EA] text-[#1D6E35]",
+  },
+  draft: {
+    label: "Draft",
+    group: "Drafts",
+    icon: PencilSimpleLineIcon,
+    tag: "bg-[#FFF2DB] text-[#8A5300]",
+  },
+  archived: {
+    label: "Archived",
+    group: "Archived",
+    icon: ArchiveIcon,
+    tag: "bg-black/[0.05] text-heading/60",
+  },
+}
+const DESK_ORDER: CourseStatus[] = ["published", "draft", "archived"]
+
+/**
+ * One course on an instructor's desk. Where a student's card is a tall cover to open and play, this one is a wide row:
+ * a small cover tile like an app icon, the name, and whether it is live. A draft's tile is outlined in dashes, still a
+ * sketch; an archived one fades. The whole card opens the course to manage it.
+ */
+function InstructorCourseCard({ course, tone, href }: { course: Course; tone: (typeof COVERS)[number]; href: string }) {
+  const { code, name } = courseName(course.title)
+  const batch = batchLabel(course)
+  const status = DESK_STATUS[course.status]
+  return (
+    <Card className="course-card tap group relative w-full flex-row items-start gap-4 px-4 py-4 has-[.tap-link:focus-visible]:outline-2 has-[.tap-link:focus-visible]:outline-offset-2 has-[.tap-link:focus-visible]:outline-ring sm:px-5">
+      <div
+        aria-hidden
+        className={cn(
+          "relative flex size-[4.25rem] shrink-0 items-end overflow-hidden rounded-[16px_5px_16px_5px] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),inset_0_0_0_0.5px_rgba(0,0,0,0.06)] transition-[transform,filter,opacity] duration-300 ease-(--ease-out) group-hover:-translate-y-0.5",
+          course.status === "draft" && "outline-[1.5px] outline-offset-2 outline-(--ink)/35 outline-dashed",
+          course.status === "archived" && "opacity-60 grayscale"
+        )}
+        style={
+          {
+            "--ink": tone.ink,
+            backgroundColor: tone.bg,
+            backgroundImage: `radial-gradient(120% 140% at 0% 0%, ${tone.glow} 0%, transparent 60%)`,
+            color: tone.ink,
+          } as React.CSSProperties
+        }
+      >
+        <span className="pointer-events-none absolute -right-5 -bottom-7 size-16 rounded-full bg-current opacity-[0.07]" />
+        <span className={cn("display relative leading-none font-bold tracking-[-0.03em]", code.length > 3 ? "text-[1.125rem]" : "text-[1.375rem]")}>
+          {code}
+        </span>
+        {batch && (
+          <span className="tnum absolute top-1.5 right-1.5 rounded-full bg-white/85 px-1.5 py-px text-[10px] font-semibold shadow-[0_0_0_0.5px_rgba(0,0,0,0.06)]">
+            {batch}
+          </span>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col self-stretch">
+        <h3 className="display line-clamp-2 text-[1.0625rem] leading-snug tracking-[-0.015em] text-heading">
+          <Link href={href} className="tap-link outline-none [overflow-wrap:anywhere] after:absolute after:inset-0">
+            {name}
+            {batch && <span className="sr-only">, batch {batch}</span>}
+          </Link>
+        </h3>
+        {course.shortDescription && <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">{course.shortDescription}</p>}
+        <div className="mt-auto flex min-h-6 items-center gap-x-2.5 pt-3 text-[13px] text-muted-foreground">
+          <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full pr-2.5 pl-2 text-[12px] font-semibold", status.tag)}>
+            <status.icon weight="bold" className="size-3.5" />
+            {status.label}
+          </span>
+          {course.visibility === "private" && (
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <LockSimpleIcon className="size-3.5" /> Private
+            </span>
+          )}
+          {course.isFree && <span className="shrink-0">Free</span>}
+          <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 font-medium text-heading/40 transition-[color,transform] duration-200 ease-(--ease-out) group-hover:translate-x-0.5 group-hover:text-primary group-focus-within:text-primary">
+            Manage <CaretRightIcon weight="bold" className="size-3" />
+          </span>
+        </div>
+      </div>
+    </Card>
   )
 }
 
