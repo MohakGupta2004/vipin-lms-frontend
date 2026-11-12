@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { useScrollIntoView } from "@/hooks/use-scroll-into-view"
 import { useUser } from "@/hooks/use-user"
-import { Textarea } from "@/components/ui/textarea"
+import { MarkdownEditor } from "@/components/markdown-editor"
 import {
   createCourse,
   listCourses,
@@ -352,7 +352,7 @@ function CreateCourse({
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="desc">Description</FieldLabel>
-            <Textarea id="desc" maxLength={10000} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <MarkdownEditor id="desc" maxLength={10000} value={description} onChange={setDescription} />
           </Field>
           <Field>
             <FieldLabel htmlFor="status">Status</FieldLabel>
