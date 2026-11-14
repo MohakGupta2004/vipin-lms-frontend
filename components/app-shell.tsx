@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   BookOpenTextIcon,
   CardsIcon,
+  ChartBarIcon,
   CaretUpDownIcon,
   ChartLineUpIcon,
   CompassIcon,
@@ -73,19 +74,25 @@ const NAV: Record<
   { href: string; label: string; short: string; icon: Icon }[]
 > = {
   admin: [
+    { href: "/feed", label: "Dashboard", short: "Home", icon: SquaresFourIcon },
     {
       href: "/courses",
       label: "All courses",
       short: "Courses",
       icon: BookOpenTextIcon,
     },
-    { href: "/feed", label: "My courses", short: "Mine", icon: NewspaperIcon },
     { href: "/students", label: "Students", short: "Students", icon: StudentIcon },
     {
       href: "/enrollments",
       label: "Enrollments",
       short: "Enrollments",
       icon: UsersIcon,
+    },
+    {
+      href: "/website",
+      label: "Website",
+      short: "Website",
+      icon: ChartBarIcon,
     },
   ],
   instructor: [
@@ -170,6 +177,7 @@ function useVerifiedSession(userId: string | undefined) {
     if (!isSessionFresh()) {
       verify()
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVerifiedFor(userId)
     }
 

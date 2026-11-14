@@ -11,7 +11,7 @@ export type User = {
   // Empty for accounts created before phone numbers were collected.
   phone: string
   role: Role
-  lastLoginAt: string
+  lastLoginAt: string | null
 }
 
 export type CourseStatus = "draft" | "published" | "archived"
@@ -65,6 +65,164 @@ export type UserSummary = Pick<User, "id" | "firstName" | "lastName" | "email" |
   createdAt: string
   lastLoginAt: string | null
   emailVerified: boolean
+}
+
+/** What the admin's people list shows: sign-ups, students who never logged in, and the like. */
+export type PeopleView = "new" | "never_logged_in" | "not_enrolled" | "recently_enrolled"
+
+/** One enrollment of a person. */
+export type PersonEnrollment = {
+  courseId: string
+  courseTitle: string
+  instructorName: string
+  tier: EnrollmentTier
+  status: EnrollmentStatus
+  enrolledAt: string
+}
+
+/** A student, as the admin's people list shows them. */
+export type Person = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  createdAt: string
+  /** Null when they signed up but never logged in. */
+  lastLoginAt: string | null
+  emailVerified: boolean
+  /** Every enrollment of this person, newest first; empty when they have none. */
+  enrollments: PersonEnrollment[]
+}
+
+export type PeopleList = { total: number; items: Person[] }
+
+/** A student without the details; the dashboard shows only the latest few. */
+export type PersonLite = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  createdAt: string
+}
+
+/** A website lead, as the dashboard shows it. */
+export type AdminLead = {
+  id: string
+  kind: string
+  name: string
+  email: string
+  courseSlugs: string[]
+  createdAt: string
+}
+
+/** The admin's home numbers: sign-ups, enrollments, leads and visitors for a window of days. */
+export type AdminDashboard = {
+  days: number
+  newSignups: number
+  neverLoggedIn: number
+  notEnrolled: number
+  recentEnrollments: number
+  expiringSoon: number
+  newVisitors: number
+  newMasterclassSeats: number
+  newFormLeads: number
+  totalStudents: number
+  totalCourses: number
+  publishedCourses: number
+  recentSignups: PersonLite[]
+  recentLeads: AdminLead[]
+}
+
+export type SiteLeadKind = "masterclass" | "diagnostic" | "contact" | "firms" | "newsletter" | "interest"
+
+export type SiteKeyCount = { key: string; count: number }
+
+export type SiteDaily = {
+  date: string
+  newVisitors: number
+  returningVisitors: number
+  pageviews: number
+  leads: number
+}
+
+export type SiteOverview = {
+  days: number
+  uniqueVisitors: number
+  newVisitors: number
+  returningVisitors: number
+  pageviews: number
+  anonymousPageviews: number
+  leads: number
+  leadsByKind: SiteKeyCount[]
+  leadsByCourse: SiteKeyCount[]
+  masterclassByCourse: SiteKeyCount[]
+  daily: SiteDaily[]
+  devices: SiteKeyCount[]
+  browsers: SiteKeyCount[]
+  countries: SiteKeyCount[]
+  referrers: SiteKeyCount[]
+  topPages: SiteKeyCount[]
+}
+
+export type SiteLead = {
+  id: string
+  kind: SiteLeadKind
+  name: string
+  email: string
+  phone: string
+  courseSlugs: string[]
+  companyName: string
+  teamSize: string
+  examDate: string
+  message: string
+  caslConsent: boolean
+  sourcePath: string
+  visitorId: string | null
+  createdAt: string
+}
+
+export type SiteLeadList = { total: number; items: SiteLead[] }
+
+export type SiteLeadEmails = { count: number; emails: string[] }
+
+export type SiteVisitor = {
+  visitorId: string
+  fingerprint: string
+  firstSeenAt: string
+  lastSeenAt: string
+  visitCount: number
+  lastSessionId: string
+  pageviews: number
+  deviceType: string
+  browser: string
+  os: string
+  language: string
+  timezone: string
+  screen: string
+  country: string
+  region: string
+  city: string
+  firstReferrer: string
+  firstLanding: string
+  utmSource: string
+  utmMedium: string
+  utmCampaign: string
+  leadEmail: string | null
+  events: number
+  fingerprintMatches: number
+}
+
+export type SiteVisitorList = { total: number; items: SiteVisitor[] }
+
+export type SiteVisitorEvent = {
+  id: number
+  eventType: "pageview" | "click" | "form_submit"
+  path: string
+  label: string
+  target: string
+  sessionId: string
+  createdAt: string
 }
 
 export type Exam = { id: string; code: string; name: string; description: string }
@@ -644,9 +802,43 @@ export const resetPassword = (resetToken: string, newPassword: string) =>
 export const listUsers = async (role?: Role, limit = 200, offset = 0) =>
   (await json<UserSummary[]>("GET", "/users", { query: { role, limit, offset } })) ?? []
 
+// ── website (admin) ─────────────────────────────────────────────────────────
+export const getSiteOverview = (days = 30) =>
+  json<SiteOverview>("GET", "/admin/site/overview", { query: { days } })
+
+export const listSiteLeads = (query: {
+  kind?: SiteLeadKind
+  course?: string
+  q?: string
+  limit?: number
+  offset?: number
+}) => json<SiteLeadList>("GET", "/admin/site/leads", { query })
+
+export const getSiteLeadEmails = (kind: SiteLeadKind, course?: string) =>
+  json<SiteLeadEmails>("GET", "/admin/site/leads/emails", { query: { kind, course } })
+
+export const listSiteVisitors = (query: { limit?: number; offset?: number; returning?: "true" | "false" }) =>
+  json<SiteVisitorList>("GET", "/admin/site/visitors", { query })
+
+export const listSiteVisitorEvents = (visitorId: string, limit = 100) =>
+  json<SiteVisitorEvent[]>("GET", `/admin/site/visitors/${id(visitorId)}/events`, { query: { limit } })
+
 /** Students who signed up but were never enrolled in any course, newest sign-up first. */
 export const listNewStudents = async (limit = 50) =>
   (await json<UserSummary[]>("GET", "/users", { query: { role: "student", notEnrolled: "true", limit } })) ?? []
+
+// ── admin dashboard ──────────────────────────────────────────────────────────
+/** The people list: one view of the students, newest first. */
+export const listPeople = (query: {
+  view: PeopleView
+  days?: number
+  limit?: number
+  offset?: number
+}) => json<PeopleList>("GET", "/admin/people", { query })
+
+/** The admin's home numbers for a window of days. */
+export const getAdminDashboard = (days = 3) =>
+  json<AdminDashboard>("GET", "/admin/dashboard", { query: { days } })
 
 // ── exams ───────────────────────────────────────────────────────────────────
 export const listExams = async () => (await json<Exam[]>("GET", "/exams")) ?? []
@@ -1036,4 +1228,3 @@ export function clearUser() {
 }
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
