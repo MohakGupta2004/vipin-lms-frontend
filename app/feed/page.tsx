@@ -19,6 +19,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
+import { AdminDashboard } from "@/components/admin-dashboard"
 import { CourseBatchBadges } from "@/components/course-badges"
 import { StudyBand, deckHref, deckName } from "@/components/flashcard-links"
 import { Bar, Empty, Figures, Loading, ResumeBand, SectionHead } from "@/components/learning"
@@ -47,6 +48,7 @@ import {
   type MyFlashcards,
   type Post,
   type ProgressSummary,
+  type User,
 } from "@/lib/api"
 
 export default function FeedPage() {
@@ -57,9 +59,15 @@ export default function FeedPage() {
   )
 }
 
+/** Admins get the dashboard; instructors and students get the course shelf. */
 function Feed() {
   const user = useUser()!
-  // Instructors and admins own courses; students only take them.
+  if (user.role === "admin") return <AdminDashboard />
+  return <CourseFeed user={user} />
+}
+
+function CourseFeed({ user }: { user: User }) {
+  // Instructors own courses; students only take them.
   const canTeach = user.role !== "student"
   const [posts, setPosts] = useState<Post[]>([])
   const [courses, setCourses] = useState<Course[]>([])

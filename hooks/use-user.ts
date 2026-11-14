@@ -4,7 +4,9 @@ import { useMemo, useSyncExternalStore } from "react"
 
 import { parseUser, readSession, subscribeSession, type Role } from "@/lib/api"
 
-export const roleHome = (role: Role) => (role === "admin" ? "/courses" : "/feed")
+// Where each role lands after login. Admins land on their dashboard, which also lives at /feed.
+const HOME: Record<Role, string> = { admin: "/feed", instructor: "/feed", student: "/feed" }
+export const roleHome = (role: Role) => HOME[role]
 
 const noop = () => () => {}
 

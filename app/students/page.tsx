@@ -10,7 +10,7 @@ import {
   StudentIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useMemo, useState } from "react"
 
 import { AppShell, ErrorNote, PageTitle, errMsg } from "@/components/app-shell"
@@ -33,6 +33,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { PeopleTable } from "@/components/people-table"
 import { useUser } from "@/hooks/use-user"
 import {
   ApiError,
@@ -43,6 +44,7 @@ import {
   listStudents,
   type Course,
   type CourseProgress,
+  type PeopleView,
   type StudentDetail,
   type StudentProgress,
 } from "@/lib/api"
@@ -55,6 +57,128 @@ export default function StudentsPage() {
         <Students />
       </Suspense>
     </AppShell>
+  )
+}
+
+/** What the page shows: the class roster, or one of the admin's views of the students. */
+type PageView = PeopleView | "progress"
+
+const VIEWS: { value: PageView; label: string; usesDays: boolean }[] = [
+  { value: "progress", label: "Progress", usesDays: false },
+  { value: "new", label: "New sign-ups", usesDays: true },
+  { value: "never_logged_in", label: "Signed up, never logged in", usesDays: false },
+  { value: "not_enrolled", label: "Logged in, not enrolled", usesDays: false },
+  { value: "recently_enrolled", label: "Recently enrolled", usesDays: true },
+]
+
+/** The windows the sign-up and enrollment views look back over. */
+const DAY_WINDOWS = [1, 3, 7, 14, 30]
+
+const DEFAULT_DAYS = 3
+
+const PROGRESS_SUBTITLE = "See what each student in your courses is watching, practising and scoring."
+
+const VIEW_SUBTITLE: Record<PeopleView, string> = {
+  new: "Students who signed up in the last few days.",
+  never_logged_in: "Students who signed up but never logged in again.",
+  not_enrolled: "Students who logged in but have not joined a course.",
+  recently_enrolled: "Students who joined a course recently.",
+}
+
+function readView(value: string | null): PageView {
+  for (const v of VIEWS) if (v.value === value) return v.value
+  return "progress"
+}
+
+function readDays(value: string | null): number {
+  const n = Number(value)
+  if (DAY_WINDOWS.includes(n)) return n
+  return DEFAULT_DAYS
+}
+
+function usesDays(view: PageView) {
+  const found = VIEWS.find((v) => v.value === view)
+  return found ? found.usesDays : false
+}
+
+/** Admins pick what the page shows; instructors always get the class roster. */
+function Students() {
+  const user = useUser()!
+  const params = useSearchParams()
+  const view = readView(params.get("view"))
+  const days = readDays(params.get("days"))
+  const isAdmin = user.role === "admin"
+  const peopleView = isAdmin && view !== "progress" ? view : null
+
+  return (
+    <>
+      <PageTitle title="Students" subtitle={peopleView ? VIEW_SUBTITLE[peopleView] : PROGRESS_SUBTITLE} />
+      {isAdmin && <PeopleToolbar view={view} days={days} />}
+      {peopleView ? (
+        <PeopleTable key={`${peopleView}-${days}`} view={peopleView} days={days} />
+      ) : (
+        <ProgressStudents />
+      )}
+    </>
+  )
+}
+
+/** The drop-down an admin uses to choose the view; the choice stays in the URL. */
+function PeopleToolbar({ view, days }: { view: PageView; days: number }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+
+  function go(next: URLSearchParams) {
+    const qs = next.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
+
+  function onView(value: string) {
+    const chosen = readView(value)
+    const next = new URLSearchParams(params)
+    next.delete("student")
+    if (chosen === "progress") {
+      next.delete("view")
+      next.delete("days")
+    } else {
+      next.set("view", chosen)
+      if (!usesDays(chosen)) next.delete("days")
+    }
+    go(next)
+  }
+
+  function onDays(value: string) {
+    const next = new URLSearchParams(params)
+    next.set("days", value)
+    go(next)
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="text-sm text-muted-foreground">
+        Show
+        <Select className="mt-1 w-60" value={view} onChange={(e) => onView(e.target.value)}>
+          {VIEWS.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </Select>
+      </label>
+      {usesDays(view) && (
+        <label className="text-sm text-muted-foreground">
+          Last
+          <Select className="mt-1 w-32" value={String(days)} onChange={(e) => onDays(e.target.value)}>
+            {DAY_WINDOWS.map((d) => (
+              <option key={d} value={String(d)}>
+                {d} {d === 1 ? "day" : "days"}
+              </option>
+            ))}
+          </Select>
+        </label>
+      )}
+    </div>
   )
 }
 
@@ -73,7 +197,7 @@ const SORTS: { value: SortKey; label: string }[] = [
 /** Students who have not done anything for this long need a nudge. */
 const QUIET_DAYS = 7
 
-function Students() {
+function ProgressStudents() {
   const user = useUser()!
   const params = useSearchParams()
   const selectedId = params.get("student")
@@ -125,7 +249,6 @@ function Students() {
 
   return (
     <>
-      <PageTitle title="Students" subtitle="See what each student in your courses is watching, practising and scoring." />
       <ErrorNote error={error} />
       {!students && !error && <Loading rows={4} />}
 
