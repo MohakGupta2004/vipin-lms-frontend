@@ -10,6 +10,8 @@ import { CourseBatchBadges } from "@/components/course-badges"
 import { DeckSummary } from "@/components/flashcard-links"
 import { FlashcardDeckPanel } from "@/components/flashcard-deck"
 import { LessonNotes } from "@/components/note-list"
+import { Markdown } from "@/components/markdown"
+import { MarkdownEditor } from "@/components/markdown-editor"
 import { PdfPreview } from "@/components/pdf-preview"
 import { QuizCreator } from "@/components/quiz-pdf-import"
 import { QuizList } from "@/components/quiz-list"
@@ -475,7 +477,7 @@ function EditCourse({ course, onSaved }: { course: CourseT; onSaved: (c: CourseT
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="ce-desc">Description</FieldLabel>
-            <Textarea id="ce-desc" maxLength={10000} value={form.description} onChange={(e) => set("description", e.target.value)} />
+            <MarkdownEditor id="ce-desc" maxLength={10000} value={form.description} onChange={(v) => set("description", v)} />
           </Field>
           <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
             <input type="checkbox" checked={form.isFree} onChange={(e) => set("isFree", e.target.checked)} />
@@ -979,20 +981,20 @@ function StatusControl({ value, onChange }: { value: CourseStatus; onChange: (v:
   )
 }
 
-/** A long course description: desktop shows the first lines and a toggle; phones keep the full text. */
+/** A long course description, as Markdown: desktop shows the first lines and a toggle; phones keep the full text. */
 function Description({ text }: { text: string }) {
   const [more, setMore] = useState(false)
   const long = text.length > 420 || text.split("\n").length > 8
   return (
     <div className="space-y-2">
-      <p
+      <Markdown
         className={cn(
-          "max-w-[70ch] text-[15px] leading-relaxed whitespace-pre-wrap text-gray-700 md:leading-[1.6] md:text-heading/75",
-          long && !more && "md:line-clamp-6"
+          "max-w-[70ch] md:leading-[1.6] md:text-heading/75",
+          long && !more && "md:max-h-[9.75rem] md:overflow-hidden md:[mask-image:linear-gradient(to_bottom,black_60%,transparent)]"
         )}
       >
         {text}
-      </p>
+      </Markdown>
       {long && (
         <button
           type="button"
