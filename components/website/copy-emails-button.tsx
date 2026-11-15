@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { getSiteLeadEmails, type SiteLeadKind } from "@/lib/api"
+import { joinEmailsForPaste } from "@/lib/emails"
 
 const GMAIL_MAX_URL = 8_000
 
@@ -32,7 +33,7 @@ export function CopyEmailsButton({ kind, course, disabled }: { kind: SiteLeadKin
     try {
       const res = await getSiteLeadEmails(kind, course || undefined)
       setEmails(res.emails)
-      const joined = res.emails.join(",")
+      const joined = joinEmailsForPaste(res.emails)
       await navigator.clipboard.writeText(joined)
       setCopied(res.count)
     } catch (e) {
