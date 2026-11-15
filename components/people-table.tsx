@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { listPeople, TIER_LABEL, type PeopleList, type PeopleView, type Person } from "@/lib/api"
+import { joinEmailsForPaste } from "@/lib/emails"
 
 const LIMIT = 50
 
@@ -184,7 +185,7 @@ function CopyEmailsButton({ people }: { people: Person[] }) {
     }
     if (emails.length === 0) return
     try {
-      await navigator.clipboard.writeText(emails.join(","))
+      await navigator.clipboard.writeText(joinEmailsForPaste(emails))
       setCopied(emails.length)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not copy emails")
