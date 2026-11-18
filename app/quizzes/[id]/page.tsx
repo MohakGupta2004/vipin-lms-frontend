@@ -20,7 +20,11 @@ import {
   PracticeReview,
   QuizPlayer,
 } from "@/components/quiz-player"
-import { QuizSessionProvider } from "@/components/quiz-session"
+import {
+  clearPracticeProgress,
+  loadPracticeProgress,
+  QuizSessionProvider,
+} from "@/components/quiz-session"
 import { Select } from "@/components/ui/select"
 import { useUser } from "@/hooks/use-user"
 import {
@@ -116,8 +120,18 @@ function QuizView() {
     []
   )
 
+  // Throw away the saved practice run and open a blank one.
+  function onStartOver() {
+    if (!quiz) return
+    clearPracticeProgress(user.id, quiz.id)
+    setRun((n) => (n ?? 0) + 1)
+  }
+
   const questions = quiz?.questions ?? []
   const practice = !!quiz && isPractice(quiz)
+  // How many answers a practice run left in this browser has already checked (0 = nothing saved).
+  const savedProgress = quiz && practice ? loadPracticeProgress(user.id, quiz) : null
+  const savedCount = savedProgress ? Object.keys(savedProgress.checked).length : 0
   // Students finish back on the tests list, on the right tab, never the course page.
   const testsHref = quiz
     ? `/practice?course=${quiz.courseId}&type=${quiz.type}`
@@ -229,7 +243,11 @@ function QuizView() {
       {isStudent && quiz && run !== null && (
         <QuizSessionProvider key={run} quiz={quiz} onSaved={onSaved}>
           <QuizPlayer
-            onRestart={() => setRun((n) => (n ?? 0) + 1)}
+            onRestart={() => {
+              // A fresh run starts empty, including in the browser.
+              clearPracticeProgress(user.id, quiz.id)
+              setRun((n) => (n ?? 0) + 1)
+            }}
             onExit={() => router.push((studentBack ?? { href: testsHref }).href)}
             exitLabel={studentBack?.label}
           />
@@ -268,7 +286,12 @@ function QuizView() {
 
       {isStudent && quiz && run === null && !reviewing && (
         <>
-          <StartCard quiz={quiz} onStart={() => setRun((n) => (n ?? 0) + 1)} />
+          <StartCard
+            quiz={quiz}
+            onStart={() => setRun((n) => (n ?? 0) + 1)}
+            savedCount={savedCount}
+            onStartOver={onStartOver}
+          />
           {attempts.length > 0 &&
             (practice ? (
               <PracticeHistory attempts={attempts} onReview={setReviewing} />
@@ -306,8 +329,20 @@ function QuizView() {
   )
 }
 
-function StartCard({ quiz, onStart }: { quiz: Quiz; onStart: () => void }) {
+function StartCard({
+  quiz,
+  onStart,
+  savedCount,
+  onStartOver,
+}: {
+  quiz: Quiz
+  onStart: () => void
+  /** Practice: how many answers the saved run has checked (0 = no saved run). */
+  savedCount: number
+  onStartOver: () => void
+}) {
   const practice = isPractice(quiz)
+  const total = quiz.questions?.length ?? quiz.questionCount
   const rules = practice
     ? [
         "One question at a time.",
@@ -334,9 +369,20 @@ function StartCard({ quiz, onStart }: { quiz: Quiz; onStart: () => void }) {
             </li>
           ))}
         </ul>
-        <Button size="lg" onClick={onStart} disabled={!quiz.questions?.length}>
-          {practice ? "Start practice" : "Start test"}
-        </Button>
+        {practice && savedCount > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" onClick={onStart} disabled={!quiz.questions?.length}>
+              Continue practice ({savedCount}/{total} done)
+            </Button>
+            <Button size="lg" variant="outline" onClick={onStartOver}>
+              Start over
+            </Button>
+          </div>
+        ) : (
+          <Button size="lg" onClick={onStart} disabled={!quiz.questions?.length}>
+            {practice ? "Start practice" : "Start test"}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

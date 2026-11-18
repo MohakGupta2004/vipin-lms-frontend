@@ -3,6 +3,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 
 import { errMsg } from "@/components/app-shell"
+import { useUser } from "@/hooks/use-user"
 import {
   checkAnswer,
   isPractice,
@@ -18,8 +19,10 @@ import {
 /**
  * One run through a test, one question at a time. Both test types share it:
  * - practice: each answer is checked on the server as soon as it is given (correct option +
- *   explanation), and the whole session is saved at the end for the review page;
+ *   explanation), and the whole session is saved at the end for the review page. Progress is also
+ *   kept in the browser, so a student can close the tab and carry on later, until the session is finished;
  * - mock test: answers stay editable until submit; then the marks come back with every answer explained.
+ *   Nothing is kept in the browser for a mock test.
  */
 type Status = "answering" | "submitting" | "finished"
 
@@ -61,6 +64,82 @@ const initial: State = {
   mockResult: null,
   review: null,
   error: null,
+}
+
+/** localStorage key for a student's unfinished practice run of one quiz. */
+function progressKey(userId: string, quizId: string) {
+  return `practice:${userId}:${quizId}`
+}
+
+type SavedProgress = {
+  picked: Record<string, string>
+  checked: Record<string, AttemptAnswer>
+  revealed: Record<string, boolean>
+}
+
+/**
+ * The practice run this student left unfinished, or null when there is none.
+ * Questions the instructor has since removed are dropped.
+ */
+export function loadPracticeProgress(userId: string, quiz: Quiz): SavedProgress | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(progressKey(userId, quiz.id))
+    if (!raw) return null
+    const saved = JSON.parse(raw) as Partial<SavedProgress>
+    const ids = new Set((quiz.questions ?? []).map((q) => q.id))
+    const picked: Record<string, string> = {}
+    const checked: Record<string, AttemptAnswer> = {}
+    const revealed: Record<string, boolean> = {}
+    const savedPicked = saved.picked ?? {}
+    const savedChecked = saved.checked ?? {}
+    const savedRevealed = saved.revealed ?? {}
+    for (const questionId of Object.keys(savedPicked)) {
+      if (ids.has(questionId)) picked[questionId] = savedPicked[questionId]
+    }
+    for (const questionId of Object.keys(savedChecked)) {
+      if (ids.has(questionId)) checked[questionId] = savedChecked[questionId]
+    }
+    for (const questionId of Object.keys(savedRevealed)) {
+      if (ids.has(questionId)) revealed[questionId] = !!savedRevealed[questionId]
+    }
+    // Nothing answered means nothing worth resuming.
+    if (Object.keys(checked).length === 0) return null
+    return { picked, checked, revealed }
+  } catch {
+    // Bad JSON or blocked storage: start fresh.
+    return null
+  }
+}
+
+export function clearPracticeProgress(userId: string, quizId: string) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(progressKey(userId, quizId))
+  } catch {
+    // Blocked storage: there is nothing to clear.
+  }
+}
+
+/** The state to open a run with: a saved practice run when there is one, else a blank run. */
+function startState(userId: string, quiz: Quiz, practice: boolean, questions: Question[]): State {
+  if (!practice) return initial
+  const saved = loadPracticeProgress(userId, quiz)
+  if (!saved) return initial
+  const revealed: Record<string, true> = {}
+  for (const questionId of Object.keys(saved.revealed)) {
+    if (saved.revealed[questionId]) revealed[questionId] = true
+  }
+  // Carry on at the first question without a checked answer.
+  let index = questions.length - 1
+  for (let i = 0; i < questions.length; i++) {
+    if (!saved.checked[questions[i].id]) {
+      index = i
+      break
+    }
+  }
+  if (index < 0) index = 0
+  return { ...initial, picked: saved.picked, checked: saved.checked, revealed, index }
 }
 
 function reducer(state: State, action: Action): State {
@@ -153,9 +232,27 @@ export function QuizSessionProvider({
 }) {
   const questions = useMemo(() => quiz.questions ?? [], [quiz.questions])
   const practice = isPractice(quiz)
-  const [state, dispatch] = useReducer(reducer, initial)
+  const user = useUser()!
+  const [state, dispatch] = useReducer(reducer, null, () => startState(user.id, quiz, practice, questions))
   const current = questions[state.index]
   const busy = useRef(false)
+
+  // Keep an unfinished practice run in the browser so the student can come back to it.
+  useEffect(() => {
+    if (!practice || state.status !== "answering") return
+    try {
+      if (Object.keys(state.checked).length === 0) {
+        clearPracticeProgress(user.id, quiz.id)
+        return
+      }
+      localStorage.setItem(
+        progressKey(user.id, quiz.id),
+        JSON.stringify({ picked: state.picked, checked: state.checked, revealed: state.revealed })
+      )
+    } catch {
+      // Blocked or full storage: the test still works, it just can't be resumed.
+    }
+  }, [practice, state.status, state.picked, state.checked, state.revealed, user.id, quiz.id])
 
   const go = useCallback(
     (index: number) => dispatch({ type: "go", index: Math.max(0, Math.min(questions.length - 1, index)) }),
@@ -197,11 +294,13 @@ export function QuizSessionProvider({
         // Only checked answers are part of the session; a picked but unchecked option was never answered.
         const answers = Object.values(state.checked).map((a) => ({ questionId: a.questionId, optionId: a.selectedOptionId! }))
         if (answers.length === 0) {
+          clearPracticeProgress(user.id, quiz.id)
           dispatch({ type: "finished", review: [] })
           return
         }
         const attempt = await submitAttempt(quiz.id, answers)
         onSaved(attempt)
+        clearPracticeProgress(user.id, quiz.id)
         dispatch({ type: "finished", review: attempt.answers ?? [] })
       } else {
         const answers = Object.entries(state.picked).map(([questionId, optionId]) => ({ questionId, optionId }))
@@ -224,7 +323,7 @@ export function QuizSessionProvider({
     } finally {
       busy.current = false
     }
-  }, [practice, quiz.id, state.status, state.picked, state.checked, onSaved])
+  }, [practice, quiz.id, state.status, state.picked, state.checked, onSaved, user.id])
 
   const remaining = useCountdown(practice ? null : quiz.timeLimitSec, state.status === "answering")
 
