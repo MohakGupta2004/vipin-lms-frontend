@@ -186,6 +186,17 @@ export type SiteLeadList = { total: number; items: SiteLead[] }
 
 export type SiteLeadEmails = { count: number; emails: string[] }
 
+export type SiteLeadPhone = {
+  phone: string
+  name: string
+  email: string
+  kinds: SiteLeadKind[]
+  leadCount: number
+  lastAt: string
+}
+
+export type SiteLeadPhones = { count: number; phones: SiteLeadPhone[] }
+
 export type SiteVisitor = {
   visitorId: string
   fingerprint: string
@@ -816,6 +827,9 @@ export const listSiteLeads = (query: {
 
 export const getSiteLeadEmails = (kind: SiteLeadKind, course?: string) =>
   json<SiteLeadEmails>("GET", "/admin/site/leads/emails", { query: { kind, course } })
+
+export const getSiteLeadPhones = (kind?: SiteLeadKind, course?: string) =>
+  json<SiteLeadPhones>("GET", "/admin/site/leads/phones", { query: { kind, course } })
 
 export const listSiteVisitors = (query: { limit?: number; offset?: number; returning?: "true" | "false" }) =>
   json<SiteVisitorList>("GET", "/admin/site/visitors", { query })
