@@ -23,7 +23,7 @@ export const KIND_LABELS: Record<string, string> = {
   interest: "Interest",
 }
 
-const KIND_ORDER: SiteLeadKind[] = ["masterclass", "diagnostic", "contact", "firms", "newsletter", "interest"]
+export const KIND_ORDER: SiteLeadKind[] = ["masterclass", "diagnostic", "contact", "firms", "newsletter", "interest"]
 
 function kindCountMap(items: SiteKeyCount[]) {
   const map: Record<string, number> = {}
@@ -282,7 +282,13 @@ export function FormsLeadsTab({ courses, leadsByKind }: { courses: string[]; lea
                     <p className="truncate text-xs text-muted-foreground" title={lead.email}>
                       {lead.email}
                     </p>
-                    {lead.phone && <p className="truncate text-xs text-muted-foreground">{lead.phone}</p>}
+                    {lead.phone && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        <a href={`tel:${lead.phone}`} className="underline underline-offset-4">
+                          {lead.phone}
+                        </a>
+                      </p>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-0 px-3">
                     {lead.kind === "firms" ? (

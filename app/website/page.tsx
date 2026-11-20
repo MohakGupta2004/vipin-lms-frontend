@@ -6,16 +6,17 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AppShell, PageTitle } from "@/components/app-shell"
 import { FormsLeadsTab, MasterclassLeadsTab } from "@/components/website/leads-table"
 import { WebsiteOverview } from "@/components/website/overview"
+import { PhonesTab } from "@/components/website/phones-table"
 import { VisitorsTab } from "@/components/website/visitors-table"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getSiteOverview, type SiteLeadKind, type SiteOverview } from "@/lib/api"
 
-type WebsiteTab = "overview" | "masterclass" | "forms" | "visitors"
+type WebsiteTab = "overview" | "masterclass" | "forms" | "phones" | "visitors"
 
 /** The tab the URL asks for; anything unknown opens the overview. */
 function readTab(value: string | null): WebsiteTab {
-  if (value === "masterclass" || value === "forms" || value === "visitors") return value
+  if (value === "masterclass" || value === "forms" || value === "phones" || value === "visitors") return value
   return "overview"
 }
 
@@ -128,6 +129,7 @@ function WebsiteInner() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="masterclass">Masterclass</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="phones">Phones</TabsTrigger>
           <TabsTrigger value="visitors">Visitors</TabsTrigger>
         </TabsList>
 
@@ -141,6 +143,10 @@ function WebsiteInner() {
 
         <TabsContent value="forms">
           <FormsLeadsTab courses={formCourses} leadsByKind={leadKinds} />
+        </TabsContent>
+
+        <TabsContent value="phones">
+          <PhonesTab />
         </TabsContent>
 
         <TabsContent value="visitors">
