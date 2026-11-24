@@ -623,7 +623,7 @@ function Legend({
   )
 }
 
-function Letter({
+export function Letter({
   i,
   on,
   className = "",
@@ -653,7 +653,7 @@ function Letter({
  * The stem in semibold; any lines after it (I/II/III statements, a table of facts) in regular weight,
  * each on its own line, so a long multi-statement question scans instead of reading as one bold block.
  */
-function QuestionText({
+export function QuestionText({
   text,
   className,
 }: {
@@ -814,9 +814,9 @@ function OptionReveal({
  * Answer list. Phones: one inset grouped list (white, rounded, hairline separators), like an iOS settings
  * group. Larger screens: separate outlined cards.
  */
-const GROUP =
+export const GROUP =
   "text-[16px] leading-[1.4] max-sm:divide-y max-sm:divide-black/[0.06] max-sm:overflow-hidden max-sm:rounded-[14px] max-sm:bg-white max-sm:shadow-[0_1px_2px_rgba(16,42,67,0.04)] sm:space-y-2.5 sm:text-[15px]"
-const ROW =
+export const ROW =
   "flex min-h-[3.25rem] items-center gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow,transform] duration-150 ease-(--ease-out) sm:min-h-14 sm:gap-3.5 sm:rounded-xl sm:border sm:bg-white"
 
 type ReviewStatus = "correct" | "wrong" | "skipped"

@@ -1,6 +1,8 @@
 // Typed client for the Vipin LMS API (see http://localhost:3000/swagger/index.html).
 // Auth is cookie based (HttpOnly access_token + refresh_token), so no token is ever readable from JS.
 
+import type { DiagnosticAnswer, DiagnosticConfidence } from "./diagnostic-score"
+
 export type Role = "student" | "instructor" | "admin"
 
 export type User = {
@@ -853,6 +855,72 @@ export const listPeople = (query: {
 /** The admin's home numbers for a window of days. */
 export const getAdminDashboard = (days = 3) =>
   json<AdminDashboard>("GET", "/admin/dashboard", { query: { days } })
+
+// ── diagnostic ──────────────────────────────────────────────────────────────
+export type DiagnosticResultElement = {
+  element: number
+  correct: number
+  total: number
+  points: number
+  maxPoints: number
+  /** Some responses include this; otherwise work it out from points and maxPoints. */
+  percent?: number
+}
+
+export type DiagnosticResultAnswer = {
+  questionId: number
+  picked: number
+  confidence: DiagnosticConfidence
+}
+
+export type DiagnosticResultSummary = {
+  id: string
+  userId: string
+  firstName: string
+  lastName: string
+  email: string
+  correct: number
+  total: number
+  elements: DiagnosticResultElement[]
+  createdAt: string
+}
+
+export type DiagnosticResultList = {
+  items: DiagnosticResultSummary[]
+  total: number
+}
+
+export type DiagnosticResultDetail = DiagnosticResultSummary & {
+  answers: DiagnosticResultAnswer[]
+}
+
+export type DiagnosticSubmitInput = {
+  correct: number
+  total: number
+  elements: {
+    element: number
+    correct: number
+    total: number
+    points: number
+    maxPoints: number
+  }[]
+  answers: DiagnosticAnswer[]
+}
+
+/** Saves a finished diagnostic for the signed-in user. */
+export const submitDiagnosticResult = (input: DiagnosticSubmitInput) =>
+  json<DiagnosticResultDetail>("POST", "/diagnostic/results", { body: input })
+
+/** Admin: everyone who took the diagnostic, newest first, with an optional name/email search. */
+export const listDiagnosticResults = (query: {
+  limit?: number
+  offset?: number
+  q?: string
+}) => json<DiagnosticResultList>("GET", "/admin/diagnostic/results", { query })
+
+/** Admin: one result, including every answer. */
+export const getDiagnosticResult = (resultId: string) =>
+  json<DiagnosticResultDetail>("GET", `/admin/diagnostic/results/${id(resultId)}`)
 
 // ── exams ───────────────────────────────────────────────────────────────────
 export const listExams = async () => (await json<Exam[]>("GET", "/exams")) ?? []
