@@ -1,19 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { AppShell, errMsg } from "@/components/app-shell"
 import { DiagnosticIntro } from "@/components/diagnostic/diagnostic-intro"
-import { DiagnosticResult } from "@/components/diagnostic/diagnostic-result"
-import { DiagnosticTest } from "@/components/diagnostic/diagnostic-test"
-import { submitDiagnosticResult } from "@/lib/api"
 import {
-  scoreDiagnostic,
-  type DiagnosticAnswer,
-  type DiagnosticScore,
-} from "@/lib/diagnostic-score"
+  DiagnosticAlreadyTaken,
+  DiagnosticSubmitted,
+} from "@/components/diagnostic/diagnostic-result"
+import { DiagnosticTest } from "@/components/diagnostic/diagnostic-test"
+import { ApiError, getDiagnosticStatus, submitDiagnosticResult } from "@/lib/api"
+import { scoreDiagnostic, type DiagnosticAnswer } from "@/lib/diagnostic-score"
 
-type Stage = "intro" | "test" | "result"
+type Stage = "loading" | "intro" | "test" | "submitted" | "taken"
 
 export default function DiagnosticPage() {
   return (
@@ -24,56 +23,71 @@ export default function DiagnosticPage() {
 }
 
 function DiagnosticFlow() {
-  const [stage, setStage] = useState<Stage>("intro")
-  const [score, setScore] = useState<DiagnosticScore | null>(null)
+  const [stage, setStage] = useState<Stage>("loading")
+  const [answers, setAnswers] = useState<DiagnosticAnswer[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  async function submit(answers: DiagnosticAnswer[]) {
-    const nextScore = scoreDiagnostic(answers)
-    setScore(nextScore)
-    setStage("result")
+  // Block a second attempt before the user starts.
+  useEffect(() => {
+    getDiagnosticStatus()
+      .then((status) => setStage(status.taken ? "taken" : "intro"))
+      .catch(() => setStage("intro"))
+  }, [])
+
+  async function save(finalAnswers: DiagnosticAnswer[]) {
+    const score = scoreDiagnostic(finalAnswers)
     setSaving(true)
     setSaveError(null)
 
     try {
       await submitDiagnosticResult({
-        correct: nextScore.correct,
-        total: nextScore.total,
-        elements: nextScore.elements.map((element) => ({
+        correct: score.correct,
+        total: score.total,
+        elements: score.elements.map((element) => ({
           element: element.element,
           correct: element.correct,
           total: element.total,
           points: element.points,
           maxPoints: element.maxPoints,
         })),
-        answers,
+        answers: finalAnswers,
       })
     } catch (e) {
-      setSaveError(errMsg(e))
+      if (e instanceof ApiError && e.status === 409) {
+        setStage("taken")
+      } else {
+        setSaveError(errMsg(e))
+      }
     } finally {
       setSaving(false)
     }
   }
 
-  function restart() {
-    setScore(null)
-    setSaveError(null)
-    setSaving(false)
-    setStage("intro")
+  async function submit(finalAnswers: DiagnosticAnswer[]) {
+    setAnswers(finalAnswers)
+    setStage("submitted")
+    await save(finalAnswers)
+  }
+
+  if (stage === "loading") {
+    return null
+  }
+
+  if (stage === "taken") {
+    return <DiagnosticAlreadyTaken />
   }
 
   if (stage === "test") {
     return <DiagnosticTest onSubmit={submit} />
   }
 
-  if (stage === "result" && score) {
+  if (stage === "submitted") {
     return (
-      <DiagnosticResult
-        score={score}
+      <DiagnosticSubmitted
         saving={saving}
         saveError={saveError}
-        onRestart={restart}
+        onRetry={() => save(answers)}
       />
     )
   }

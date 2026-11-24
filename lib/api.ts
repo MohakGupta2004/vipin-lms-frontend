@@ -907,9 +907,12 @@ export type DiagnosticSubmitInput = {
   answers: DiagnosticAnswer[]
 }
 
-/** Saves a finished diagnostic for the signed-in user. */
+/** Saves a finished diagnostic for the signed-in user. Answers 409 when they already took it. The score is never returned: only admins see results. */
 export const submitDiagnosticResult = (input: DiagnosticSubmitInput) =>
-  json<DiagnosticResultDetail>("POST", "/diagnostic/results", { body: input })
+  json<{ id: string; createdAt: string }>("POST", "/diagnostic/results", { body: input })
+
+/** Did the signed-in user already take the diagnostic. Each email can take it once. */
+export const getDiagnosticStatus = () => json<{ taken: boolean }>("GET", "/diagnostic/status")
 
 /** Admin: everyone who took the diagnostic, newest first, with an optional name/email search. */
 export const listDiagnosticResults = (query: {

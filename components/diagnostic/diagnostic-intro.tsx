@@ -33,10 +33,11 @@ export function DiagnosticIntro({ onStart }: { onStart: () => void }) {
             answer you were sure of scores more than a lucky guess.
           </li>
           <li>
-            Nothing is marked while you take it. When you submit, you see your score in each of the
-            nine exam chapters and which ones to review first.
+            Nothing is marked while you take it. When you submit, your result goes to your
+            instructor, who will use it to plan what you study first.
           </li>
           <li>There is no timer. Your answers are only saved when you submit.</li>
+          <li>You can take the diagnostic only once, so set aside the time before you start.</li>
         </ul>
 
         <Button size="lg" onClick={onStart}>
