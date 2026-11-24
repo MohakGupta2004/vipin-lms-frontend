@@ -94,6 +94,12 @@ const NAV: Record<
       short: "Website",
       icon: ChartBarIcon,
     },
+    {
+      href: "/diagnostic-results",
+      label: "Diagnostic",
+      short: "Diagnostic",
+      icon: ChartLineUpIcon,
+    },
   ],
   instructor: [
     {
@@ -324,7 +330,7 @@ function AccountButton({ user, onSignOut }: { user: User; onSignOut: () => void 
   )
 }
 
-const FOCUSED = /^\/(quizzes\/|flashcards\/study)/
+const FOCUSED = /^\/(quizzes\/|flashcards\/study|diagnostic$)/
 
 /**
  * Apple's spring, by damping ratio and response (seconds): progress 0→1 at t seconds, and its velocity,
