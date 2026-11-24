@@ -7,9 +7,8 @@ import {
   CheckIcon,
   PaperPlaneTiltIcon,
   WarningCircleIcon,
-  XIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { GROUP, Letter, QuestionText, ROW } from "@/components/quiz-player"
 import {
@@ -54,8 +53,8 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
   const [index, setIndex] = useState(0)
   const [picked, setPicked] = useState<Record<number, number>>({})
   const [confidence, setConfidence] = useState<Record<number, DiagnosticConfidence>>({})
-  // The question whose confidence prompt is open, if any.
-  const [asking, setAsking] = useState<number | null>(null)
+  // Counts blocked attempts to leave an unrated answer; each one re-plays the prompt's shake.
+  const [nudge, setNudge] = useState(0)
   const [confirming, setConfirming] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
 
@@ -65,9 +64,19 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
   const answered = Object.keys(picked).length
   const left = TOTAL - answered
 
+  // An answered question needs a confidence rating before the student can move on or submit.
+  function isUnrated(id: number) {
+    return picked[id] !== undefined && (confidence[id] ?? "none") === "none"
+  }
+  const unrated = isUnrated(question.id)
+
   function go(next: number) {
     if (next < 0 || next >= TOTAL) return
-    setAsking(null)
+    if (unrated) {
+      setNudge((n) => n + 1)
+      return
+    }
+    setNudge(0)
     setIndex(next)
   }
 
@@ -75,17 +84,20 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
     setPicked({ ...picked, [question.id]: optionIndex })
     // Picking again resets the rating and asks again.
     setConfidence({ ...confidence, [question.id]: "none" })
-    setAsking(question.id)
+    setNudge(0)
   }
 
   function rate(value: Rating) {
-    if (asking === null) return
-    setConfidence({ ...confidence, [asking]: value })
-    setAsking(null)
+    setConfidence({ ...confidence, [question.id]: value })
   }
 
   function submit() {
-    setAsking(null)
+    const pending = DIAGNOSTIC_QUESTIONS.findIndex((q) => isUnrated(q.id))
+    if (pending !== -1) {
+      setIndex(pending)
+      setNudge((n) => n + 1)
+      return
+    }
     setConfirming(true)
   }
 
@@ -106,6 +118,14 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
     if (last) submit()
     else go(index + 1)
   }
+
+  // Bring the rating into view when it first appears and on every blocked attempt to move on.
+  const rateRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!unrated) return
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    rateRef.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
+  }, [unrated, nudge])
 
   // Leaving the page mid-test would lose the answers.
   useEffect(() => {
@@ -270,6 +290,18 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
             )
           })}
         </div>
+
+        {selected !== undefined && (
+          <div ref={rateRef} className="scroll-mt-32 scroll-mb-28 sm:scroll-mb-6">
+            <ConfidencePicker
+              questionNumber={index + 1}
+              value={confidence[question.id] ?? "none"}
+              onRate={rate}
+              nudged={nudge > 0 && unrated}
+              shakeKey={nudge}
+            />
+          </div>
+        )}
       </section>
 
       {/* Phones: the controls stay in thumb reach at the bottom of the screen. */}
@@ -321,41 +353,6 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
         <QuestionNumbers index={index} picked={picked} onGo={go} />
       </nav>
 
-      {asking !== null && (
-        <div
-          role="dialog"
-          aria-label="How confident are you?"
-          className="pop fixed inset-x-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-sm rounded-2xl border border-border bg-white p-3 shadow-[0_18px_50px_-16px_rgba(16,42,67,0.45)] sm:bottom-8"
-        >
-          <div className="flex items-center justify-between gap-3 pb-2 pl-1">
-            <p className="text-sm font-semibold text-heading">How confident are you?</p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setAsking(null)}
-              aria-label="Skip"
-            >
-              <XIcon />
-            </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {RATINGS.map((rating) => (
-              <Button
-                key={rating.value}
-                type="button"
-                variant="outline"
-                className="h-auto flex-col gap-0.5 px-2 py-2"
-                onClick={() => rate(rating.value)}
-              >
-                <span className="text-xl leading-none">{CONFIDENCE_EMOJI[rating.value]}</span>
-                <span className="text-xs">{rating.label}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Phones: every question in a bottom sheet opened from the status bar. */}
       <Sheet open={navOpen} onOpenChange={setNavOpen}>
         <SheetContent
@@ -395,6 +392,88 @@ export function DiagnosticTest({ onSubmit }: { onSubmit: (answers: DiagnosticAns
           </div>
         </SheetContent>
       </Sheet>
+    </div>
+  )
+}
+
+/** The required confidence rating, shown under the options once the question has an answer. */
+function ConfidencePicker({
+  questionNumber,
+  value,
+  onRate,
+  nudged,
+  shakeKey,
+}: {
+  questionNumber: number
+  value: DiagnosticConfidence
+  onRate: (value: Rating) => void
+  /** The student tried to move on without rating. */
+  nudged: boolean
+  /** Changes on every blocked attempt so the shake plays again. */
+  shakeKey: number
+}) {
+  const labelId = `confidence-label-${questionNumber}`
+  return (
+    <div className="rise space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:space-y-0 sm:border-t sm:border-border sm:pt-5">
+      <div className="px-1 sm:px-0">
+        <p id={labelId} className="text-[15px] font-semibold text-heading sm:text-sm">
+          How confident are you?
+        </p>
+        <p
+          aria-live="polite"
+          className={cn(
+            "mt-0.5 flex items-center gap-1 text-[13px] sm:text-xs",
+            nudged ? "font-medium text-amber-700" : "text-muted-foreground"
+          )}
+        >
+          {nudged ? (
+            <>
+              <WarningCircleIcon weight="fill" aria-hidden className="size-3.5 shrink-0" />
+              Choose one to continue
+            </>
+          ) : value === "none" ? (
+            "Required for every answer"
+          ) : (
+            "You can change this before you submit"
+          )}
+        </p>
+      </div>
+      <div
+        key={shakeKey}
+        role="radiogroup"
+        aria-labelledby={labelId}
+        aria-required
+        className={cn("grid grid-cols-3 gap-2 sm:w-[25rem] sm:shrink-0", nudged && "shake")}
+      >
+        {RATINGS.map((rating) => {
+          const on = value === rating.value
+          return (
+            <label
+              key={rating.value}
+              className={cn(
+                "flex min-h-[3.75rem] cursor-pointer touch-manipulation flex-col items-center justify-center gap-1 rounded-[14px] border px-2 py-2 text-[13px] font-medium select-none transition-[background-color,border-color,box-shadow,transform] duration-150 ease-(--ease-out) active:scale-[0.97] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal has-[:focus-visible]:ring-offset-2 sm:min-h-11 sm:flex-row sm:gap-2 sm:rounded-xl sm:text-sm",
+                on
+                  ? "border-teal bg-mint/60 text-heading shadow-[inset_0_0_0_1px_hsl(var(--teal))]"
+                  : nudged
+                    ? "border-amber-300 bg-amber-50/70 text-gray-800"
+                    : "border-transparent bg-white text-gray-700 shadow-[0_1px_2px_rgba(16,42,67,0.04)] sm:border-border sm:hover:border-teal/50 sm:hover:bg-gray-50"
+              )}
+            >
+              <input
+                type="radio"
+                name={`confidence-${questionNumber}`}
+                className="sr-only"
+                checked={on}
+                onChange={() => onRate(rating.value)}
+              />
+              <span aria-hidden className="text-xl leading-none sm:text-lg">
+                {CONFIDENCE_EMOJI[rating.value]}
+              </span>
+              {rating.label}
+            </label>
+          )
+        })}
+      </div>
     </div>
   )
 }
